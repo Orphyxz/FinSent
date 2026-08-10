@@ -292,7 +292,7 @@ def test_default_market_candidates_route_us_nse_and_bse(monkeypatch) -> None:
     monkeypatch.setattr(settings, "kite_access_token", "")
     candidates = default_market_candidates()
 
-    assert [candidate.provider for candidate in candidates if candidate.supports_exchange("US")] == ["polygon"]
+    assert [candidate.provider for candidate in candidates if candidate.supports_exchange("US")] == ["alpaca", "polygon"]
     assert [candidate.provider for candidate in candidates if candidate.supports_exchange("NSE")] == ["kite"]
     assert [candidate.provider for candidate in candidates if candidate.supports_exchange("BSE")] == ["kite"]
 

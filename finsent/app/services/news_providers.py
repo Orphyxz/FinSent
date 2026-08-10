@@ -43,6 +43,60 @@ class NewsProvider(Protocol):
         ...
 
 
+class AlpacaNewsProvider:
+    provider_name = "alpaca"
+    provider_tier = "provider-grade"
+
+    def __init__(self, timeout: int = 15) -> None:
+        self.timeout = timeout
+        self.session = requests.Session()
+
+    def fetch_news(self, symbol: SymbolRecord, limit: int = 20) -> list[NormalizedNewsArticle]:
+        if symbol.exchange != "US" or not settings.alpaca_api_key or not settings.alpaca_api_secret:
+            return []
+        limit = normalize_news_limit(limit)
+        if limit == 0:
+            return []
+        response = self.session.get(
+            f"{settings.alpaca_data_base_url.rstrip('/')}/v1beta1/news",
+            params={"symbols": symbol.ticker, "limit": limit, "sort": "desc"},
+            headers={
+                "accept": "application/json",
+                "APCA-API-KEY-ID": settings.alpaca_api_key,
+                "APCA-API-SECRET-KEY": settings.alpaca_api_secret,
+            },
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json() or {}
+        results = payload.get("news") or []
+        return [self._normalize(symbol, item) for item in results if isinstance(item, dict)]
+
+    def _normalize(self, symbol: SymbolRecord, item: dict[str, object]) -> NormalizedNewsArticle:
+        title = str(item.get("headline") or item.get("title") or "").strip()
+        url = str(item.get("url") or "").strip()
+        published_at = _coerce_datetime(item.get("created_at") or item.get("updated_at")) or datetime.now(timezone.utc).replace(tzinfo=None)
+        source = str(item.get("source") or "Benzinga").strip() or "Benzinga"
+        summary = str(item.get("summary") or "").strip() or None
+        dedupe_hash = build_article_dedupe_hash(title=title, url=url, source=source, published_at=published_at)
+        provider_status = ProviderStatus.available_status(self.provider_name, "news", "Alpaca/Benzinga news article normalized", source_timestamp=published_at)
+        return NormalizedNewsArticle(
+            article_id=str(item.get("id") or dedupe_hash),
+            ticker=symbol.ticker,
+            exchange=symbol.exchange,
+            source=source,
+            title=title,
+            summary=summary,
+            url=url,
+            published_at=published_at,
+            ingested_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            provider=self.provider_name,
+            dedupe_hash=dedupe_hash,
+            relevance_score=1.0,
+            provider_status=provider_status,
+        )
+
+
 class PolygonNewsProvider:
     provider_name = "polygon"
     provider_tier = "provider-grade"
@@ -171,7 +225,7 @@ class MarketauxNewsProvider:
         self.session = requests.Session()
 
     def fetch_news(self, symbol: SymbolRecord, limit: int = 20) -> list[NormalizedNewsArticle]:
-        if symbol.exchange not in {"NSE", "BSE"} or not settings.marketaux_api_token:
+        if symbol.exchange not in {"US", "NSE", "BSE"} or not settings.marketaux_api_token:
             return []
         limit = normalize_news_limit(limit)
         if limit == 0:
@@ -202,12 +256,13 @@ class MarketauxNewsProvider:
         return self._normalize_articles(symbol, results)
 
     def _fetch_by_company_name(self, symbol: SymbolRecord, limit: int) -> list[NormalizedNewsArticle]:
+        country = "us" if symbol.exchange == "US" else "in"
         response = self.session.get(
             f"{settings.marketaux_base_url.rstrip('/')}/news/all",
             params={
                 "api_token": settings.marketaux_api_token,
                 "search": symbol.display_name,
-                "countries": "in",
+                "countries": country,
                 "language": "en",
                 "limit": limit,
             },
@@ -262,6 +317,8 @@ class MarketauxNewsProvider:
 
     @staticmethod
     def _symbol_candidates(symbol: SymbolRecord) -> list[str]:
+        if symbol.exchange == "US":
+            return [symbol.ticker]
         if symbol.exchange == "NSE":
             return [f"{symbol.ticker}.NS", symbol.ticker]
         if symbol.exchange == "BSE":
@@ -380,3 +437,15 @@ def _normalize_url_for_dedupe(url: str) -> str:
             "",
         )
     )
+
+
+def _coerce_datetime(value: object) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed
+    return parsed.astimezone(timezone.utc).replace(tzinfo=None)

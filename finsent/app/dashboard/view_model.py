@@ -45,6 +45,8 @@ DATA_MODE_LOCAL = "LOCAL RESEARCH DATA"
 DATA_MODE_MIXED = "MIXED"
 DATA_MODE_UNAVAILABLE = "UNAVAILABLE"
 LOCAL_DEMO_SYMBOLS = ["AMZN", "NVDA", "TSLA", "AAPL", "GOOGL"]
+LIVE_WATCHLIST_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "JPM"]
+DEFAULT_COMPARE_SYMBOLS = ["NVDA", "TSLA"]
 PALETTE = {
     "bg": "#07111f",
     "paper": "#0c1729",
@@ -120,9 +122,15 @@ COMPARE_COLUMNS = [
     "bars_status",
     "news_quality",
     "freshness_seconds",
+    "freshness_label",
+    "market_status",
+    "feed",
     "mode",
     "signal_label",
     "signal_confidence",
+    "v2_score",
+    "v2_label",
+    "v2_confidence",
     "final_reason",
 ]
 
@@ -214,8 +222,9 @@ def get_ticker_options(exchange_filter: str | None = None) -> list[dict[str, str
     ordered = sorted(
         symbols,
         key=lambda symbol: (
+            0 if symbol.ticker in LIVE_WATCHLIST_SYMBOLS else 1,
+            LIVE_WATCHLIST_SYMBOLS.index(symbol.ticker) if symbol.ticker in LIVE_WATCHLIST_SYMBOLS else len(LIVE_WATCHLIST_SYMBOLS),
             0 if symbol.provider_symbol in local_symbols or symbol.ticker in local_symbols else 1,
-            LOCAL_DEMO_SYMBOLS.index(symbol.ticker) if symbol.ticker in LOCAL_DEMO_SYMBOLS else len(LOCAL_DEMO_SYMBOLS),
             symbol.provider_symbol,
         ),
     )
@@ -223,6 +232,8 @@ def get_ticker_options(exchange_filter: str | None = None) -> list[dict[str, str
 
 
 def get_default_ticker_for_exchange(exchange_filter: str | None = None) -> str:
+    if (exchange_filter or "US").upper().strip() == "US":
+        return settings.default_ticker if settings.default_ticker in LIVE_WATCHLIST_SYMBOLS else "AAPL"
     local = get_local_research_symbols(exchange_filter)
     if local:
         return local[0]
@@ -232,7 +243,9 @@ def get_default_ticker_for_exchange(exchange_filter: str | None = None) -> str:
 
 def get_default_compare_tickers(focus_ticker: str | None = None, exchange_filter: str | None = "US") -> list[str]:
     focus = (focus_ticker or "").upper().strip()
-    return [symbol for symbol in get_local_research_symbols(exchange_filter) if symbol != focus][:2]
+    if (exchange_filter or "US").upper().strip() == "US":
+        return [symbol for symbol in DEFAULT_COMPARE_SYMBOLS if symbol != focus]
+    return [symbol for symbol in get_local_research_symbols(exchange_filter) if symbol != focus][:4]
 
 
 def get_exchange_for_ticker(ticker: str) -> str:
@@ -269,9 +282,11 @@ def get_price_status_note(ticker: str, has_price: bool, quote_meta: dict[str, ob
         if quality == "live":
             return f"Live quote from {source} • {age_note}"
         if quality == "delayed":
-            return f"Delayed quote from {source} • {age_note}"
+            market_status = str(quote_meta.get("market_status") or "UNKNOWN")
+            return f"Latest available market data from {source} ({market_status}) • {age_note}"
         if quality == "stale":
-            return f"Stale cached quote from {source} • {age_note}"
+            market_status = str(quote_meta.get("market_status") or "UNKNOWN")
+            return f"Stale/latest available market data from {source} ({market_status}) • {age_note}"
         note = str(quote_meta.get("note") or "").strip()
         if quality == "unconfigured":
             return f"Quote provider unconfigured: {note or source}"
@@ -774,6 +789,7 @@ def load_live_data(
 
             quote_row = quote_repo.latest_for_symbol(symbol.ticker, symbol.exchange)
             if quote_row is not None:
+                note_meta = _parse_provider_note(quote_row.note)
                 quote_meta_map[key] = {
                     "provider": quote_row.provider,
                     "current_price": quote_row.current_price,
@@ -788,6 +804,9 @@ def load_live_data(
                     "freshness_seconds": quote_row.freshness_seconds,
                     "quality_status": quote_row.quality_status,
                     "note": quote_row.note,
+                    "market_status": note_meta.get("market_status") or ("UNKNOWN" if quote_row.provider == "unavailable" else "LATEST AVAILABLE"),
+                    "feed": note_meta.get("feed"),
+                    "freshness_label": "LIVE" if quote_row.quality_status == "live" else "LATEST AVAILABLE" if quote_row.quality_status in {"delayed", "stale"} else "UNKNOWN",
                     "usable_market_data": (
                         quote_row.current_price is not None
                         and quote_row.current_price > 0
@@ -815,7 +834,15 @@ def load_live_data(
                 }
             research_signal_meta = _latest_research_signal_meta(session, symbol)
             if research_signal_meta:
-                signal_meta_map[key] = {**research_signal_meta, **signal_meta_map.get(key, {})}
+                existing_meta = signal_meta_map.get(key, {})
+                merged = {**research_signal_meta, **existing_meta}
+                merged_lines = [
+                    *[str(line) for line in existing_meta.get("explanation_bullets", []) if line],
+                    *[str(line) for line in research_signal_meta.get("explanation_bullets", []) if line],
+                ]
+                if merged_lines:
+                    merged["explanation_bullets"] = list(dict.fromkeys(merged_lines))
+                signal_meta_map[key] = merged
 
     news_df = pd.concat(news_frames, ignore_index=True) if news_frames else empty_news_frame()
     price_df = pd.concat(price_frames, ignore_index=True) if price_frames else empty_price_frame()
@@ -868,6 +895,16 @@ def _merge_latest_sentiment_runs(session, news_df: pd.DataFrame) -> pd.DataFrame
     return work
 
 
+def _parse_provider_note(note: str | None) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for part in str(note or "").split(";"):
+        if "=" not in part:
+            continue
+        key, value = part.split("=", maxsplit=1)
+        result[key.strip().lower()] = value.strip()
+    return result
+
+
 def _latest_research_signal_meta(session, symbol: SymbolRecord) -> dict[str, object]:
     instrument = session.execute(
         select(Instrument).where(
@@ -884,6 +921,20 @@ def _latest_research_signal_meta(session, symbol: SymbolRecord) -> dict[str, obj
     ).scalars().all()
     if not rows:
         return {}
+    live_rows = [row for row in rows if _signal_provider_metadata(row).get("run_type") == "APPLICATION_LIVE_RUN"]
+    if live_rows:
+        latest_v2 = live_rows[0]
+        components = _parse_signal_components(latest_v2)
+        return {
+            "live_v2": _signal_row_payload(latest_v2),
+            "v2_components": components,
+            "v2_component_lines": _v2_component_lines(components),
+            "explanation_bullets": [
+                f"LIVE SIGNAL V2: label {(latest_v2.label or 'neutral').upper()}, score {float(latest_v2.final_score or 0.0):+.3f}, confidence {float(latest_v2.confidence or 0.0):.3f}.",
+                latest_v2.explanation or "Live Signal V2 was computed from current news, market momentum, volume, reliability, and freshness where available.",
+                *_v2_component_lines(components),
+            ],
+        }
     by_version: dict[str, SignalRun] = {}
     for row in rows:
         version = str(row.engine_version or row.engine_name or "").lower()
@@ -916,6 +967,16 @@ def _latest_research_signal_meta(session, symbol: SymbolRecord) -> dict[str, obj
         },
         "v2_components": components,
     }
+
+
+def _signal_provider_metadata(row: SignalRun) -> dict[str, object]:
+    if not row.provider_metadata_json:
+        return {}
+    try:
+        payload = json.loads(row.provider_metadata_json)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _signal_row_payload(row: SignalRun) -> dict[str, object]:
@@ -982,6 +1043,25 @@ def _research_signal_lines(active: SignalRun, v2: SignalRun | None, v21: SignalR
     return lines
 
 
+def _v2_component_lines(components: list[dict[str, object]]) -> list[str]:
+    lines: list[str] = []
+    for component in components:
+        name = str(component.get("name") or "component").replace("_", " ").upper()
+        if name in {"PRICE MOMENTUM"}:
+            name = "MOMENTUM"
+        if name in {"VOLUME CONFIRMATION"}:
+            name = "VOLUME"
+        if name not in {"NEWS", "MOMENTUM", "VOLUME", "FRESHNESS", "DATA QUALITY", "LIQUIDITY"}:
+            continue
+        available = "available" if component.get("available") else "missing"
+        value = component.get("normalized_value")
+        reliability = component.get("reliability")
+        value_text = "n/a" if value is None else f"{float(value):+.3f}"
+        reliability_text = "n/a" if reliability is None else f"{float(reliability):.3f}"
+        lines.append(f"{name}: {available}; value {value_text}; reliability {reliability_text}.")
+    return lines
+
+
 def build_snapshot_map(
     tickers: list[str],
     quote_meta_map: dict[str, dict[str, object]],
@@ -1019,6 +1099,8 @@ def build_dashboard_state(
     data_mode = detect_data_mode()
     local_summary = get_local_research_summary()
     selected = normalize_tickers([focus_ticker, *(compare_tickers or [])])
+    if data_mode in {DATA_MODE_LIVE, DATA_MODE_MIXED}:
+        ensure_live_data(selected)
     all_news_df, price_df, quote_meta_map, signal_meta_map = load_live_data(selected)
     fresh_news_df = filter_to_fresh_news(all_news_df)
     widened_news_df = expand_sparse_news_window(all_news_df, fresh_news_df, selected, horizon)
@@ -1034,13 +1116,14 @@ def build_dashboard_state(
     focus_bars_status = _derive_bars_status(focus_ticker, price_df, focus_quote_meta)
     focus_news_quality = _derive_news_quality(news_df[news_df["ticker"] == focus_ticker]) if not news_df.empty else "unavailable"
 
-    if data_mode == DATA_MODE_LOCAL and (not news_df.empty or not price_df.empty or signal_meta_map):
+    if data_mode == DATA_MODE_LIVE:
+        data_status = "LIVE DATA: provider-backed market/news refresh is active. Research artifacts remain available on the Research page."
+    elif data_mode == DATA_MODE_LOCAL and (not news_df.empty or not price_df.empty or signal_meta_map):
         data_status = (
-            "LOCAL RESEARCH DATA: live providers are not configured. Showing stored SQLite/FNSPID/Yahoo research data "
-            "and historical research signals; no live quote is being fabricated."
+            "ALPACA - UNCONFIGURED. LOCAL RESEARCH DATA is available as a fallback; no live quote is being fabricated."
         )
     elif data_mode == DATA_MODE_MIXED:
-        data_status = "MIXED: local research data is available and live providers may refresh configured symbols."
+        data_status = "ALPACA LIVE - AVAILABLE when credentials are configured; local research data is retained as validation/fallback."
     elif not compare_df.empty and any(compare_df["mode"] == "News + Quote Quality"):
         data_status = "News signal with quote-quality adjustment is active for at least one selected ticker."
     elif focus_symbol is not None and focus_symbol.exchange in {"NSE", "BSE"} and focus_quote_meta and focus_bars_status == "unavailable":
@@ -1192,6 +1275,7 @@ def build_compare_frame(
         signal_meta = (signal_meta_map or {}).get(ticker, {})
         bars_status = _derive_bars_status(ticker, price_df, quote_meta)
         news_quality = _derive_news_quality(ticker_news)
+        live_v2 = signal_meta.get("live_v2") if isinstance(signal_meta.get("live_v2"), dict) else {}
 
         recent_close = latest_recent_close(ticker_prices)
         historical_close = float(ticker_prices["close"].iloc[-1]) if not ticker_prices.empty else np.nan
@@ -1239,9 +1323,15 @@ def build_compare_frame(
                 "bars_status": bars_status,
                 "news_quality": news_quality,
                 "freshness_seconds": quote_meta.get("freshness_seconds"),
+                "freshness_label": quote_meta.get("freshness_label") or "UNKNOWN",
+                "market_status": quote_meta.get("market_status") or "UNKNOWN",
+                "feed": quote_meta.get("feed") or "",
                 "mode": signal_meta.get("mode") or ("Quote-quality fallback" if _is_usable_quote_meta(quote_meta) else "Unavailable"),
                 "signal_label": signal_meta.get("composite_label") or label_for_signal(avg_sentiment),
                 "signal_confidence": signal_meta.get("signal_confidence"),
+                "v2_score": live_v2.get("score") if live_v2 else np.nan,
+                "v2_label": live_v2.get("label") if live_v2 else "unavailable",
+                "v2_confidence": live_v2.get("confidence") if live_v2 else np.nan,
                 "final_reason": signal_meta.get("final_reason") or "",
             }
         )
@@ -1560,19 +1650,10 @@ def build_compare_chart(compare_df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     if not compare_df.empty:
         ordered = compare_df.sort_values("pct_change", ascending=False)
-        fig.add_trace(go.Bar(x=ordered["ticker"], y=ordered["avg_sentiment"], name="Sentiment", marker_color=PALETTE["bull"]))
-        fig.add_trace(go.Bar(x=ordered["ticker"], y=ordered["pct_change"], name="Return %", marker_color=PALETTE["accent_2"]))
-        fig.add_trace(
-            go.Scatter(
-                x=ordered["ticker"],
-                y=ordered["avg_confidence"],
-                name="Confidence %",
-                mode="lines+markers",
-                line={"color": PALETTE["line"], "width": 3},
-                marker={"size": 10},
-                yaxis="y2",
-            )
-        )
+        v2_values = pd.to_numeric(ordered.get("v2_score"), errors="coerce")
+        fig.add_trace(go.Bar(x=ordered["ticker"], y=ordered["avg_sentiment"], name="V1 / Sentiment", marker_color=PALETTE["bull"]))
+        fig.add_trace(go.Bar(x=ordered["ticker"], y=v2_values, name="V2 Score", marker_color=PALETTE["accent_2"]))
+        fig.add_trace(go.Scatter(x=ordered["ticker"], y=ordered["news_volume"], name="Article Volume", mode="lines+markers", line={"color": PALETTE["line"], "width": 3}, marker={"size": 10}, yaxis="y2"))
     fig.update_layout(
         title="Signal Snapshot",
         barmode="group",
@@ -1581,8 +1662,8 @@ def build_compare_chart(compare_df: pd.DataFrame) -> go.Figure:
         font={"color": PALETTE["ink"]},
         margin={"l": 32, "r": 24, "t": 56, "b": 28},
         xaxis={"title": "", "gridcolor": PALETTE["grid"]},
-        yaxis={"title": "Sentiment / Return %", "gridcolor": PALETTE["grid"]},
-        yaxis2={"title": "Confidence %", "overlaying": "y", "side": "right", "showgrid": False, "range": [0, 100]},
+        yaxis={"title": "Signal Score", "gridcolor": PALETTE["grid"], "range": [-1, 1]},
+        yaxis2={"title": "Articles", "overlaying": "y", "side": "right", "showgrid": False},
         legend={"orientation": "h", "y": 1.12},
     )
     return fig

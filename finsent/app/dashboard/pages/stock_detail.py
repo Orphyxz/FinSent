@@ -9,10 +9,10 @@ def layout() -> html.Div:
         [
             html.Div(
                 [
-                    html.Div("Stock Research", className="section-kicker"),
+                    html.Div("Live Stock Intelligence", className="section-kicker"),
                     html.H1(id="stock-page-title", className="page-title"),
                     html.P(
-                        "Focused price, headline, provider-quality, and signal-transparency workspace.",
+                        "Current/latest price, financial news, FinBERT sentiment, live Signal V1, and live Signal V2 components.",
                         className="page-subtitle",
                     ),
                     html.Div(id="stock-badge-row", className="badge-row"),
@@ -64,7 +64,7 @@ def layout() -> html.Div:
                                     [
                                         html.Div("Signal Transparency", className="section-kicker"),
                                         html.H3("Why This Signal", className="section-title"),
-                                        html.Div("LIVE / DEFAULT: Signal V1. Research V2 is separate and not promoted.", className="research-note compact-note"),
+                                        html.Div("LIVE SIGNAL V1 + LIVE SIGNAL V2. Locked research remains separate under Research.", className="research-note compact-note"),
                                         html.Div(id="stock-ai-explanation", className="explanation-box compact"),
                                     ],
                                     className="section-shell explanation-shell",

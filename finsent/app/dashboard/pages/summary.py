@@ -39,7 +39,7 @@ def layout() -> html.Div:
                             [
                                 html.Div("Signal Transparency", className="section-kicker"),
                                 html.H3("Why This Signal", className="section-title"),
-                                html.Div("LIVE / DEFAULT: Signal V1", className="research-note compact-note"),
+                                html.Div("LIVE PRODUCT: market/news providers first; Research page contains the locked validation layer.", className="research-note compact-note"),
                                 html.Div(id="summary-ai-explanation", className="explanation-box compact"),
                             ],
                             className="section-shell explanation-shell",

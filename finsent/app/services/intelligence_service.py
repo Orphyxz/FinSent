@@ -20,6 +20,7 @@ from finsent.app.database.research_repository import (
     DataQualityRepository,
     InstrumentRepository,
     ProviderAuditRepository,
+    ResearchResultRepository,
 )
 from finsent.app.services.llm_analyzers import AggregateAnalysis, ArticleAnalysis, build_llm_analyzer, heuristic_article_analysis
 from finsent.app.services.market_providers import QuoteSnapshot
@@ -28,6 +29,7 @@ from finsent.app.services.provider_contracts import ProviderAttempt
 from finsent.app.services.provider_routers import MarketDataRouter, NewsProviderRouter
 from finsent.app.services.provider_status import ProviderStatus
 from finsent.app.services.signal_engine import CompositeSignal, CompositeSignalEngine
+from finsent.app.services.signal_service_v2 import SignalEngineV2Service, SignalRunRecordV2
 from finsent.app.services.symbol_registry import SymbolRecord, registry
 
 
@@ -42,6 +44,7 @@ class IntelligenceSnapshot:
     analyses: list[ArticleAnalysis]
     aggregate: AggregateAnalysis
     signal: CompositeSignal
+    signal_v2: SignalRunRecordV2 | None
     price_history: pd.DataFrame
     provider_statuses: list[ProviderStatus]
     provider_attempts: list[ProviderAttempt]
@@ -111,7 +114,6 @@ class IntelligenceService:
                 symbol.provider_symbol,
                 news_result.message,
             )
-            provider_statuses.append(status)
         analyses: list[ArticleAnalysis] = []
         uncached_remote_analyses = 0
 
@@ -124,6 +126,7 @@ class IntelligenceService:
             instrument = InstrumentRepository(session).get_or_create_from_symbol(symbol)
             audit_repo = ProviderAuditRepository(session)
             quality_repo = DataQualityRepository(session)
+            research_repo = ResearchResultRepository(session)
 
             quote_repo.upsert_quote_snapshot(symbol, quote)
             quote_audit = audit_repo.record_provider_result(
@@ -164,6 +167,7 @@ class IntelligenceService:
                 )
             for article in articles:
                 cached = analysis_repo.get_by_article_hash(article.dedupe_hash)
+                analysis_from_cache = cached is not None
                 if cached is not None:
                     analysis = cached
                 else:
@@ -178,13 +182,51 @@ class IntelligenceService:
                             parse_status="heuristic_budget_fallback",
                             reason="LLM analysis budget reached for this refresh; local heuristic analysis used.",
                         )
-                    analysis_repo.upsert_article_analysis(symbol, article, analysis)
                 analyses.append(analysis)
-                news_repo.upsert_normalized_news(symbol, article, analysis)
+                row = news_repo.upsert_normalized_news(symbol, article, analysis)
+                if not analysis_from_cache and analysis.provider == "finbert":
+                    research_repo.store_sentiment_run(
+                        article_id=row.id,
+                        instrument_id=instrument.id,
+                        experiment_id=None,
+                        provider="finbert",
+                        model_family="finbert",
+                        model_name=settings.model_name,
+                        model_version=settings.model_name,
+                        analysis_method="classifier",
+                        schema_version="live_sentiment_analysis_v1",
+                        sentiment_label=analysis.sentiment,
+                        sentiment_score=_analysis_score(analysis.sentiment, analysis.confidence),
+                        confidence=analysis.confidence,
+                        relevance=1.0 if analysis.relevant else 0.0,
+                        impact_strength=analysis.impact_strength,
+                        time_horizon=analysis.time_horizon,
+                        catalyst_tag=analysis.catalyst_tag,
+                        short_reason=analysis.short_reason,
+                        parse_status=analysis.parse_status,
+                        fallback_used=False,
+                        metadata={"run_type": "APPLICATION_LIVE_RUN", "article_hash": article.dedupe_hash},
+                    )
 
             article_pairs = list(zip(articles, analyses))
             aggregate = self.llm.aggregate(symbol, article_pairs)
             signal = self.signal_engine.compute(quote, article_pairs, aggregate)
+            v2_input = SignalEngineV2Service(session=session).build_input(
+                instrument=symbol,
+                news_pairs=article_pairs,
+                quote=quote,
+                price_bars=price_history,
+                quote_quality=quote_result.quality,
+                bars_quality=price_result.quality,
+                news_quality=news_result.quality,
+                provider_metadata={
+                    "run_type": "APPLICATION_LIVE_RUN",
+                    "market_provider": quote_result.provider,
+                    "news_provider": news_result.provider,
+                    "feed": getattr(quote, "feed", None) or settings.alpaca_feed,
+                },
+            )
+            signal_v2 = SignalEngineV2Service(session=session).evaluate(v2_input, persist=True, experiment_id=None)
             if not price_history.empty:
                 price_repo.upsert_price_bars(self.storage_ticker(symbol), price_history)
             signal_repo.upsert_signal_snapshot(symbol, quote, aggregate, signal)
@@ -197,6 +239,7 @@ class IntelligenceService:
             analyses,
             aggregate,
             signal,
+            signal_v2,
             price_history,
             provider_statuses,
             provider_attempts,
@@ -233,6 +276,11 @@ class IntelligenceService:
         if symbol.exchange == "BSE":
             return f"{symbol.ticker}.BO"
         return symbol.ticker
+
+
+def _analysis_score(sentiment: str, confidence: float) -> float:
+    direction = 1.0 if sentiment == "bullish" else -1.0 if sentiment == "bearish" else 0.0
+    return direction * max(0.0, min(float(confidence or 0.0), 1.0))
 
 
 intelligence_service = IntelligenceService()

@@ -9,6 +9,7 @@ import pandas as pd
 
 from finsent.app.config.settings import settings
 from finsent.app.services.market_providers import (
+    AlpacaMarketDataProvider,
     KiteMarketDataProvider,
     PolygonMarketDataProvider,
     QuoteSnapshot,
@@ -16,6 +17,7 @@ from finsent.app.services.market_providers import (
     is_usable_quote_snapshot,
 )
 from finsent.app.services.news_providers import (
+    AlpacaNewsProvider,
     CuratedWebNewsProvider,
     MarketauxNewsProvider,
     NormalizedNewsArticle,
@@ -558,6 +560,14 @@ class NewsProviderRouter:
 def default_market_candidates() -> list[ProviderCandidate]:
     return [
         ProviderCandidate(
+            provider="alpaca",
+            service=MARKET_DATA_SERVICE,
+            supports_exchange=lambda exchange: exchange == "US",
+            configured=lambda: bool(settings.alpaca_api_key and settings.alpaca_api_secret),
+            factory=lambda: AlpacaMarketDataProvider(),
+            unconfigured_message="ALPACA_API_KEY or ALPACA_API_SECRET is not configured.",
+        ),
+        ProviderCandidate(
             provider="polygon",
             service=MARKET_DATA_SERVICE,
             supports_exchange=lambda exchange: exchange == "US",
@@ -579,6 +589,14 @@ def default_market_candidates() -> list[ProviderCandidate]:
 def default_news_candidates() -> list[ProviderCandidate]:
     return [
         ProviderCandidate(
+            provider="alpaca",
+            service=NEWS_SERVICE,
+            supports_exchange=lambda exchange: exchange == "US",
+            configured=lambda: bool(settings.alpaca_api_key and settings.alpaca_api_secret),
+            factory=lambda: AlpacaNewsProvider(),
+            unconfigured_message="ALPACA_API_KEY or ALPACA_API_SECRET is not configured.",
+        ),
+        ProviderCandidate(
             provider="polygon",
             service=NEWS_SERVICE,
             supports_exchange=lambda exchange: exchange == "US",
@@ -589,7 +607,7 @@ def default_news_candidates() -> list[ProviderCandidate]:
         ProviderCandidate(
             provider="marketaux",
             service=NEWS_SERVICE,
-            supports_exchange=lambda exchange: exchange in {"NSE", "BSE"},
+            supports_exchange=lambda exchange: exchange in {"US", "NSE", "BSE"},
             configured=lambda: bool(settings.marketaux_api_token),
             factory=lambda: MarketauxNewsProvider(),
             unconfigured_message="MARKETAUX_API_TOKEN is not configured.",

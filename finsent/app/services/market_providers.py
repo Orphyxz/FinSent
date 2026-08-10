@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from io import StringIO
 import logging
 from typing import Protocol
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
@@ -36,6 +37,25 @@ class QuoteSnapshot:
     quality_status: str
     note: str
     provider_status: ProviderStatus | None = None
+    latest_trade_price: float | None = None
+    latest_trade_timestamp: datetime | None = None
+    minute_open: float | None = None
+    minute_high: float | None = None
+    minute_low: float | None = None
+    minute_close: float | None = None
+    minute_volume: float | None = None
+    day_open: float | None = None
+    day_high: float | None = None
+    day_low: float | None = None
+    day_close: float | None = None
+    day_volume: float | None = None
+    previous_close: float | None = None
+    absolute_change: float | None = None
+    percent_change: float | None = None
+    market_status: str = "UNKNOWN"
+    feed: str | None = None
+    retrieved_at: datetime | None = None
+    freshness_label: str = "UNKNOWN"
 
 
 class MarketDataProvider(Protocol):
@@ -77,10 +97,174 @@ class BaseMarketProvider:
             quality_status="unconfigured" if provider_status.status == DataSourceState.UNCONFIGURED else "unavailable",
             note=provider_status.message,
             provider_status=provider_status,
+            market_status="UNKNOWN",
+            retrieved_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
 
     def fetch_price_bars(self, symbol: SymbolRecord, start: datetime, end: datetime, interval: str) -> pd.DataFrame:
         return pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+
+
+class AlpacaMarketDataProvider(BaseMarketProvider):
+    provider_name = "alpaca"
+
+    def __init__(self, timeout: int = 15) -> None:
+        self.timeout = timeout
+        self.session = requests.Session()
+
+    @property
+    def feed(self) -> str:
+        return (settings.alpaca_feed or "iex").strip().lower() or "iex"
+
+    def fetch_quote_snapshot(self, symbol: SymbolRecord) -> QuoteSnapshot:
+        snapshots = self.fetch_quote_snapshots([symbol])
+        return snapshots.get(symbol.provider_symbol) or self._unavailable_quote(symbol, f"Alpaca snapshot returned no data for {symbol.provider_symbol}")
+
+    def fetch_quote_snapshots(self, symbols: list[SymbolRecord]) -> dict[str, QuoteSnapshot]:
+        us_symbols = [symbol for symbol in symbols if symbol.exchange == "US"]
+        if not us_symbols:
+            return {}
+        for symbol in us_symbols:
+            if not settings.alpaca_api_key or not settings.alpaca_api_secret:
+                status = ProviderStatus.unconfigured(self.provider_name, "market_quote", "ALPACA_API_KEY or ALPACA_API_SECRET is not configured")
+                return {symbol.provider_symbol: self._unavailable_quote(symbol, status.message, status=status)}
+        response = self.session.get(
+            f"{settings.alpaca_data_base_url.rstrip('/')}/v2/stocks/snapshots",
+            params={"symbols": ",".join(symbol.ticker for symbol in us_symbols), "feed": self.feed},
+            headers=self._headers(),
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json() or {}
+        raw_snapshots = payload.get("snapshots") if isinstance(payload, dict) else {}
+        if raw_snapshots is None and isinstance(payload, dict):
+            raw_snapshots = payload
+        results: dict[str, QuoteSnapshot] = {}
+        for symbol in us_symbols:
+            item = raw_snapshots.get(symbol.ticker) if isinstance(raw_snapshots, dict) else None
+            if isinstance(item, dict):
+                results[symbol.provider_symbol] = self._normalize_snapshot(symbol, item)
+            else:
+                results[symbol.provider_symbol] = self._unavailable_quote(symbol, f"Alpaca snapshot returned no data for {symbol.provider_symbol}")
+        return results
+
+    def fetch_price_bars(self, symbol: SymbolRecord, start: datetime, end: datetime, interval: str) -> pd.DataFrame:
+        if symbol.exchange != "US" or not settings.alpaca_api_key or not settings.alpaca_api_secret:
+            return super().fetch_price_bars(symbol, start, end, interval)
+        response = self.session.get(
+            f"{settings.alpaca_data_base_url.rstrip('/')}/v2/stocks/bars",
+            params={
+                "symbols": symbol.ticker,
+                "timeframe": self._interval_to_alpaca(interval),
+                "start": _iso_z(start),
+                "end": _iso_z(end),
+                "limit": 1000,
+                "adjustment": "raw",
+                "feed": self.feed,
+            },
+            headers=self._headers(),
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json() or {}
+        bars = (payload.get("bars") or {}).get(symbol.ticker, []) if isinstance(payload, dict) else []
+        rows: list[dict[str, object]] = []
+        for bar in bars:
+            if not isinstance(bar, dict):
+                continue
+            timestamp = _coerce_datetime(bar.get("t"))
+            if timestamp is None:
+                continue
+            rows.append(
+                {
+                    "timestamp": timestamp,
+                    "Open": float(bar.get("o", 0.0)),
+                    "High": float(bar.get("h", 0.0)),
+                    "Low": float(bar.get("l", 0.0)),
+                    "Close": float(bar.get("c", 0.0)),
+                    "Volume": float(bar.get("v", 0.0)),
+                }
+            )
+        if not rows:
+            return super().fetch_price_bars(symbol, start, end, interval)
+        return pd.DataFrame(rows).set_index("timestamp")[["Open", "High", "Low", "Close", "Volume"]]
+
+    def _normalize_snapshot(self, symbol: SymbolRecord, item: dict[str, object]) -> QuoteSnapshot:
+        latest_trade = _nested(item, "latestTrade", "latest_trade")
+        latest_quote = _nested(item, "latestQuote", "latest_quote")
+        minute = _nested(item, "minuteBar", "minute_bar")
+        daily = _nested(item, "dailyBar", "daily_bar")
+        previous = _nested(item, "prevDailyBar", "prev_daily_bar")
+        latest_trade_price = _coerce_float(latest_trade.get("p"))
+        latest_trade_timestamp = _coerce_datetime(latest_trade.get("t"))
+        minute_close = _coerce_float(minute.get("c"))
+        day_close = _coerce_float(daily.get("c"))
+        previous_close = _coerce_float(previous.get("c"))
+        current_price = latest_trade_price or minute_close or day_close
+        bid = _coerce_float(latest_quote.get("bp") or latest_quote.get("bid_price"))
+        ask = _coerce_float(latest_quote.get("ap") or latest_quote.get("ask_price"))
+        market_timestamp = latest_trade_timestamp or _coerce_datetime(minute.get("t")) or _coerce_datetime(daily.get("t"))
+        spread_abs, spread_pct = PolygonMarketDataProvider._spread(bid, ask)
+        freshness = PolygonMarketDataProvider._freshness(market_timestamp)
+        market_status = classify_us_market_status()
+        freshness_label = _freshness_label(freshness, market_status)
+        quality = _quality_for_market(freshness, market_status, current_price is not None)
+        change_abs = (current_price - previous_close) if current_price is not None and previous_close is not None else None
+        change_pct = (change_abs / previous_close) if change_abs is not None and previous_close and previous_close > 0 else None
+        note_prefix = "Alpaca snapshot"
+        status_note = "LIVE" if quality == "live" else "LATEST AVAILABLE MARKET DATA" if market_status != "MARKET OPEN" else freshness_label.replace("_", " ")
+        note = f"{note_prefix} feed={self.feed}; {status_note}; market_status={market_status}"
+        provider_status = _status_for_quote(self.provider_name, "market_quote", quality, note, market_timestamp)
+        return QuoteSnapshot(
+            symbol=symbol.ticker,
+            exchange=symbol.exchange,
+            provider_symbol=symbol.provider_symbol,
+            current_price=current_price,
+            currency=settings.default_quote_currency_us,
+            bid=bid,
+            ask=ask,
+            spread_absolute=spread_abs,
+            spread_percentage=spread_pct,
+            volume=_coerce_float(minute.get("v") or daily.get("v")),
+            market_timestamp=market_timestamp,
+            ingested_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            provider=self.provider_name,
+            freshness_seconds=freshness,
+            quality_status=quality,
+            note=note,
+            provider_status=provider_status,
+            latest_trade_price=latest_trade_price,
+            latest_trade_timestamp=latest_trade_timestamp,
+            minute_open=_coerce_float(minute.get("o")),
+            minute_high=_coerce_float(minute.get("h")),
+            minute_low=_coerce_float(minute.get("l")),
+            minute_close=minute_close,
+            minute_volume=_coerce_float(minute.get("v")),
+            day_open=_coerce_float(daily.get("o")),
+            day_high=_coerce_float(daily.get("h")),
+            day_low=_coerce_float(daily.get("l")),
+            day_close=day_close,
+            day_volume=_coerce_float(daily.get("v")),
+            previous_close=previous_close,
+            absolute_change=change_abs,
+            percent_change=change_pct,
+            market_status=market_status,
+            feed=self.feed,
+            retrieved_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            freshness_label=freshness_label,
+        )
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "accept": "application/json",
+            "APCA-API-KEY-ID": settings.alpaca_api_key,
+            "APCA-API-SECRET-KEY": settings.alpaca_api_secret,
+        }
+
+    @staticmethod
+    def _interval_to_alpaca(interval: str) -> str:
+        mapping = {"1d": "1Day", "1m": "1Min", "5m": "5Min", "15m": "15Min", "30m": "30Min", "60m": "1Hour"}
+        return mapping.get(interval.lower().strip(), "15Min")
 
 
 class PolygonMarketDataProvider(BaseMarketProvider):
@@ -507,7 +691,7 @@ class UnavailableMarketProvider(BaseMarketProvider):
 def build_market_provider(symbol: SymbolRecord) -> MarketDataProvider:
     """Legacy convenience factory; active runtime uses provider_routers.MarketDataRouter."""
     if symbol.exchange == "US":
-        return PolygonMarketDataProvider()
+        return AlpacaMarketDataProvider() if settings.alpaca_api_key and settings.alpaca_api_secret else PolygonMarketDataProvider()
     if symbol.exchange in {"NSE", "BSE"}:
         return KiteMarketDataProvider()
     return UnavailableMarketProvider()
@@ -550,3 +734,76 @@ def is_usable_quote_snapshot(quote: QuoteSnapshot | None) -> bool:
     }:
         return False
     return True
+
+
+def classify_us_market_status(now: datetime | None = None) -> str:
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    eastern = current.astimezone(ZoneInfo("America/New_York"))
+    if eastern.weekday() >= 5:
+        return "MARKET CLOSED"
+    current_time = eastern.time()
+    if time(4, 0) <= current_time < time(9, 30):
+        return "PRE-MARKET"
+    if time(9, 30) <= current_time < time(16, 0):
+        return "MARKET OPEN"
+    if time(16, 0) <= current_time < time(20, 0):
+        return "AFTER-HOURS"
+    return "MARKET CLOSED"
+
+
+def _quality_for_market(freshness_seconds: int | None, market_status: str, has_price: bool) -> str:
+    if not has_price:
+        return "unavailable"
+    if freshness_seconds is None:
+        return "unavailable"
+    if market_status == "MARKET OPEN" and freshness_seconds <= settings.quote_fresh_seconds:
+        return "live"
+    if freshness_seconds <= settings.quote_aging_seconds:
+        return "delayed"
+    return "stale"
+
+
+def _freshness_label(freshness_seconds: int | None, market_status: str) -> str:
+    if freshness_seconds is None:
+        return "UNKNOWN"
+    if market_status == "MARKET OPEN" and freshness_seconds <= settings.quote_fresh_seconds:
+        return "LIVE"
+    if freshness_seconds <= settings.quote_aging_seconds:
+        return "LATEST_AVAILABLE"
+    return "STALE"
+
+
+def _coerce_float(value: object) -> float | None:
+    try:
+        return None if value is None else float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_datetime(value: object) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
+    try:
+        parsed = pd.Timestamp(str(value))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.tz_convert("UTC").tz_localize(None)
+    return parsed.to_pydatetime()
+
+
+def _iso_z(value: datetime) -> str:
+    parsed = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _nested(payload: dict[str, object], *keys: str) -> dict[str, object]:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}

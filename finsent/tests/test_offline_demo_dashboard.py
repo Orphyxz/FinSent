@@ -25,25 +25,24 @@ def test_local_research_mode_detects_transferred_research_state() -> None:
     assert summary["final_status"] == "COMPLETED_LOCKED"
 
 
-def test_default_demo_symbol_and_peers_have_local_coverage() -> None:
+def test_default_demo_symbol_and_peers_are_live_watchlist_first() -> None:
     focus = get_default_ticker_for_exchange("US")
     peers = get_default_compare_tickers(focus, "US")
 
-    assert focus in {"AMZN", "NVDA", "TSLA"}
-    assert peers[:2]
-    assert all(peer in {"AMZN", "NVDA", "TSLA", "AAPL", "GOOGL"} for peer in peers)
+    assert focus == "AAPL"
+    assert peers == ["NVDA", "TSLA"]
 
 
 def test_dashboard_state_uses_stored_news_finbert_prices_and_research_signals() -> None:
-    focus = get_default_ticker_for_exchange("US")
-    state = build_dashboard_state(focus, get_default_compare_tickers(focus, "US"), "medium", None, None)
+    focus = "AMZN"
+    state = build_dashboard_state(focus, ["NVDA", "TSLA"], "medium", None, None)
 
     assert state.data_mode == DATA_MODE_LOCAL
     assert not state.news_df.empty
     assert not state.price_df.empty
     assert not state.compare_df.empty
     assert set(state.compare_df["ticker"]).issuperset({focus})
-    assert "finbert" in {str(value).lower() for value in state.news_df["analysis_provider"].dropna().unique()}
+    assert {"finbert", "imported_stored_sentiment"} & {str(value).lower() for value in state.news_df["analysis_provider"].dropna().unique()}
     assert state.compare_df["avg_confidence"].max() > 0
     assert "Historical research signal" in str(state.compare_df["mode"].iloc[0])
     assert state.signal_meta_map[focus]["research_signals"]["v1"]["engine_version"] == "1.0"

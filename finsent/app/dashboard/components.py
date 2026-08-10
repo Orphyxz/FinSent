@@ -108,7 +108,7 @@ def build_workspace_bar(
                     html.Div(
                         [
                             html.Div("Workspace controls", className="workspace-disclosure-label"),
-                            html.Div("Offline demo uses local SQLite/FNSPID/Yahoo research data; live providers refresh only when configured.", className="workspace-disclosure-copy"),
+                            html.Div("Live Alpaca/Polygon/Marketaux providers refresh when configured; Research remains the locked validation layer.", className="workspace-disclosure-copy"),
                         ],
                         className="workspace-disclosure-copy-wrap",
                     ),
@@ -169,11 +169,11 @@ def build_workspace_bar(
                                                 value=compare_tickers or [],
                                                 multi=True,
                                                 searchable=True,
-                                                placeholder="Add up to 2 peers",
+                                                placeholder="Add 2-5 symbols",
                                                 className="finsent-dropdown workspace-dropdown",
                                             ),
                                             html.Div(
-                                                "Choose up to 2 peers, then press Compare.",
+                                                "Choose 2-5 symbols, then press Compare.",
                                                 className="control-helper",
                                             ),
                                             html.Button(
@@ -235,7 +235,7 @@ def build_landing_search(default_ticker: str) -> html.Div:
                     html.Div("Workspace", className="hero-kicker"),
                     html.H1("Select Symbol", className="hero-title landing-title"),
                     html.P(
-                        "Choose a supported ticker to populate the analytics workspace with stored data and provider-backed refreshes.",
+                        "Choose a supported ticker to populate the analytics workspace with live provider-backed market/news intelligence.",
                         className="hero-copy landing-copy",
                     ),
                 ],

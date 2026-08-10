@@ -9,6 +9,7 @@ from finsent.app.services.gemini_client import GeminiClient
 from finsent.app.services.news_providers import NormalizedNewsArticle
 from finsent.app.services.sentiment_v2 import (
     CatalystTag,
+    FinBERTSentimentAnalyzer,
     GeminiSentimentAnalyzer,
     ModelFailureCategory,
     ModelExecutionStatus,
@@ -165,11 +166,81 @@ class OpenAIAnalyzerStub:
         return AggregateAnalysis("neutral", 0.0, "watch", "watch", "OpenAI analyzer stub only.", self.provider_name)
 
 
+class FinBERTNewsAnalyzer:
+    provider_name = "finbert"
+
+    def __init__(self, analyzer: FinBERTSentimentAnalyzer | None = None) -> None:
+        self.analyzer = analyzer or FinBERTSentimentAnalyzer()
+
+    def analyze_article(self, symbol: SymbolRecord, article: NormalizedNewsArticle) -> ArticleAnalysis:
+        result = self.analyzer.analyze(normalize_article_input(symbol, article))
+        text = f"{article.title} {article.summary or ''}".lower()
+        symbol_match = symbol.ticker.lower() in text or symbol.display_name.lower() in text
+        relevant = symbol_match or float(article.relevance_score or 0.0) >= 0.5
+        label = _live_label(result.sentiment_label)
+        if result.status == ModelExecutionStatus.SUCCESS:
+            return ArticleAnalysis(
+                relevant=relevant,
+                sentiment=label,
+                confidence=float(result.confidence or 0.0),
+                impact_strength=0.45 if relevant else 0.18,
+                time_horizon="intraday",
+                catalyst_tag=result.catalyst_tag or "other",
+                short_reason=f"FinBERT classified the current headline as {label.upper()} with {float(result.confidence or 0.0):.0%} confidence.",
+                provider=self.provider_name,
+                parse_status="ok",
+            )
+        return ArticleAnalysis(
+            relevant=relevant,
+            sentiment="neutral",
+            confidence=0.0,
+            impact_strength=0.0,
+            time_horizon="intraday",
+            catalyst_tag="other",
+            short_reason=result.short_reason or result.fallback_reason or "FinBERT inference unavailable.",
+            provider=self.provider_name,
+            parse_status=result.parse_status or "unavailable",
+        )
+
+    def aggregate(self, symbol: SymbolRecord, articles: list[tuple[NormalizedNewsArticle, ArticleAnalysis]]) -> AggregateAnalysis:
+        if not articles:
+            return AggregateAnalysis("neutral", 0.0, "no current news", "watch", "No current analyzed news was available.", self.provider_name)
+        bullish = sum(item[1].confidence * item[1].impact_strength for item in articles if item[1].sentiment == "bullish" and item[1].relevant)
+        bearish = sum(item[1].confidence * item[1].impact_strength for item in articles if item[1].sentiment == "bearish" and item[1].relevant)
+        net = bullish - bearish
+        if net > 0.12:
+            overall, action, view = "bullish", "watch", "bullish current-news signal"
+        elif net < -0.12:
+            overall, action, view = "bearish", "watch", "bearish current-news signal"
+        else:
+            overall, action, view = "neutral", "watch", "mixed or neutral current-news signal"
+        strongest = sorted(articles, key=lambda item: (item[1].impact_strength, item[1].confidence), reverse=True)[0][1]
+        return AggregateAnalysis(
+            overall_sentiment=overall,
+            overall_confidence=max(0.0, min(sum(item[1].confidence for item in articles) / max(len(articles), 1), 1.0)),
+            net_short_term_view=view,
+            action_bias=action,
+            final_reason=strongest.short_reason,
+            provider=self.provider_name,
+        )
+
+
 def build_llm_analyzer() -> LLMAnalyzer:
     provider = settings.sentiment_provider.strip().lower()
     if provider == "openai":
         return OpenAIAnalyzerStub()
+    if provider == "finbert":
+        return FinBERTNewsAnalyzer()
     return GeminiNewsAnalyzer()
+
+
+def _live_label(label: str | None) -> str:
+    normalized = (label or "neutral").strip().lower()
+    if normalized in {"positive", "bullish"}:
+        return "bullish"
+    if normalized in {"negative", "bearish"}:
+        return "bearish"
+    return "neutral"
 
 
 def heuristic_article_analysis(

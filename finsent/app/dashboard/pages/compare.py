@@ -10,9 +10,9 @@ def layout() -> html.Div:
             html.Div(
                 [
                     html.Div("Compare", className="section-kicker"),
-                    html.H1("Cross-Symbol Research View", className="page-title"),
+                    html.H1("Live Market Compare", className="page-title"),
                     html.P(
-                        "Dense peer comparison across price movement, signal state, sentiment, confidence, and coverage.",
+                        "Compare 2-5 symbols across normalized price movement, current sentiment, live V1/V2 signals, news coverage, and freshness.",
                         className="page-subtitle",
                     ),
                 ],
@@ -61,9 +61,9 @@ def layout() -> html.Div:
                     html.Div(
                         [
                             html.Div("Signal Snapshot", className="section-kicker"),
-                            html.H3("Sentiment, Return, and Confidence", className="section-title"),
+                            html.H3("V1/V2 Signal and News Coverage", className="section-title"),
                             html.P(
-                                "Use this to compare sentiment, window returns, and model confidence without digging through tables.",
+                                "Use this to compare current sentiment, live Signal V2 score, and article volume without mixing incompatible price scales.",
                                 className="section-helper",
                             ),
                             dcc.Graph(id="compare-secondary-chart"),

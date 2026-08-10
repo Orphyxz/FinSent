@@ -9,10 +9,10 @@ def layout() -> html.Div:
         [
             html.Div(
                 [
-                    html.Div("News Intelligence", className="section-kicker"),
-                    html.H1("Headline Research Table", className="page-title"),
+                    html.Div("Live News Intelligence", className="section-kicker"),
+                    html.H1("Current Financial News", className="page-title"),
                     html.P(
-                        "Compact article-level sentiment, confidence, provenance, catalyst, and impact context.",
+                        "Newest provider-backed headlines first, with FinBERT sentiment, confidence, provenance, catalyst, and impact context.",
                         className="page-subtitle",
                     ),
                 ],
