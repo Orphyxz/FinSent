@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -11,10 +13,12 @@ import pandas as pd
 from dash import html
 from plotly import graph_objects as go
 from plotly.subplots import make_subplots
+from sqlalchemy import func, select
 
 from finsent.app.analysis.market_impact import align_news_with_prices, build_daily_impact_summary
 from finsent.app.config.settings import settings
 from finsent.app.database.base import SessionLocal, init_db
+from finsent.app.database.entities import EventStudyResult, ExperimentRun, Instrument, NewsArticle, PriceBar, SentimentAnalysisRun, SignalRun
 from finsent.app.database.repository import (
     NewsRepository,
     PriceRepository,
@@ -36,6 +40,11 @@ EXCHANGE_OPTIONS = [
     {"label": "BSE India", "value": "BSE"},
 ]
 HORIZON_DAYS = {"short": 3, "medium": 7, "long": 30}
+DATA_MODE_LIVE = "LIVE DATA"
+DATA_MODE_LOCAL = "LOCAL RESEARCH DATA"
+DATA_MODE_MIXED = "MIXED"
+DATA_MODE_UNAVAILABLE = "UNAVAILABLE"
+LOCAL_DEMO_SYMBOLS = ["AMZN", "NVDA", "TSLA", "AAPL", "GOOGL"]
 PALETTE = {
     "bg": "#07111f",
     "paper": "#0c1729",
@@ -89,6 +98,33 @@ NEWS_COLUMNS = [
     "parse_status",
 ]
 PRICE_COLUMNS = ["ticker", "timestamp", "open", "high", "low", "close", "volume"]
+COMPARE_COLUMNS = [
+    "ticker",
+    "name",
+    "sector",
+    "exchange",
+    "currency",
+    "last_close",
+    "pct_change",
+    "news_volume",
+    "avg_sentiment",
+    "avg_confidence",
+    "avg_impact_pct",
+    "avg_spread_pct",
+    "avg_volume_ratio",
+    "avg_buy_sell_ratio",
+    "avg_market_signal",
+    "volume",
+    "quote_provider",
+    "quote_quality",
+    "bars_status",
+    "news_quality",
+    "freshness_seconds",
+    "mode",
+    "signal_label",
+    "signal_confidence",
+    "final_reason",
+]
 
 
 @dataclass(slots=True)
@@ -104,6 +140,8 @@ class DashboardState:
     signal_meta_map: dict[str, dict[str, object]]
     demo_mode: bool
     data_status: str
+    data_mode: str = DATA_MODE_UNAVAILABLE
+    local_summary: dict[str, object] | None = None
 
 
 def get_pipeline() -> FinSentPipeline:
@@ -171,15 +209,30 @@ def filter_symbols_for_exchange(exchange_filter: str | None = None) -> list[Symb
 
 
 def get_ticker_options(exchange_filter: str | None = None) -> list[dict[str, str]]:
-    return [
-        {"label": symbol.ui_label, "value": symbol.provider_symbol}
-        for symbol in filter_symbols_for_exchange(exchange_filter)
-    ]
+    symbols = filter_symbols_for_exchange(exchange_filter)
+    local_symbols = set(get_local_research_symbols(exchange_filter))
+    ordered = sorted(
+        symbols,
+        key=lambda symbol: (
+            0 if symbol.provider_symbol in local_symbols or symbol.ticker in local_symbols else 1,
+            LOCAL_DEMO_SYMBOLS.index(symbol.ticker) if symbol.ticker in LOCAL_DEMO_SYMBOLS else len(LOCAL_DEMO_SYMBOLS),
+            symbol.provider_symbol,
+        ),
+    )
+    return [{"label": symbol.ui_label, "value": symbol.provider_symbol} for symbol in ordered]
 
 
 def get_default_ticker_for_exchange(exchange_filter: str | None = None) -> str:
+    local = get_local_research_symbols(exchange_filter)
+    if local:
+        return local[0]
     symbols = filter_symbols_for_exchange(exchange_filter)
     return symbols[0].provider_symbol if symbols else "AAPL"
+
+
+def get_default_compare_tickers(focus_ticker: str | None = None, exchange_filter: str | None = "US") -> list[str]:
+    focus = (focus_ticker or "").upper().strip()
+    return [symbol for symbol in get_local_research_symbols(exchange_filter) if symbol != focus][:2]
 
 
 def get_exchange_for_ticker(ticker: str) -> str:
@@ -225,7 +278,127 @@ def get_price_status_note(ticker: str, has_price: bool, quote_meta: dict[str, ob
         return f"Quote unavailable from {source}: {note}" if note else f"Quote unavailable from {source}"
     if has_price:
         return "Latest stored market close"
+    if detect_data_mode() == DATA_MODE_LOCAL:
+        return "LIVE QUOTE UNAVAILABLE. Showing historical research data below."
     return f"No market quote is currently available for {get_exchange_for_ticker(ticker)}"
+
+
+def _has_live_credentials() -> bool:
+    return any(
+        [
+            os.getenv("POLYGON_API_KEY", "").strip(),
+            os.getenv("MARKETAUX_API_TOKEN", "").strip(),
+            os.getenv("KITE_API_KEY", "").strip() and os.getenv("KITE_ACCESS_TOKEN", "").strip(),
+            os.getenv("GEMINI_API_KEY", "").strip(),
+            os.getenv("ALPACA_API_KEY", "").strip() and os.getenv("ALPACA_API_SECRET", "").strip(),
+            settings.polygon_api_key.strip(),
+            settings.marketaux_api_token.strip(),
+            settings.kite_api_key.strip() and settings.kite_access_token.strip(),
+            settings.gemini_api_key.strip(),
+            settings.alpaca_api_key.strip() and settings.alpaca_api_secret.strip(),
+        ]
+    )
+
+
+def local_research_available() -> bool:
+    init_db()
+    try:
+        with SessionLocal() as session:
+            article_count = session.execute(select(func.count()).select_from(NewsArticle)).scalar_one()
+            price_count = session.execute(select(func.count()).select_from(PriceBar)).scalar_one()
+            signal_count = session.execute(select(func.count()).select_from(SignalRun)).scalar_one()
+    except Exception:
+        return False
+    return bool(article_count or price_count or signal_count or Path("output/research/phase16/FINAL_EVALUATION_SUMMARY.json").exists())
+
+
+def detect_data_mode() -> str:
+    has_local = local_research_available()
+    has_live = _has_live_credentials()
+    if has_local and has_live:
+        return DATA_MODE_MIXED
+    if has_local:
+        return DATA_MODE_LOCAL
+    if has_live:
+        return DATA_MODE_LIVE
+    return DATA_MODE_UNAVAILABLE
+
+
+def get_local_research_symbols(exchange_filter: str | None = None) -> list[str]:
+    exchange = (exchange_filter or "US").upper().strip()
+    init_db()
+    try:
+        with SessionLocal() as session:
+            rows = session.execute(
+                select(
+                    Instrument.display_symbol,
+                    func.count(func.distinct(NewsArticle.id)).label("articles"),
+                    func.count(func.distinct(PriceBar.id)).label("prices"),
+                    func.count(func.distinct(SignalRun.id)).label("signals"),
+                )
+                .select_from(Instrument)
+                .outerjoin(NewsArticle, NewsArticle.instrument_id == Instrument.id)
+                .outerjoin(PriceBar, PriceBar.instrument_id == Instrument.id)
+                .outerjoin(SignalRun, SignalRun.instrument_id == Instrument.id)
+                .where(Instrument.exchange == exchange)
+                .group_by(Instrument.display_symbol)
+            ).all()
+    except Exception:
+        return []
+    scored = [
+        (
+            str(symbol).upper(),
+            int(articles or 0) + int(prices or 0) + int(signals or 0),
+        )
+        for symbol, articles, prices, signals in rows
+        if int(articles or 0) or int(prices or 0) or int(signals or 0)
+    ]
+    return [
+        symbol
+        for symbol, _score in sorted(
+            scored,
+            key=lambda item: (
+                LOCAL_DEMO_SYMBOLS.index(item[0]) if item[0] in LOCAL_DEMO_SYMBOLS else len(LOCAL_DEMO_SYMBOLS),
+                -item[1],
+                item[0],
+            ),
+        )
+    ]
+
+
+def get_local_research_summary() -> dict[str, object]:
+    init_db()
+    summary: dict[str, object] = {
+        "articles": 0,
+        "sentiment_runs": 0,
+        "signal_runs": 0,
+        "experiment_runs": 0,
+        "instruments": 0,
+        "price_bars": 0,
+        "event_study_results": 0,
+        "symbols": [],
+        "final_status": "unavailable",
+    }
+    try:
+        with SessionLocal() as session:
+            summary.update(
+                {
+                    "articles": session.execute(select(func.count()).select_from(NewsArticle)).scalar_one(),
+                    "sentiment_runs": session.execute(select(func.count()).select_from(SentimentAnalysisRun)).scalar_one(),
+                    "signal_runs": session.execute(select(func.count()).select_from(SignalRun)).scalar_one(),
+                    "experiment_runs": session.execute(select(func.count()).select_from(ExperimentRun)).scalar_one(),
+                    "instruments": session.execute(select(func.count()).select_from(Instrument)).scalar_one(),
+                    "price_bars": session.execute(select(func.count()).select_from(PriceBar)).scalar_one(),
+                    "event_study_results": session.execute(select(func.count()).select_from(EventStudyResult)).scalar_one(),
+                    "symbols": get_local_research_symbols("US"),
+                }
+            )
+    except Exception:
+        return summary
+    final_summary = Path("output/research/phase16/FINAL_EVALUATION_SUMMARY.json")
+    if final_summary.exists():
+        summary["final_status"] = "COMPLETED_LOCKED"
+    return summary
 
 
 def format_age_from_timestamp(value: object) -> str:
@@ -332,6 +505,7 @@ def _data_quality_label(quote_meta: dict[str, object], news_quality: str, bars_s
 
 
 def build_focus_status_banner(focus_ticker: str, state: DashboardState) -> html.Div:
+    local_summary = state.local_summary or {}
     compare_row = state.compare_df[state.compare_df["ticker"] == focus_ticker]
     ticker_news = state.news_df[state.news_df["ticker"] == focus_ticker].copy()
     quote_meta = state.quote_meta_map.get(focus_ticker, {})
@@ -363,6 +537,11 @@ def build_focus_status_banner(focus_ticker: str, state: DashboardState) -> html.
         overall_quality = price_quality
 
     pills = [
+        html.Div(f"Data mode: {state.data_mode}", className="status-pill"),
+        html.Div(f"SQLite DB: {int(local_summary.get('articles', 0))} articles", className="status-pill"),
+        html.Div(f"FinBERT: {int(local_summary.get('sentiment_runs', 0))} runs", className="status-pill"),
+        html.Div(f"Research signals: {int(local_summary.get('signal_runs', 0))} runs", className="status-pill"),
+        html.Div(f"Phase 16: {local_summary.get('final_status', 'unavailable')}", className="status-pill"),
         html.Div(f"Price source: {price_source}", className="status-pill"),
         html.Div(f"Quote mode: {quote_mode}", className="status-pill"),
         html.Div(f"Bars status: {bars_status}", className="status-pill"),
@@ -405,9 +584,9 @@ def empty_price_frame() -> pd.DataFrame:
 
 def confidence_series(news_df: pd.DataFrame) -> pd.Series:
     if "signal_confidence" in news_df.columns:
-        return pd.to_numeric(news_df["signal_confidence"], errors="coerce").fillna(
-            pd.to_numeric(news_df.get("model_confidence"), errors="coerce").fillna(0.0)
-        )
+        signal_confidence = pd.to_numeric(news_df["signal_confidence"], errors="coerce")
+        model_confidence = pd.to_numeric(news_df.get("model_confidence"), errors="coerce")
+        return signal_confidence.where(signal_confidence > 0).combine_first(model_confidence).fillna(0.0)
     if "model_confidence" in news_df.columns:
         return pd.to_numeric(news_df["model_confidence"], errors="coerce").fillna(0.0)
     if {"positive_score", "negative_score", "neutral_score"}.issubset(news_df.columns):
@@ -494,7 +673,7 @@ def expand_sparse_news_window(
         ].head(max(maximum_rows - len(current_rows), 0))
 
         if not supplement.empty:
-            result = pd.concat([result, supplement], ignore_index=True)
+            result = supplement.copy() if result.empty else pd.concat([result, supplement], ignore_index=True)
 
     if result.empty:
         return result
@@ -539,6 +718,8 @@ def ensure_live_data(
     force: bool = False,
     limit: int | None = None,
 ) -> None:
+    if not force and detect_data_mode() == DATA_MODE_LOCAL:
+        return
     for ticker in normalize_tickers(tickers):
         symbol = _symbol_from_value(ticker)
         if symbol is None:
@@ -580,6 +761,7 @@ def load_live_data(
 
             news_df = news_repo.list_news_df(ticker=symbol.ticker, exchange=symbol.exchange)
             if not news_df.empty:
+                news_df = _merge_latest_sentiment_runs(session, news_df)
                 news_df = _normalize_news_sentiment(news_df)
                 news_df["ticker"] = key
                 news_df["exchange"] = symbol.exchange
@@ -631,6 +813,9 @@ def load_live_data(
                     "quote_provider": signal_row.quote_provider,
                     "ingested_at": signal_row.ingested_at,
                 }
+            research_signal_meta = _latest_research_signal_meta(session, symbol)
+            if research_signal_meta:
+                signal_meta_map[key] = {**research_signal_meta, **signal_meta_map.get(key, {})}
 
     news_df = pd.concat(news_frames, ignore_index=True) if news_frames else empty_news_frame()
     price_df = pd.concat(price_frames, ignore_index=True) if price_frames else empty_price_frame()
@@ -640,6 +825,161 @@ def load_live_data(
     if not price_df.empty:
         price_df["timestamp"] = pd.to_datetime(price_df["timestamp"], errors="coerce")
     return news_df, price_df, quote_meta_map, signal_meta_map
+
+
+def _merge_latest_sentiment_runs(session, news_df: pd.DataFrame) -> pd.DataFrame:
+    if news_df.empty or "id" not in news_df.columns:
+        return news_df
+    article_ids = [int(value) for value in news_df["id"].dropna().tolist()]
+    if not article_ids:
+        return news_df
+    rows = session.execute(
+        select(SentimentAnalysisRun)
+        .where(SentimentAnalysisRun.article_id.in_(article_ids))
+        .order_by(SentimentAnalysisRun.created_at.desc(), SentimentAnalysisRun.id.desc())
+    ).scalars().all()
+    latest_by_article: dict[int, SentimentAnalysisRun] = {}
+    for row in rows:
+        latest_by_article.setdefault(int(row.article_id), row)
+    if not latest_by_article:
+        return news_df
+    work = news_df.copy()
+    for idx, row in work.iterrows():
+        article_id = row.get("id")
+        if pd.isna(article_id):
+            continue
+        sentiment = latest_by_article.get(int(article_id))
+        if sentiment is None:
+            continue
+        label = str(sentiment.sentiment_label or "").strip().lower()
+        current_confidence = float(row.get("model_confidence") or 0.0)
+        if current_confidence <= 0:
+            work.at[idx, "sentiment_label"] = label or row.get("sentiment_label")
+            work.at[idx, "model_label"] = label or row.get("model_label")
+            work.at[idx, "model_confidence"] = sentiment.confidence
+            work.at[idx, "signal_confidence"] = sentiment.confidence
+            work.at[idx, "sentiment_score"] = sentiment.sentiment_score
+            work.at[idx, "analysis_provider"] = sentiment.model_family or sentiment.provider or "finbert"
+            work.at[idx, "parse_status"] = sentiment.parse_status or "ok"
+            work.at[idx, "short_reason"] = sentiment.short_reason or row.get("short_reason")
+            work.at[idx, "impact_strength"] = sentiment.impact_strength
+            work.at[idx, "time_horizon"] = sentiment.time_horizon
+            work.at[idx, "catalyst_tag"] = sentiment.catalyst_tag
+    return work
+
+
+def _latest_research_signal_meta(session, symbol: SymbolRecord) -> dict[str, object]:
+    instrument = session.execute(
+        select(Instrument).where(
+            Instrument.display_symbol == symbol.ticker,
+            Instrument.exchange == symbol.exchange,
+        )
+    ).scalar_one_or_none()
+    if instrument is None:
+        return {}
+    rows = session.execute(
+        select(SignalRun)
+        .where(SignalRun.instrument_id == instrument.id)
+        .order_by(SignalRun.generated_at.desc(), SignalRun.id.desc())
+    ).scalars().all()
+    if not rows:
+        return {}
+    by_version: dict[str, SignalRun] = {}
+    for row in rows:
+        version = str(row.engine_version or row.engine_name or "").lower()
+        if version == "1.0" or "v1" in str(row.engine_name or "").lower():
+            by_version.setdefault("v1", row)
+        elif "2.1" in version:
+            by_version.setdefault("v2_1", row)
+        elif "2.0" in version or "composite" in str(row.engine_name or "").lower():
+            by_version.setdefault("v2", row)
+    active = by_version.get("v1") or rows[0]
+    components = _parse_signal_components(by_version.get("v2"))
+    return {
+        "composite_score": active.final_score,
+        "composite_label": active.label,
+        "signal_confidence": active.confidence,
+        "mode": "Historical research signal (Signal V1)",
+        "overall_sentiment": active.label,
+        "overall_confidence": active.confidence,
+        "action_bias": active.label,
+        "net_short_term_view": "Historical research signal, not a live recommendation.",
+        "final_reason": active.explanation or "Stored historical Signal V1 research row.",
+        "explanation_bullets": _research_signal_lines(active, by_version.get("v2"), by_version.get("v2_1"), components),
+        "analysis_provider": "stored_research_db",
+        "quote_provider": "historical_research",
+        "ingested_at": active.generated_at,
+        "research_signals": {
+            key: _signal_row_payload(value)
+            for key, value in by_version.items()
+            if value is not None
+        },
+        "v2_components": components,
+    }
+
+
+def _signal_row_payload(row: SignalRun) -> dict[str, object]:
+    return {
+        "engine_name": row.engine_name,
+        "engine_version": row.engine_version,
+        "generated_at": row.generated_at,
+        "score": row.final_score,
+        "label": row.label,
+        "confidence": row.confidence,
+        "signal_mode": row.signal_mode,
+        "news_component": row.news_component,
+        "market_component": row.market_component,
+        "explanation": row.explanation,
+    }
+
+
+def _parse_signal_components(row: SignalRun | None) -> list[dict[str, object]]:
+    if row is None or not row.future_component_json:
+        return []
+    try:
+        payload = json.loads(row.future_component_json)
+    except json.JSONDecodeError:
+        return []
+    components = payload.get("components") if isinstance(payload, dict) else None
+    if not isinstance(components, list):
+        return []
+    result: list[dict[str, object]] = []
+    for component in components:
+        if not isinstance(component, dict):
+            continue
+        result.append(
+            {
+                "name": component.get("name"),
+                "normalized_value": component.get("normalized_value"),
+                "contribution": component.get("contribution"),
+                "reliability": component.get("reliability"),
+                "available": component.get("available"),
+                "reason": component.get("reason"),
+            }
+        )
+    return result
+
+
+def _research_signal_lines(active: SignalRun, v2: SignalRun | None, v21: SignalRun | None, components: list[dict[str, object]]) -> list[str]:
+    lines = [
+        f"HISTORICAL RESEARCH SIGNAL: Signal V1 {active.engine_version} generated {active.generated_at:%Y-%m-%d} with label {(active.label or 'neutral').upper()}, score {float(active.final_score or 0.0):+.3f}, confidence {float(active.confidence or 0.0):.3f}.",
+    ]
+    if v2 is not None:
+        lines.append(
+            f"RESEARCH V2.0: label {(v2.label or 'neutral').upper()}, score {float(v2.final_score or 0.0):+.3f}, confidence {float(v2.confidence or 0.0):.3f}; not promoted to live/default."
+        )
+    if v21 is not None:
+        lines.append(
+            f"V2.1 is an UNPROMOTED RESEARCH CANDIDATE: label {(v21.label or 'neutral').upper()}, score {float(v21.final_score or 0.0):+.3f}, confidence {float(v21.confidence or 0.0):.3f}."
+        )
+    for component in components[:3]:
+        name = str(component.get("name") or "component").replace("_", " ").title()
+        value = component.get("normalized_value")
+        reliability = component.get("reliability")
+        value_text = "n/a" if value is None else f"{float(value):+.3f}"
+        reliability_text = "n/a" if reliability is None else f"{float(reliability):.3f}"
+        lines.append(f"V2 component - {name}: value {value_text}, reliability {reliability_text}.")
+    return lines
 
 
 def build_snapshot_map(
@@ -676,6 +1016,8 @@ def build_dashboard_state(
     start_date: str | None,
     end_date: str | None,
 ) -> DashboardState:
+    data_mode = detect_data_mode()
+    local_summary = get_local_research_summary()
     selected = normalize_tickers([focus_ticker, *(compare_tickers or [])])
     all_news_df, price_df, quote_meta_map, signal_meta_map = load_live_data(selected)
     fresh_news_df = filter_to_fresh_news(all_news_df)
@@ -692,7 +1034,14 @@ def build_dashboard_state(
     focus_bars_status = _derive_bars_status(focus_ticker, price_df, focus_quote_meta)
     focus_news_quality = _derive_news_quality(news_df[news_df["ticker"] == focus_ticker]) if not news_df.empty else "unavailable"
 
-    if not compare_df.empty and any(compare_df["mode"] == "News + Quote Quality"):
+    if data_mode == DATA_MODE_LOCAL and (not news_df.empty or not price_df.empty or signal_meta_map):
+        data_status = (
+            "LOCAL RESEARCH DATA: live providers are not configured. Showing stored SQLite/FNSPID/Yahoo research data "
+            "and historical research signals; no live quote is being fabricated."
+        )
+    elif data_mode == DATA_MODE_MIXED:
+        data_status = "MIXED: local research data is available and live providers may refresh configured symbols."
+    elif not compare_df.empty and any(compare_df["mode"] == "News + Quote Quality"):
         data_status = "News signal with quote-quality adjustment is active for at least one selected ticker."
     elif focus_symbol is not None and focus_symbol.exchange in {"NSE", "BSE"} and focus_quote_meta and focus_bars_status == "unavailable":
         data_status = (
@@ -716,8 +1065,10 @@ def build_dashboard_state(
         snapshot_map=snapshot_map,
         quote_meta_map=quote_meta_map,
         signal_meta_map=signal_meta_map,
-        demo_mode=False,
+        demo_mode=data_mode in {DATA_MODE_LOCAL, DATA_MODE_MIXED},
         data_status=data_status,
+        data_mode=data_mode,
+        local_summary=local_summary,
     )
 
 
@@ -746,6 +1097,7 @@ def filter_to_window(
         start_ts = anchor - pd.Timedelta(days=lookback_days) if anchor is not None else None
         end_ts = anchor + pd.Timedelta(days=1) if anchor is not None else None
 
+    original_news_df = news_df.copy()
     original_price_df = price_df.copy()
     if start_ts is not None and not news_df.empty:
         news_df = news_df[news_df["published_at"] >= start_ts]
@@ -769,6 +1121,19 @@ def filter_to_window(
                 fallback_frames.append(fallback_subset)
         if fallback_frames:
             price_df = pd.concat(fallback_frames, ignore_index=True)
+    if news_df.empty and not original_news_df.empty:
+        fallback_frames = []
+        for ticker in sorted(original_news_df["ticker"].dropna().unique()):
+            ticker_news = original_news_df[original_news_df["ticker"] == ticker].copy()
+            if ticker_news.empty:
+                continue
+            latest_timestamp = ticker_news["published_at"].max()
+            fallback_start = latest_timestamp - pd.Timedelta(days=window_days)
+            fallback_subset = ticker_news[ticker_news["published_at"] >= fallback_start]
+            if not fallback_subset.empty:
+                fallback_frames.append(fallback_subset)
+        if fallback_frames:
+            news_df = pd.concat(fallback_frames, ignore_index=True)
     return news_df.copy(), price_df.copy()
 
 
@@ -829,12 +1194,13 @@ def build_compare_frame(
         news_quality = _derive_news_quality(ticker_news)
 
         recent_close = latest_recent_close(ticker_prices)
+        historical_close = float(ticker_prices["close"].iloc[-1]) if not ticker_prices.empty else np.nan
         current_price = (
             float(quote_meta.get("current_price"))
             if quote_meta.get("current_price") is not None
             else recent_close
             if recent_close is not None
-            else np.nan
+            else historical_close
         )
         first_close = float(ticker_prices["close"].iloc[0]) if not ticker_prices.empty else np.nan
         last_close = float(ticker_prices["close"].iloc[-1]) if not ticker_prices.empty else current_price
@@ -879,7 +1245,7 @@ def build_compare_frame(
                 "final_reason": signal_meta.get("final_reason") or "",
             }
         )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=COMPARE_COLUMNS)
 
 
 def build_sector_frame(compare_df: pd.DataFrame) -> pd.DataFrame:
@@ -898,12 +1264,12 @@ def build_sector_frame(compare_df: pd.DataFrame) -> pd.DataFrame:
 
 def compute_market_mood(compare_df: pd.DataFrame) -> tuple[str, int, str]:
     if compare_df.empty:
-        return "Neutral", 50, "Insufficient live data for a market-wide reading."
+        return "Neutral", 50, "Insufficient local or live data for a workspace-wide reading."
     mood_value = int(np.clip(((compare_df["avg_sentiment"].mean() + 1.0) / 2.0) * 100.0, 0, 100))
     if mood_value >= 60:
-        return "Bullish", mood_value, "Fresh news and composite signals lean positive across the tracked names."
+        return "Bullish", mood_value, "Stored news and composite signals lean positive across the tracked names."
     if mood_value <= 40:
-        return "Bearish", mood_value, "Fresh news and composite signals lean negative across the tracked names."
+        return "Bearish", mood_value, "Stored news and composite signals lean negative across the tracked names."
     return "Balanced", mood_value, "Signals are mixed and no strong broad-market edge is visible."
 
 
@@ -916,10 +1282,10 @@ def build_ai_explanation(focus_ticker: str, news_df: pd.DataFrame, compare_df: p
 
     if ticker_news.empty:
         return [
-            f"{get_company_name(focus_ticker)} has no fresh headlines inside the configured live-news window.",
+            f"{get_company_name(focus_ticker)} has no stored headlines inside the selected research window.",
             f"The workspace is operating in {mode.lower()} mode, with quote quality marked {quality}.",
             f"{exchange} selections may still show live quotes even when bar overlap analysis is not available.",
-            "Signal confidence is intentionally hidden or reduced when the app cannot ground the move in fresh provider-backed news.",
+            "Signal confidence is intentionally labeled as historical when the app cannot ground the move in live provider data.",
         ]
 
     avg_sentiment = float(ticker_news["sentiment_score"].mean())
@@ -931,7 +1297,7 @@ def build_ai_explanation(focus_ticker: str, news_df: pd.DataFrame, compare_df: p
 
     lines = [
         f"{get_company_name(focus_ticker)} currently reads as a {direction} short-term signal.",
-        f"Fresh analyzed headlines average {avg_confidence:.0f}% model confidence; quote-quality proxies show spread-derived liquidity near {avg_buy_sell:.2f}x and stored volume context around {avg_volume_ratio:.2f}x.",
+        f"Stored analyzed headlines average {avg_confidence:.0f}% model confidence; quote-quality proxies show spread-derived liquidity near {avg_buy_sell:.2f}x and stored volume context around {avg_volume_ratio:.2f}x.",
         f"Latest driver: {latest['title']}",
     ]
     if pd.notna(latest.get("short_reason")) and str(latest.get("short_reason")).strip():

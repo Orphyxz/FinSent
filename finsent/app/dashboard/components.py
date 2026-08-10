@@ -108,7 +108,7 @@ def build_workspace_bar(
                     html.Div(
                         [
                             html.Div("Workspace controls", className="workspace-disclosure-label"),
-                            html.Div("Live providers update only when a symbol is requested; research artifacts are read-only.", className="workspace-disclosure-copy"),
+                            html.Div("Offline demo uses local SQLite/FNSPID/Yahoo research data; live providers refresh only when configured.", className="workspace-disclosure-copy"),
                         ],
                         className="workspace-disclosure-copy-wrap",
                     ),

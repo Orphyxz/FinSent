@@ -28,8 +28,10 @@ from finsent.app.dashboard.view_model import (
     build_sector_heatmap,
     build_sentiment_timeline_with_title,
     build_summary_list,
+    DATA_MODE_LOCAL,
     confidence_series,
     ensure_live_data,
+    get_default_compare_tickers,
     get_default_ticker_for_exchange,
     get_exchange_for_ticker,
     get_company_name,
@@ -44,10 +46,11 @@ from finsent.app.dashboard.view_model import (
 
 
 def _selection(data: dict | None) -> dict:
+    default_ticker = get_default_ticker_for_exchange("US")
     base = {
-        "focus_ticker": "AAPL",
+        "focus_ticker": default_ticker,
         "exchange_filter": "US",
-        "compare_tickers": [],
+        "compare_tickers": get_default_compare_tickers(default_ticker, "US"),
         "horizon": "medium",
         "date_window": "30d",
         "alert_threshold": 40,
@@ -77,14 +80,16 @@ def _format_price(value: float | None, currency: str | None) -> str:
     return f"{symbol}{float(value):.2f}"
 
 
-def create_app(default_ticker: str = "AAPL") -> dash.Dash:
+def create_app(default_ticker: str | None = None) -> dash.Dash:
+    default_ticker = default_ticker or get_default_ticker_for_exchange("US")
+    default_compare_tickers = get_default_compare_tickers(default_ticker, "US")
     app = dash.Dash(
         __name__,
         external_stylesheets=[dbc.themes.BOOTSTRAP],
         assets_folder=get_assets_folder(),
         suppress_callback_exceptions=True,
     )
-    app.layout = build_app_layout(default_ticker)
+    app.layout = build_app_layout(default_ticker, default_compare_tickers)
 
     @app.callback(
         Output("page-container", "children"),
@@ -326,7 +331,8 @@ def create_app(default_ticker: str = "AAPL") -> dash.Dash:
         company_name = get_company_name(selection["focus_ticker"])
         focus_row = state.compare_df[state.compare_df["ticker"] == selection["focus_ticker"]]
         mode_label = focus_row["mode"].iloc[0] if not focus_row.empty else "Unavailable"
-        data_label = f"{mode_label} | Auto-refresh on"
+        refresh_label = "Local research mode" if state.data_mode == DATA_MODE_LOCAL else "Auto-refresh on"
+        data_label = f"{mode_label} | {refresh_label}"
         return home_style, nav_links, f'{selection["focus_ticker"]} | {company_name} | {data_label}'
 
     @app.callback(
@@ -379,17 +385,19 @@ def create_app(default_ticker: str = "AAPL") -> dash.Dash:
             price_change = ((last_close - first_close) / first_close) * 100.0 if first_close else 0.0
 
         badges = [
-            html.Div(f"{latest_label} signal", className="pill-badge"),
-            html.Div(f"Price move {price_change:.2f}%", className="pill-badge"),
+            html.Div(f"{latest_label} historical signal", className="pill-badge"),
+            html.Div(state.data_mode, className="pill-badge"),
         ]
         confidence_value = f"{avg_confidence:.0f}%" if pd.notna(avg_confidence) else "n/a"
         confidence_note = "Average article/model confidence" if pd.notna(avg_confidence) else "Awaiting fresh headlines; quote-quality only"
+        local_summary = state.local_summary
+        local_symbols = ", ".join(local_summary.get("symbols", [])[:5]) if local_summary.get("symbols") else "n/a"
         metrics = build_metric_grid(
             [
-                ("Current Price", _format_price(current_price if current_price else None, currency), price_note),
-                ("Composite Signal", f"{avg_sentiment:.2f}", compare_row["mode"].iloc[0] if not compare_row.empty else "News signal with quote-quality adjustment when available"),
-                ("Signal Confidence", confidence_value, confidence_note),
-                ("Liquidity Proxy", f"{avg_buy_sell_ratio:.2f}x", "Derived from quote spread; not order flow"),
+                ("Stored Articles", str(local_summary.get("articles", 0)), f"Local research symbols: {local_symbols}"),
+                ("FinBERT Runs", str(local_summary.get("sentiment_runs", 0)), "Persisted sentiment analysis; Gemini not required"),
+                ("Signal Runs", str(local_summary.get("signal_runs", 0)), "Stored Signal V1/V2/V2.1 research rows"),
+                ("Price Bars", str(local_summary.get("price_bars", 0)), f"{price_note}; selected window move {price_change:.2f}%"),
             ],
             column_size=3,
         )
@@ -467,16 +475,17 @@ def create_app(default_ticker: str = "AAPL") -> dash.Dash:
         currency = compare_row["currency"].iloc[0] if not compare_row.empty else (quote_meta or {}).get("currency")
         price_note = get_price_status_note(focus_ticker, bool(current_price), quote_meta)
         badges = [
-            html.Div(f"{latest_label} sentiment", className="pill-badge"),
+            html.Div(f"{latest_label} historical sentiment", className="pill-badge"),
+            html.Div("HISTORICAL RESEARCH SIGNAL", className="pill-badge"),
             html.Div(f"Estimated impact {avg_impact:.2f}%", className="pill-badge"),
         ]
         confidence_value = f"{avg_confidence:.0f}%" if pd.notna(avg_confidence) else "n/a"
         confidence_note = "Average article/model confidence" if pd.notna(avg_confidence) else "Awaiting fresh headlines; quote-quality only"
         metrics = build_metric_grid(
             [
-                ("Current Price", _format_price(current_price if current_price else None, currency), price_note),
-                ("Price Change", f"{price_change:.2f}%", "Selected window"),
-                ("Composite Signal", f"{avg_sentiment:.2f}", compare_row["mode"].iloc[0] if not compare_row.empty else latest_label),
+                ("Live Quote", "Unavailable" if state.data_mode == DATA_MODE_LOCAL else _format_price(current_price if current_price else None, currency), price_note),
+                ("Historical Move", f"{price_change:.2f}%", "Selected stored price window"),
+                ("Signal V1", f"{avg_sentiment:.2f}", compare_row["mode"].iloc[0] if not compare_row.empty else latest_label),
                 ("Signal Confidence", confidence_value, confidence_note),
             ],
             column_size=3,
@@ -492,6 +501,7 @@ def create_app(default_ticker: str = "AAPL") -> dash.Dash:
                 ("Company", company_name),
                 ("Exchange", compare_row["exchange"].iloc[0] if not compare_row.empty else "n/a"),
                 ("Quote Quality", compare_row["quote_quality"].iloc[0] if not compare_row.empty else "n/a"),
+                ("Data Mode", state.data_mode),
                 ("News Volume", str(len(ticker_news))),
                 ("Articles", str(len(ticker_news))),
                 ("Last Update", ticker_news["published_at"].max().strftime("%Y-%m-%d %H:%M") if not ticker_news.empty else "n/a"),
@@ -511,14 +521,19 @@ def create_app(default_ticker: str = "AAPL") -> dash.Dash:
                     title=f"{focus_ticker} Price Timeline",
                 )
                 if not ticker_prices.empty
-                else build_empty_figure(f"{focus_ticker} Price Timeline", "No live market price history is available for the current window.")
+                else build_empty_figure(f"{focus_ticker} Price Timeline", "Live quote unavailable. No stored historical price bars were found for this selected symbol.")
             )
+        signal_lines = build_ai_explanation(focus_ticker, state.news_df, state.compare_df)
+        signal_meta = state.signal_meta_map.get(focus_ticker, {})
+        for line in signal_meta.get("explanation_bullets", [])[:5]:
+            if line and line not in signal_lines:
+                signal_lines.append(str(line))
         return (
             f"{focus_ticker} | {company_name}",
             badges,
             metrics,
             main_chart,
-            [html.Div(line, className="explanation-line") for line in build_ai_explanation(focus_ticker, state.news_df, state.compare_df)],
+            [html.Div(line, className="explanation-line") for line in signal_lines],
             summary,
         )
 
@@ -655,7 +670,7 @@ def create_app(default_ticker: str = "AAPL") -> dash.Dash:
         metrics = build_metric_grid(
             [
                 ("Best Sentiment", compare_df.sort_values("avg_sentiment", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Highest average headline tone"),
-                ("Best Return", compare_df.sort_values("pct_change", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Strongest move in the live window"),
+                ("Best Return", compare_df.sort_values("pct_change", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Strongest move in the selected stored window"),
                 ("Highest News Volume", compare_df.sort_values("news_volume", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Most headline coverage"),
                 ("Best Confidence", compare_df.sort_values("avg_confidence", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "Highest average model confidence"),
             ],
@@ -668,7 +683,7 @@ def create_app(default_ticker: str = "AAPL") -> dash.Dash:
             laggard = compare_df.sort_values("pct_change", ascending=True).iloc[0]
             reliable = compare_df.sort_values("avg_confidence", ascending=False).iloc[0]
             summary_lines = [
-                html.Div(f'{winner["ticker"]} is leading on relative performance at {winner["pct_change"]:.2f}% in the current live comparison window.', className="explanation-line"),
+                html.Div(f'{winner["ticker"]} is leading on relative performance at {winner["pct_change"]:.2f}% in the selected historical comparison window.', className="explanation-line"),
                 html.Div(f'{leader["ticker"]} has the strongest sentiment signal with an average score of {leader["avg_sentiment"]:.2f}.', className="explanation-line"),
                 html.Div(f'{reliable["ticker"]} has the highest average model confidence at {reliable["avg_confidence"]:.0f}%, while {laggard["ticker"]} is the weakest price mover.', className="explanation-line"),
             ]

@@ -6,18 +6,19 @@ from finsent.app.config.settings import settings
 from finsent.app.dashboard.components import build_footer, build_landing_search, build_navbar, build_workspace_bar
 
 
-def build_app_layout(default_ticker: str) -> html.Div:
+def build_app_layout(default_ticker: str, default_compare_tickers: list[str] | None = None) -> html.Div:
+    compare_tickers = default_compare_tickers or []
     return html.Div(
         [
             dcc.Location(id="url", refresh=False),
             dcc.Interval(id="live-refresh-interval", interval=settings.live_refresh_interval_ms, n_intervals=0),
             dcc.Store(
                 id="selection-store",
-                storage_type="session",
+                storage_type="memory",
                 data={
                     "focus_ticker": default_ticker,
                     "exchange_filter": "US",
-                    "compare_tickers": [],
+                    "compare_tickers": compare_tickers,
                     "horizon": "medium",
                     "date_window": "30d",
                     "alert_threshold": 40,
@@ -31,7 +32,7 @@ def build_app_layout(default_ticker: str) -> html.Div:
                 build_workspace_bar(
                     focus_ticker=default_ticker,
                     exchange_filter="US",
-                    compare_tickers=[],
+                    compare_tickers=compare_tickers,
                     horizon="medium",
                     date_window="30d",
                     alert_threshold=40,
