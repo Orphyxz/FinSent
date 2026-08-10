@@ -1,0 +1,235 @@
+[
+  {
+    "acquired_at": "2026-08-09T23:08:47.007223",
+    "adapter_version": "fnspid_adapter_v1",
+    "checksum_sha256": "479d285b9c2911e823a421239c0adccbc98c921e3cae5dfdbbb40fcac1d59db5",
+    "dataset_version": "Hugging Face dataset repo current main at acquisition time",
+    "dry_run": false,
+    "filters": {
+      "end_date": "2023-12-31T00:00:00",
+      "limit": 50,
+      "max_scan_rows": 300000,
+      "start_date": "2023-01-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN"
+      ]
+    },
+    "license_citation_note": "FNSPID dataset card lists CC BY-NC-4.0; GitHub README says commercial/research rights were released in 2025. Cite Dong, Fan, Peng (2024).",
+    "local_relative_path": "data/research_sources/fnspid/subsets/phase11_fnspid_aapl_amzn_2023_v1.csv",
+    "record_count": 50,
+    "scanned_rows": 12075,
+    "source_file": "Stock_news/nasdaq_exteral_data.csv",
+    "source_identifier": "Zihan1004/FNSPID",
+    "source_name": "FNSPID",
+    "source_url": "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv"
+  },
+  {
+    "acquired_at": "2026-08-09T23:10:19.561528",
+    "adapter_version": "fnspid_adapter_v1",
+    "checksum_sha256": "479d285b9c2911e823a421239c0adccbc98c921e3cae5dfdbbb40fcac1d59db5",
+    "dataset_version": "Hugging Face dataset repo current main at acquisition time",
+    "dry_run": false,
+    "filters": {
+      "end_date": "2023-12-31T00:00:00",
+      "limit": 50,
+      "max_scan_rows": 300000,
+      "start_date": "2023-01-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN"
+      ]
+    },
+    "license_citation_note": "FNSPID dataset card lists CC BY-NC-4.0; GitHub README says commercial/research rights were released in 2025. Cite Dong, Fan, Peng (2024).",
+    "local_relative_path": "data/research_sources/fnspid/subsets/phase11_fnspid_aapl_amzn_2023_v1.csv",
+    "record_count": 50,
+    "scanned_rows": 12075,
+    "source_file": "Stock_news/nasdaq_exteral_data.csv",
+    "source_identifier": "Zihan1004/FNSPID",
+    "source_name": "FNSPID",
+    "source_url": "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv"
+  },
+  {
+    "acquired_at": "2026-08-09T23:11:15.746173",
+    "adapter_version": "fnspid_adapter_v1",
+    "checksum_sha256": "479d285b9c2911e823a421239c0adccbc98c921e3cae5dfdbbb40fcac1d59db5",
+    "dataset_version": "Hugging Face dataset repo current main at acquisition time",
+    "dry_run": false,
+    "filters": {
+      "end_date": "2023-12-31T00:00:00",
+      "limit": 50,
+      "max_scan_rows": 300000,
+      "start_date": "2023-01-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN"
+      ]
+    },
+    "license_citation_note": "FNSPID dataset card lists CC BY-NC-4.0; GitHub README says commercial/research rights were released in 2025. Cite Dong, Fan, Peng (2024).",
+    "local_relative_path": "data/research_sources/fnspid/subsets/phase11_fnspid_aapl_amzn_2023_v1.csv",
+    "record_count": 50,
+    "scanned_rows": 12075,
+    "source_file": "Stock_news/nasdaq_exteral_data.csv",
+    "source_identifier": "Zihan1004/FNSPID",
+    "source_name": "FNSPID",
+    "source_url": "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv"
+  },
+  {
+    "acquired_at": "2026-08-09T23:50:00.368425",
+    "adapter_version": "fnspid_adapter_v1",
+    "checksum_sha256": "c946d93826ce5b063c2c752e2bea17350fd155dcacc6b609f4ca12a20eb9027d",
+    "dataset_version": "Hugging Face dataset repo current main at acquisition time",
+    "dry_run": false,
+    "filters": {
+      "article_cap": 200,
+      "end_date": "2020-06-15T23:59:59",
+      "max_scan_rows": 1500000,
+      "per_symbol_limit": 40,
+      "selection_version": "phase12_stratified_fnspid_v1",
+      "start_date": "2020-05-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN",
+        "GOOGL",
+        "NVDA",
+        "TSLA"
+      ]
+    },
+    "local_relative_path": "data/research_sources/fnspid/subsets/phase12_locked_multisymbol_v1.csv",
+    "per_symbol_counts": {
+      "AAPL": 40,
+      "AMZN": 40,
+      "GOOGL": 40,
+      "NVDA": 40,
+      "TSLA": 40
+    },
+    "record_count": 200,
+    "scanned_rows": 1255261,
+    "selection_version": "phase12_stratified_fnspid_v1",
+    "source_file": "Stock_news/All_external.csv",
+    "source_identifier": "Zihan1004/FNSPID",
+    "source_name": "FNSPID",
+    "source_url": "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/All_external.csv"
+  },
+  {
+    "acquired_at": "2026-08-10T00:40:10.578823",
+    "adapter_version": "fnspid_adapter_v1",
+    "checksum_sha256": "bb1e277a4167fb85472d93ebbae58a1727e5b32f518aa0a8cbc988a3a4e3ae2c",
+    "dataset_version": "Hugging Face dataset repo current main at acquisition time",
+    "dry_run": false,
+    "filters": {
+      "end_date": "2023-12-13T23:59:59",
+      "limit": 30,
+      "max_scan_rows": 100000,
+      "start_date": "2023-11-01T00:00:00",
+      "symbols": [
+        "AAPL"
+      ]
+    },
+    "license_citation_note": "FNSPID dataset card lists CC BY-NC-4.0; GitHub README says commercial/research rights were released in 2025. Cite Dong, Fan, Peng (2024).",
+    "local_relative_path": "data/research_sources/fnspid/subsets/phase13_final_holdout_v1.csv",
+    "record_count": 30,
+    "scanned_rows": 12110,
+    "source_file": "Stock_news/nasdaq_exteral_data.csv",
+    "source_identifier": "Zihan1004/FNSPID",
+    "source_name": "FNSPID",
+    "source_url": "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv"
+  },
+  {
+    "acquired_at": "2026-08-10T19:13:00.884837",
+    "adapter_version": "fnspid_adapter_v1",
+    "checksum_sha256": "063cbfdb230b00a677bc05f229b42cfeb746b26594ac0f01bb730afd671f8c75",
+    "dataset_version": "Hugging Face dataset repo current main at acquisition time",
+    "dry_run": false,
+    "filters": {
+      "article_cap": 150,
+      "end_date": "2023-12-31T23:59:59",
+      "max_scan_rows": 30000,
+      "per_symbol_limit": 30,
+      "selection_version": "phase14_final_holdout_v2_stratified_v1",
+      "start_date": "2023-01-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN",
+        "GOOGL",
+        "NVDA",
+        "TSLA"
+      ]
+    },
+    "local_relative_path": "data/research_sources/fnspid/subsets/phase14_final_holdout_v2.csv",
+    "per_symbol_counts": {
+      "AAPL": 30,
+      "AMZN": 0,
+      "GOOGL": 0,
+      "NVDA": 0,
+      "TSLA": 0
+    },
+    "record_count": 30,
+    "scanned_rows": 30001,
+    "selection_version": "phase14_final_holdout_v2_stratified_v1",
+    "source_file": "Stock_news/nasdaq_exteral_data.csv",
+    "source_identifier": "Zihan1004/FNSPID",
+    "source_name": "FNSPID",
+    "source_url": "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv"
+  },
+  {
+    "acquired_at": "2026-08-10T19:55:24.597646",
+    "adapter_version": "fnspid_phase15_remote_range_adapter_v1",
+    "checksum_sha256": "54cfd1013ab4c4fba9db0e29ac2e235116dd1156a2873476c20ce9fd67554314",
+    "dataset_version": "Hugging Face dataset repo current main at acquisition time",
+    "dry_run": false,
+    "filters": {
+      "acquisition_symbols": [
+        "AAPL",
+        "AMZN",
+        "NVDA",
+        "TSLA"
+      ],
+      "availability_end": "2023-12-31T23:59:59",
+      "availability_start": "2023-01-01T00:00:00",
+      "cutoff_after": "2020-06-15T23:59:59",
+      "dataset_id": "phase15_final_holdout_v3",
+      "dedupe_policy": "FNSPID source id/symbol/date/url/title hash plus database URL uniqueness.",
+      "event_horizon": "1d",
+      "fingerprint": "9d166c563017175dfb4f8eaef3e65ca5a68beafb493e1f4fa265511d6c5a8773",
+      "minimum_per_symbol_eligible": 20,
+      "minimum_symbols": 3,
+      "minimum_total_eligible": 90,
+      "per_symbol_quota": 40,
+      "price_basis": "unadjusted quote.close",
+      "price_buffer_days_after": 10,
+      "price_buffer_days_before": 30,
+      "price_source": "yahoo_chart_daily",
+      "realized_neutral_threshold": 0.001,
+      "selection_rule": "Earliest 90-day future window with >=3 supported symbols, >=20 candidate articles per represented symbol, and >=90 total candidate articles; tie-break by represented symbol count then balance.",
+      "sentiment_model_for_phase16": "FinBERT, same frozen model/text policy as development",
+      "source_file": "Stock_news/nasdaq_exteral_data.csv",
+      "source_name": "FNSPID",
+      "source_url": "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv",
+      "target_symbols": [
+        "AAPL",
+        "AMZN",
+        "GOOGL",
+        "NVDA",
+        "TSLA"
+      ],
+      "window_days": 90,
+      "within_symbol_sampling": "Chronological evenly spaced sample across the selected window if records exceed quota."
+    },
+    "full_source_downloaded": false,
+    "local_relative_path": "data/research_sources/fnspid/subsets/phase15_final_holdout_v3.csv",
+    "per_symbol_counts": {
+      "AAPL": 40,
+      "AMZN": 40,
+      "NVDA": 40,
+      "TSLA": 40
+    },
+    "record_count": 160,
+    "selection_version": "fnspid_alphabetic_ticker_ranges_v1",
+    "source_bytes_requested": 320000000,
+    "source_file": "Stock_news/nasdaq_exteral_data.csv",
+    "source_identifier": "Zihan1004/FNSPID",
+    "source_name": "FNSPID",
+    "source_url": "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv"
+  }
+]

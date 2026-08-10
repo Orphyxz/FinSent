@@ -1,0 +1,238 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+import logging
+
+import pandas as pd
+
+from finsent.app.config.settings import settings
+from finsent.app.database.base import SessionLocal, init_db
+from finsent.app.database.repository import (
+    AnalysisRepository,
+    NewsRepository,
+    PriceRepository,
+    QuoteSnapshotRepository,
+    SignalSnapshotRepository,
+)
+from finsent.app.database.research_repository import (
+    DataQualityRepository,
+    InstrumentRepository,
+    ProviderAuditRepository,
+)
+from finsent.app.services.llm_analyzers import AggregateAnalysis, ArticleAnalysis, build_llm_analyzer, heuristic_article_analysis
+from finsent.app.services.market_providers import QuoteSnapshot
+from finsent.app.services.news_providers import NormalizedNewsArticle, normalize_news_limit
+from finsent.app.services.provider_contracts import ProviderAttempt
+from finsent.app.services.provider_routers import MarketDataRouter, NewsProviderRouter
+from finsent.app.services.provider_status import ProviderStatus
+from finsent.app.services.signal_engine import CompositeSignal, CompositeSignalEngine
+from finsent.app.services.symbol_registry import SymbolRecord, registry
+
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class IntelligenceSnapshot:
+    symbol: SymbolRecord
+    quote: QuoteSnapshot
+    articles: list[NormalizedNewsArticle]
+    analyses: list[ArticleAnalysis]
+    aggregate: AggregateAnalysis
+    signal: CompositeSignal
+    price_history: pd.DataFrame
+    provider_statuses: list[ProviderStatus]
+    provider_attempts: list[ProviderAttempt]
+
+
+class IntelligenceService:
+    def __init__(
+        self,
+        market_router: MarketDataRouter | None = None,
+        news_router: NewsProviderRouter | None = None,
+    ) -> None:
+        self.signal_engine = CompositeSignalEngine()
+        self.llm = build_llm_analyzer()
+        self.market_router = market_router or MarketDataRouter()
+        self.news_router = news_router or NewsProviderRouter()
+
+    def run(self, symbol: SymbolRecord, *, news_limit: int | None = None) -> IntelligenceSnapshot:
+        requested_news_limit = normalize_news_limit(news_limit, default=settings.default_news_limit)
+        init_db()
+        provider_statuses: list[ProviderStatus] = []
+        provider_attempts: list[ProviderAttempt] = []
+        provider_statuses.append(self._sentiment_status())
+        logger.info(
+            "Running intelligence refresh for %s through consolidated provider routers",
+            symbol.provider_symbol,
+        )
+        quote_result = self.market_router.fetch_quote(symbol)
+        provider_statuses.append(quote_result.status)
+        provider_attempts.extend(quote_result.attempts)
+        quote = quote_result.data
+        if quote is None:
+            raise RuntimeError("MarketDataRouter returned no quote snapshot object")
+        if not quote_result.available:
+            logger.warning(
+                "Market quote unavailable for %s after provider routing: %s",
+                symbol.provider_symbol,
+                quote_result.message,
+            )
+        end = datetime.now(timezone.utc).replace(tzinfo=None)
+        start = end - timedelta(days=30)
+        price_result = self.market_router.fetch_price_bars(
+            symbol,
+            start=start,
+            end=end,
+            interval=settings.default_price_interval,
+        )
+        provider_statuses.append(price_result.status)
+        provider_attempts.extend(price_result.attempts)
+        price_history = price_result.data if price_result.data is not None else pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+
+        news_result = self.news_router.fetch_news(symbol, limit=requested_news_limit)
+        provider_statuses.append(news_result.status)
+        provider_attempts.extend(news_result.attempts)
+        fetched_articles = news_result.data or []
+        articles = self._dedupe(fetched_articles)
+        if fetched_articles and len(articles) < len(fetched_articles):
+            logger.info(
+                "News provider %s returned %s articles for %s; %s remained after dedupe",
+                news_result.provider,
+                len(fetched_articles),
+                symbol.provider_symbol,
+                len(articles),
+            )
+        if not news_result.available:
+            logger.warning(
+                "News unavailable for %s after provider routing: %s",
+                symbol.provider_symbol,
+                news_result.message,
+            )
+            provider_statuses.append(status)
+        analyses: list[ArticleAnalysis] = []
+        uncached_remote_analyses = 0
+
+        with SessionLocal() as session:
+            news_repo = NewsRepository(session)
+            price_repo = PriceRepository(session)
+            quote_repo = QuoteSnapshotRepository(session)
+            analysis_repo = AnalysisRepository(session)
+            signal_repo = SignalSnapshotRepository(session)
+            instrument = InstrumentRepository(session).get_or_create_from_symbol(symbol)
+            audit_repo = ProviderAuditRepository(session)
+            quality_repo = DataQualityRepository(session)
+
+            quote_repo.upsert_quote_snapshot(symbol, quote)
+            quote_audit = audit_repo.record_provider_result(
+                result=quote_result,
+                operation="fetch_quote",
+                instrument_id=instrument.id,
+                record_count=1 if quote_result.data is not None else 0,
+            )
+            if quote_result.quality is not None:
+                quality_repo.store_assessment(
+                    subject_type="provider_audit",
+                    subject_id=quote_audit.id,
+                    assessment=quote_result.quality,
+                )
+            bars_audit = audit_repo.record_provider_result(
+                result=price_result,
+                operation="fetch_price_bars",
+                instrument_id=instrument.id,
+                record_count=0 if price_history is None else int(len(price_history)),
+            )
+            if price_result.quality is not None:
+                quality_repo.store_assessment(
+                    subject_type="provider_audit",
+                    subject_id=bars_audit.id,
+                    assessment=price_result.quality,
+                )
+            news_audit = audit_repo.record_provider_result(
+                result=news_result,
+                operation="fetch_news",
+                instrument_id=instrument.id,
+                record_count=len(fetched_articles),
+            )
+            if news_result.quality is not None:
+                quality_repo.store_assessment(
+                    subject_type="provider_audit",
+                    subject_id=news_audit.id,
+                    assessment=news_result.quality,
+                )
+            for article in articles:
+                cached = analysis_repo.get_by_article_hash(article.dedupe_hash)
+                if cached is not None:
+                    analysis = cached
+                else:
+                    if uncached_remote_analyses < settings.llm_analysis_limit:
+                        analysis = self.llm.analyze_article(symbol, article)
+                        uncached_remote_analyses += 1
+                    else:
+                        analysis = heuristic_article_analysis(
+                            symbol,
+                            article,
+                            provider=self.llm.provider_name,
+                            parse_status="heuristic_budget_fallback",
+                            reason="LLM analysis budget reached for this refresh; local heuristic analysis used.",
+                        )
+                    analysis_repo.upsert_article_analysis(symbol, article, analysis)
+                analyses.append(analysis)
+                news_repo.upsert_normalized_news(symbol, article, analysis)
+
+            article_pairs = list(zip(articles, analyses))
+            aggregate = self.llm.aggregate(symbol, article_pairs)
+            signal = self.signal_engine.compute(quote, article_pairs, aggregate)
+            if not price_history.empty:
+                price_repo.upsert_price_bars(self.storage_ticker(symbol), price_history)
+            signal_repo.upsert_signal_snapshot(symbol, quote, aggregate, signal)
+            session.commit()
+
+        return IntelligenceSnapshot(
+            symbol,
+            quote,
+            articles,
+            analyses,
+            aggregate,
+            signal,
+            price_history,
+            provider_statuses,
+            provider_attempts,
+        )
+
+    def _sentiment_status(self) -> ProviderStatus:
+        provider = self.llm.provider_name
+        client = getattr(self.llm, "client", None)
+        if provider == "gemini" and client is not None and not getattr(client, "configured", False):
+            return ProviderStatus.unconfigured("gemini", "sentiment", "GEMINI_API_KEY is not configured; heuristic analysis will be used.")
+        if provider == "openai" and not settings.openai_api_key:
+            return ProviderStatus.unconfigured("openai", "sentiment", "OPENAI_API_KEY is not configured; OpenAI analyzer is a stub.")
+        return ProviderStatus.available_status(provider, "sentiment", f"{provider} sentiment analyzer selected.")
+
+    @staticmethod
+    def _dedupe(articles: list[NormalizedNewsArticle]) -> list[NormalizedNewsArticle]:
+        seen: set[str] = set()
+        ordered: list[NormalizedNewsArticle] = []
+        for article in sorted(articles, key=lambda item: item.published_at, reverse=True):
+            if article.dedupe_hash in seen:
+                continue
+            ordered.append(article)
+            seen.add(article.dedupe_hash)
+        return ordered
+
+    @staticmethod
+    def article_hash(title: str, url: str) -> str:
+        return sha256(f"{title}|{url}".encode()).hexdigest()
+
+    @staticmethod
+    def storage_ticker(symbol: SymbolRecord) -> str:
+        if symbol.exchange == "NSE":
+            return f"{symbol.ticker}.NS"
+        if symbol.exchange == "BSE":
+            return f"{symbol.ticker}.BO"
+        return symbol.ticker
+
+
+intelligence_service = IntelligenceService()

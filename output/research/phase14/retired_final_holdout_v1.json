@@ -1,0 +1,58 @@
+{
+  "adequate": false,
+  "performance_evaluated": false,
+  "previous_article_ids": [
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255
+  ],
+  "previous_coverage_summary": {
+    "articles": 30,
+    "horizons": {
+      "1D": {
+        "eligible": 30,
+        "no_coverage": 0,
+        "unsupported_granularity": 0
+      }
+    },
+    "with_historical_bars": 30,
+    "with_instrument": 30
+  },
+  "previous_dataset_id": "phase13_final_holdout_v1",
+  "previous_date_end": "2023-12-13T00:00:00",
+  "previous_date_start": "2023-12-12T00:00:00",
+  "previous_fingerprint": "a6db3f66a5a648a755dca53325577e499f1fe607ab4b70d1e6c896133395b9c4",
+  "previous_instruments": [
+    "US:AAPL"
+  ],
+  "retired_at": "2026-08-10T19:12:37.257900",
+  "retirement_reason": "INSUFFICIENT_SYMBOL_DIVERSITY / INSUFFICIENT_TOTAL_TECHNICAL_COVERAGE / DATE_WINDOW_TOO_CLUSTERED",
+  "status": "FINAL_HOLDOUT_RETIRED_UNEVALUATED"
+}

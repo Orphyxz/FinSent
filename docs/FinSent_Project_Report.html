@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>FinSent Project Report</title>
+  <style>
+    @page {
+      size: A4;
+      margin-top: 1.5in;
+      margin-right: 1in;
+      margin-bottom: 1in;
+      margin-left: 1.5in;
+    }
+    body {
+      font-family: "Times New Roman", serif;
+      font-size: 12pt;
+      line-height: 1.5;
+      color: #000;
+      margin: 0;
+    }
+    .page {
+      page-break-after: always;
+    }
+    .title-page {
+      text-align: center;
+      min-height: 9.5in;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    h1, h2, h3, h4 {
+      margin-top: 0.4em;
+      margin-bottom: 0.4em;
+      font-weight: bold;
+    }
+    h1 {
+      font-size: 18pt;
+      text-align: center;
+    }
+    h2 {
+      font-size: 16pt;
+      text-align: center;
+    }
+    h3 {
+      font-size: 14pt;
+      text-align: left;
+    }
+    h4 {
+      font-size: 12pt;
+      text-align: left;
+    }
+    p {
+      text-align: justify;
+      margin: 0 0 10pt 0;
+    }
+    .center {
+      text-align: center;
+    }
+    .chapter-title {
+      page-break-before: always;
+      text-align: center;
+      font-size: 20pt;
+      margin-top: 0;
+      margin-bottom: 18pt;
+    }
+    .chapter-box {
+      border: 1.2pt solid #000;
+      padding: 12pt;
+      margin: 12pt 0 18pt 0;
+      text-align: justify;
+    }
+    .signature-grid {
+      width: 100%;
+      margin-top: 36pt;
+      border-collapse: collapse;
+    }
+    .signature-grid td {
+      width: 50%;
+      vertical-align: top;
+      padding-top: 24pt;
+    }
+    .placeholder-line {
+      display: inline-block;
+      min-width: 240pt;
+      border-bottom: 1pt solid #000;
+      height: 16pt;
+    }
+    .toc, .lof, .lot {
+      margin-left: 0;
+      padding-left: 0;
+      list-style: none;
+    }
+    .toc li, .lof li, .lot li {
+      margin: 4pt 0;
+    }
+    .caption-box {
+      border: 1pt solid #444;
+      padding: 14pt;
+      margin: 12pt auto 12pt auto;
+      text-align: center;
+      font-style: italic;
+      width: 88%;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12pt 0 18pt 0;
+    }
+    th, td {
+      border: 1pt solid #000;
+      padding: 6pt;
+      vertical-align: top;
+      text-align: justify;
+    }
+    th {
+      text-align: center;
+      font-weight: bold;
+    }
+    .small {
+      font-size: 11pt;
+    }
+    .no-break {
+      page-break-inside: avoid;
+    }
+    .bullet-list {
+      margin-top: 6pt;
+      margin-bottom: 10pt;
+    }
+    .bullet-list li {
+      margin-bottom: 6pt;
+      text-align: justify;
+    }
+    .reference-list li {
+      margin-bottom: 8pt;
+      text-align: justify;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page title-page">
+    <div class="center">
+      <p><strong>FinSent: Financial News Sentiment and Short-Term Market Signal Analytics Platform</strong></p>
+      <p>Submitted in Partial Fulfillment of Requirements</p>
+      <p>for the Degree of</p>
+      <p><strong>Bachelor of Technology</strong></p>
+      <p>(Electronics and Telecommunication Engineering)</p>
+      <p>by</p>
+      <p>[Student Name 1] &nbsp;&nbsp; Roll No: [Roll No 1]</p>
+      <p>[Student Name 2] &nbsp;&nbsp; Roll No: [Roll No 2]</p>
+      <p>[Student Name 3] &nbsp;&nbsp; Roll No: [Roll No 3]</p>
+      <p>[Student Name 4] &nbsp;&nbsp; Roll No: [Roll No 4]</p>
+      <p>Guide</p>
+      <p><strong>[Guide Name]</strong></p>
+      <p>Somaiya Vidyavihar University</p>
+      <p>K. J. Somaiya College of Engineering</p>
+      <p>Vidyavihar, Mumbai - 400077</p>
+      <p>2024-25</p>
+    </div>
+  </div>
+
+  <div class="page">
+    <h2>Certificate</h2>
+    <p>This is to certify that the dissertation report entitled <strong>FinSent: Financial News Sentiment and Short-Term Market Signal Analytics Platform</strong> submitted by the above students at the end of Semester VII of LY B. Tech is a bona fide record of the work carried out by them under my guidance and supervision. The work presented in this report is submitted in partial fulfillment of the requirements for the degree of Bachelor of Technology of Somaiya Vidyavihar University.</p>
+    <table class="signature-grid">
+      <tr>
+        <td class="center">_________________________<br>Guide</td>
+        <td class="center">_________________________<br>Head of Department</td>
+      </tr>
+      <tr>
+        <td colspan="2" class="center" style="padding-top:36pt;">_________________________<br>Principal</td>
+      </tr>
+    </table>
+    <p>Date: _____________________</p>
+    <p>Place: Mumbai-77</p>
+  </div>
+
+  <div class="page">
+    <h2>Declaration</h2>
+    <p>We declare that this written report submission represents our own understanding and work carried out under appropriate academic guidance. Wherever ideas, methods, tools, frameworks, datasets, or reference materials created by other authors have been used, they have been properly acknowledged and cited in this report. We further declare that we have adhered to the principles of academic honesty, integrity, and intellectual property and that we have neither fabricated nor falsified any data, result, code description, or observation presented in this report.</p>
+    <p>We understand that any violation of academic ethics may invite disciplinary action by the Institute and the University. We also confirm that the implementation, testing, analysis, and documentation contained in this report were prepared specifically for this academic submission and reflect the actual state of the project at the time of submission.</p>
+    <table class="signature-grid">
+      <tr>
+        <td>______________________________<br>Signature of Student<br>Roll No: ____________________</td>
+        <td>______________________________<br>Signature of Student<br>Roll No: ____________________</td>
+      </tr>
+      <tr>
+        <td>______________________________<br>Signature of Student<br>Roll No: ____________________</td>
+        <td>______________________________<br>Signature of Student<br>Roll No: ____________________</td>
+      </tr>
+    </table>
+    <p>Date: _____________________</p>
+    <p>Place: Mumbai-77</p>
+  </div>
+
+  <div class="page">
+    <h2>Certificate of Approval of Examiners</h2>
+    <p>We certify that this dissertation report entitled <strong>FinSent: Financial News Sentiment and Short-Term Market Signal Analytics Platform</strong> submitted by the above students is a bona fide record for partial fulfillment of the requirements for the degree of Bachelor of Technology of Somaiya Vidyavihar University.</p>
+    <table class="signature-grid">
+      <tr>
+        <td class="center">_________________________<br>Internal Examiner</td>
+        <td class="center">_________________________<br>External Examiner</td>
+      </tr>
+    </table>
+    <p>Date: _____________________</p>
+    <p>Place: Mumbai-77</p>
+  </div>
+
+  <div class="page">
+    <h2>Acknowledgement</h2>
+    <p>We would like to express our sincere gratitude to our project guide, <strong>[Guide Name]</strong>, for constant encouragement, technical guidance, and valuable feedback throughout the course of this work. The completion of this project and report would not have been possible without the continued support, patience, and constructive suggestions offered during problem definition, implementation, testing, and refinement. The guide’s emphasis on disciplined engineering thinking and structured experimentation helped us shape this work into a coherent and academically meaningful project.</p>
+    <p>We are also thankful to the faculty members of the Department of Electronics and Telecommunication Engineering, K. J. Somaiya College of Engineering, for providing the academic environment required to undertake an interdisciplinary project involving data collection, software design, analytics, visualization, testing, and documentation. Their inputs during periodic reviews helped us identify blind spots in architecture, scope, and project presentation.</p>
+    <p>We acknowledge Somaiya Vidyavihar University for providing institutional support, computational resources, and the academic framework within which this work was carried out. We also thank our peers and classmates who provided discussion, feedback, and informal testing support while the system was being refined.</p>
+    <p>Finally, we acknowledge the creators and maintainers of the open-source and commercial tools that enabled this project, including Python, Plotly Dash, SQLAlchemy, SQLite, Requests, and the external market/news provider ecosystems used during prototyping and evaluation. Their work provided a strong practical foundation for the design and implementation of the FinSent platform.</p>
+  </div>
+
+  <div class="page">
+    <h2>Abstract</h2>
+    <p>Financial decision-making today is increasingly shaped by two fast-moving information streams: market data and textual news flow. While market prices provide measurable historical and real-time information, financial headlines provide qualitative context regarding catalysts, expectations, macro events, sector sentiment, and company-specific developments. In practical settings, the challenge is not only to read these sources independently, but to combine them in a structured way that helps users identify whether a stock currently exhibits bullish, bearish, or neutral short-term signals. This project addresses that problem through the design and implementation of <strong>FinSent</strong>, a prototype platform for integrating financial news analysis with short-term market context and presenting the result through an interactive dashboard.</p>
+    <p>The proposed system implements a modular pipeline that acquires financial news from provider-specific sources, normalizes articles into a common schema, performs article-level sentiment and impact analysis, retrieves current quote snapshots and recent OHLCV price bars, computes a composite signal using deterministic application logic, stores structured records in a local SQLite database, and presents the processed information through a Plotly Dash interface. The project also includes support utilities for symbol mapping, dataset import, data quality checks, cache-aware refresh behavior, and fallback modes that maintain system continuity even when some live provider inputs are unavailable.</p>
+    <p>A key focus of the work is on robustness rather than only nominal functionality. The implementation explicitly handles stale quote states, sparse news conditions, malformed model outputs, provider mismatch across US and Indian exchanges, and the need to distinguish between fully integrated <em>Market + News</em> operation and fallback modes such as <em>Market-only</em> or <em>News-only</em>. The project therefore does not present a black-box sentiment demo, but instead a structured analytics workflow where data quality, freshness, and explanation are visible to the end user. Functional correctness is validated through unit and runtime tests covering news persistence, market bar normalization, signal scoring, impact calculation, provider selection, and status messaging.</p>
+    <p>The final outcome is a working end-to-end prototype that demonstrates how modular financial analytics software can be built using standard software engineering practices, database-backed persistence, provider abstraction, and user-facing visualization. The project establishes a strong base for future work such as large-scale backtesting, portfolio features, alerting, stronger validation, and deployment beyond a single local environment.</p>
+    <p><strong>Keywords:</strong> financial news analytics, sentiment analysis, stock market dashboard, short-term trading signal, SQLite, Plotly Dash, financial NLP, market data integration.</p>
+  </div>
+
+  <div class="page">
+    <h2>Contents</h2>
+    <ul class="toc">
+      <li>Acknowledgement</li>
+      <li>Abstract</li>
+      <li>List of Figures</li>
+      <li>List of Tables</li>
+      <li>Nomenclature</li>
+      <li>Chapter 1 Introduction</li>
+      <li>1.1 Background</li>
+      <li>1.2 Problem Statement</li>
+      <li>1.3 Objectives</li>
+      <li>1.4 Scope of Project</li>
+      <li>1.5 Methodology</li>
+      <li>1.6 Organization of Report</li>
+      <li>Chapter 2 Literature Survey</li>
+      <li>2.1 Financial text analysis and sentiment modeling</li>
+      <li>2.2 News-driven market prediction systems</li>
+      <li>2.3 NLP, transformer, and domain-adapted language models</li>
+      <li>2.4 Dashboard-oriented financial analytics systems</li>
+      <li>2.5 Summary and research gap</li>
+      <li>2.6 Comparative analysis of reviewed literature</li>
+      <li>Chapter 3 Project Design and System Architecture</li>
+      <li>3.1 System overview</li>
+      <li>3.2 Functional and non-functional requirements</li>
+      <li>3.3 Module design</li>
+      <li>3.4 System architecture</li>
+      <li>3.5 Workflow and data movement</li>
+      <li>3.6 Dataset and database design</li>
+      <li>3.7 Technology stack and design rationale</li>
+      <li>3.8 Core algorithms and logical design</li>
+      <li>3.9 Ethical, academic, and practical considerations</li>
+      <li>Chapter 4 Implementation and Experimentation</li>
+      <li>4.1 Development environment and setup</li>
+      <li>4.2 Implementation details</li>
+      <li>4.3 Testing strategy and validation</li>
+      <li>4.4 Results and discussion</li>
+      <li>4.5 Practical usage scenarios</li>
+      <li>4.6 Design modifications based on observed results</li>
+      <li>Chapter 5 Conclusion, Limitations, and Future Work</li>
+      <li>5.1 Conclusion</li>
+      <li>5.2 Limitations</li>
+      <li>5.3 Future scope</li>
+      <li>References</li>
+      <li>Appendix A: Key module map</li>
+      <li>Appendix B: Test coverage summary</li>
+      <li>Appendix C: Suggested screenshots and insertables</li>
+      <li>Appendix D: Core algorithm descriptions</li>
+      <li>Appendix E: User workflow and report finalization checklist</li>
+    </ul>
+  </div>
+
+  <div class="page">
+    <h2>List of Figures</h2>
+    <ul class="lof">
+      <li>Figure 1.1 Problem context of combined market and news interpretation</li>
+      <li>Figure 3.1 High-level system architecture of FinSent</li>
+      <li>Figure 3.2 Internal module interaction model</li>
+      <li>Figure 3.3 Runtime data workflow from providers to dashboard</li>
+      <li>Figure 3.4 Database-centered persistence view</li>
+      <li>Figure 4.1 Dashboard landing and ticker selection flow</li>
+      <li>Figure 4.2 Summary page with metrics and chart panels</li>
+      <li>Figure 4.3 Stock detail page and analysis panel</li>
+      <li>Figure 4.4 News impact and comparison workflows</li>
+      <li>Figure 4.5 Testing and validation coverage view</li>
+      <li>Figure 4.6 Prototype execution flow under normal conditions</li>
+      <li>Figure 4.7 Prototype behavior under fallback conditions</li>
+      <li>Figure 4.8 End-to-end user workflow from ticker selection to final interpretation</li>
+    </ul>
+
+    <h2>List of Tables</h2>
+    <ul class="lot">
+      <li>Table 2.1 Comparative summary of reviewed literature</li>
+      <li>Table 3.1 Functional requirements of the proposed system</li>
+      <li>Table 3.2 Non-functional requirements of the proposed system</li>
+      <li>Table 3.3 Core software modules and responsibilities</li>
+      <li>Table 3.4 Dataset inventory used by the project</li>
+      <li>Table 3.5 Database entities and stored attributes</li>
+      <li>Table 3.6 Technology stack and justification</li>
+      <li>Table 3.7 Core algorithm responsibilities</li>
+      <li>Table 4.1 Major implementation modules and file mapping</li>
+      <li>Table 4.2 Functional test cases used for validation</li>
+      <li>Table 4.3 Observed project-level outcomes and interpretations</li>
+      <li>Table 4.4 Sample user scenarios and expected platform responses</li>
+    </ul>
+
+    <h2>Nomenclature</h2>
+    <table>
+      <tr><th>Abbreviation</th><th>Meaning</th></tr>
+      <tr><td>API</td><td>Application Programming Interface</td></tr>
+      <tr><td>CSV</td><td>Comma-Separated Values</td></tr>
+      <tr><td>DB</td><td>Database</td></tr>
+      <tr><td>LLM</td><td>Large Language Model</td></tr>
+      <tr><td>NLP</td><td>Natural Language Processing</td></tr>
+      <tr><td>OHLCV</td><td>Open, High, Low, Close, Volume</td></tr>
+      <tr><td>SQL</td><td>Structured Query Language</td></tr>
+      <tr><td>UAT</td><td>User Acceptance Testing</td></tr>
+      <tr><td>UI</td><td>User Interface</td></tr>
+      <tr><td>UX</td><td>User Experience</td></tr>
+    </table>
+  </div>
+
+  <h1 class="chapter-title">Chapter 1<br>Introduction</h1>
+  <div class="chapter-box">This chapter introduces the motivation and context of the FinSent project. It explains why short-term stock analytics cannot rely only on price charts or only on qualitative headlines, formulates the problem that the project addresses, defines the objectives and scope of the work, and summarizes the methodology adopted to design, implement, validate, and present the final prototype.</div>
+
+  <h3>1.1 Background</h3>
+  <p>Modern financial decision-making increasingly depends on the ability to interpret large and rapidly changing information streams. Traders, analysts, students, and researchers are exposed to price movement, order-flow proxies, macro events, analyst opinions, sector trends, and company-specific announcements in parallel. Looking at any one of these streams in isolation often produces incomplete understanding. A stock may show a temporary upward movement while underlying news remains weak; conversely, a strong product announcement may not immediately be reflected in the observed market structure if quote data are stale or if the event is still being priced in.</p>
+  <p>In practical environments, this creates a recurring need for systems that can gather multiple forms of financial information, normalize them into a common representation, and present them in a concise decision-oriented interface. The project reported here is motivated by exactly that need. Instead of building a pure text classifier or only a visualization dashboard, the project attempts to bridge the gap between qualitative market narrative and measurable price behavior. The result is FinSent, a local prototype designed to collect news, fetch market data, compute short-term signal interpretations, and present the result through an interactive dashboard.</p>
+  <p>The background of this work lies at the intersection of financial text analytics, market microstructure awareness, software engineering, and applied data systems. A realistic finance-related system cannot assume perfect data availability. News may be sparse, provider APIs may return incomplete responses, price bars may be missing for specific exchanges, and model outputs may occasionally be malformed or uncertain. Therefore, the background problem is not only “how to classify financial news,” but also “how to build a software system that remains informative when the data quality is mixed.” FinSent approaches the problem from that system-level perspective.</p>
+  <p>The project is also shaped by the changing role of interactive dashboards in engineering applications. Dashboards are no longer expected only to display static metrics. Users now expect them to encode data freshness, indicate fallback modes, present narrative explanations, compare entities, and help with actionable interpretation. In that sense, FinSent is not simply a reporting interface layered over stored data; it is a decision-support prototype that continuously balances analysis, data quality signaling, and usability.</p>
+  <p>Another important background factor is the availability of both seeded and live data. The project combines local CSV-based historical datasets with provider-based runtime sources. This combination allows the system to remain useful in different conditions. Historical datasets are helpful for initialization, experimentation, and baseline charting, while live sources provide freshness and make the dashboard meaningful as a near-real-time workspace. Together, they make the prototype closer to a realistic applied engineering project than a pure academic toy model.</p>
+
+  <div class="caption-box">Figure 1.1 Placeholder: Combined interpretation problem in which market prices, quote quality, and recent news must be considered together to obtain a usable short-term signal.</div>
+
+  <h3>1.2 Problem Statement</h3>
+  <p>Investors and analysts often consume financial news and market prices separately. This separation causes several problems. First, text-heavy news feeds do not easily reveal whether an event is likely to matter in the short term. Second, raw price charts do not explain why a movement may be occurring or whether the current price context is supported by fresh relevant news. Third, when users manually combine both streams, the process becomes time-consuming, inconsistent, and difficult to scale across multiple stocks and exchanges.</p>
+  <p>The central problem addressed in this project is therefore the design of a software platform that can integrate financial news and market data, convert them into a structured analytics pipeline, and deliver an interpretable short-term signal to the user. The platform must work with heterogeneous inputs, support both US and Indian market symbols, persist the results in a database, and present the final outcome in a dashboard that is readable even when some live inputs are degraded.</p>
+  <p>The problem extends beyond data retrieval. It includes the need for symbol normalization, news deduplication, article-level analysis, aggregate view generation, composite scoring, explicit fallback states, and traceable explanations. A system that merely predicts “positive” or “negative” sentiment without exposing the freshness or reliability of the underlying inputs would not meet the practical needs of the project. Hence, the problem statement includes both analytical correctness and software robustness.</p>
+  <p>In concise form, the problem statement can be written as follows: <em>to design and implement a modular financial analytics system that combines financial news and market data to generate and visualize short-term stock signals, while maintaining clear data provenance, quality indicators, and fallback behavior when complete live data are not available.</em></p>
+
+  <h3>1.3 Objectives</h3>
+  <p>The project objectives were defined to ensure that the work remains engineering-oriented and measurable. The first objective was to create a modular software pipeline capable of fetching, normalizing, and storing stock-related news and price information. The second objective was to implement article-level analysis and aggregate signal generation that can convert unstructured financial headlines into structured numerical and categorical outputs. The third objective was to design a persistence layer that can store articles, price bars, quote snapshots, and computed signals in a consistent form. The fourth objective was to expose the processed information through a user-facing dashboard that supports exploration of summary, stock detail, comparison, and alert-style views.</p>
+  <p>Additional objectives emerged from implementation realities. One such objective was to make the system robust under incomplete data conditions. Another was to support multiple exchanges and multiple provider strategies instead of hard-coding a single source. A further objective was to validate functional correctness through unit and runtime tests rather than relying only on visual output. Finally, an implicit objective was to produce a codebase and report structure that are understandable enough for academic evaluation and future project continuation.</p>
+  <ul class="bullet-list">
+    <li>To collect and normalize financial news relevant to selected stocks.</li>
+    <li>To obtain quote snapshots and recent price bars for supported market symbols.</li>
+    <li>To compute article-level and aggregate short-term signal indicators.</li>
+    <li>To store processed data in a local database for reuse and dashboard access.</li>
+    <li>To build an interactive dashboard for stock-wise and comparative analysis.</li>
+    <li>To validate the behavior of the system using functional and runtime tests.</li>
+    <li>To identify limitations and define a clear path for future expansion.</li>
+  </ul>
+
+  <h3>1.4 Scope of Project</h3>
+  <h4>1.4.1 Core System Scope</h4>
+  <p>The core scope of the project covers data ingestion, analysis, persistence, and presentation. This includes provider-aware news acquisition, live or delayed market quote retrieval, OHLCV bar handling, article-level analysis, aggregate sentiment generation, composite signal scoring, data storage using SQLite, and dashboard visualization. It also includes seeded CSV imports for historical price support and company-universe bootstrapping.</p>
+  <p>The scope covers a prototype-level analytics workflow rather than a production-grade brokerage, order execution, or portfolio management platform. The system is designed to inform short-term reading of signals and not to automate trading. The application supports a curated but meaningful stock universe and demonstrates extensibility for additional symbols and sources.</p>
+  <h4>1.4.2 Analytics and Intelligent Feature Scope</h4>
+  <p>The analysis layer of the project focuses on headline interpretation, short-term impact estimation, aggregate sentiment synthesis, and deterministic signal scoring. This scope is intentionally narrower than full quantitative forecasting or deep historical alpha modeling. The project does not claim to produce guaranteed trading returns, optimize portfolios, or replace financial research. Instead, it presents a carefully engineered system for integrating textual and market context and making the output easier to interpret.</p>
+  <p>Likewise, the project does not include a custom-trained large transformer model or extensive model benchmarking over millions of labeled samples. The intelligent portion of the system is used as one component inside a broader application workflow. This limited but practical scope helps keep the work implementable within semester constraints while still making the project technically meaningful.</p>
+
+  <h3>1.5 Methodology</h3>
+  <p>The methodology adopted in this project follows an iterative system engineering approach. The work began with problem understanding and requirement identification, followed by the design of a layered architecture. The implementation then proceeded module by module: symbol handling, provider abstraction, article normalization, market data normalization, signal computation, persistence, and dashboard integration. Each module was refined based on runtime behavior rather than being frozen after first implementation.</p>
+  <p>A hybrid validation strategy was used. Instead of restricting the project to one final demo, multiple categories of testing were added. Pure analytical functions such as news-to-price alignment and daily summary generation were unit tested. Signal scoring logic was tested for deterministic outcomes under controlled inputs. Runtime-style tests were added for news persistence, provider selection, malformed analyzer responses, and India-specific price bar normalization. The methodology therefore emphasized not only building the system but also demonstrating that individual components behave correctly under expected and edge-case conditions.</p>
+  <p>Documentation and chapter planning were also treated as part of the methodology. Because the final report is expected to describe both conceptual and implementation aspects, the project was approached as a sequence of connected tasks: literature understanding, design formulation, implementation, verification, observation, improvement, and technical reporting. This report mirrors that methodology.</p>
+
+  <h3>1.6 Organization of Report</h3>
+  <p>This report is organized into five main chapters. Chapter 1 introduces the background, problem statement, objectives, scope, and methodology of the work. Chapter 2 presents the literature survey relevant to financial text analytics, market prediction from news, domain-adapted language models, and dashboard-oriented financial systems. Chapter 3 explains the design of the FinSent system, including architecture, modules, datasets, database design, workflows, and technology choices. Chapter 4 presents the implementation and experimentation phase, including software modules, testing strategy, observed outputs, and design modifications made during development. Chapter 5 concludes the report by summarizing the contribution, identifying limitations, and suggesting future development directions.</p>
+  <p><strong>Chapter Summary and Next Chapter Outline:</strong> This chapter established the motivation and scope of the FinSent project and framed the problem as a system-level integration challenge involving both data and interpretation. The next chapter reviews relevant literature and prior work to position the project within the broader landscape of financial text analytics and applied stock analysis systems.</p>
+
+  <h1 class="chapter-title">Chapter 2<br>Literature Survey</h1>
+  <div class="chapter-box">This chapter reviews prior work relevant to the proposed system. It examines financial text analytics, sentiment-based market interpretation, transformer-based language models, and practical decision-support systems that combine structured and unstructured data. The chapter concludes by identifying the research gap addressed by the project and presenting a comparative view of the reviewed literature.</div>
+
+  <h3>2.1 Financial Text Analysis and Sentiment Modeling</h3>
+  <p>Financial text analysis has been an active research area because price movement is strongly affected by narrative context. Loughran and McDonald [1] showed that generic sentiment dictionaries often perform poorly on financial text because domain-specific language can invert common-language polarity. Terms such as “liability” or “debt” may not always indicate negative outlook in standard finance communication, and words such as “volatile” can be descriptive rather than necessarily bearish. Their work is important because it established the need for finance-aware text interpretation rather than naïve application of general-purpose sentiment tools.</p>
+  <p>Tetlock [2] demonstrated that media tone carries measurable information for market behavior. His work showed that pessimistic language in financial news can influence market responses and can be linked to subsequent market activity. The contribution of this line of work lies in validating the practical relevance of textual signals for finance. It moves the discussion from pure linguistic classification to economically meaningful interpretation.</p>
+  <p>Later work extended sentiment modeling from dictionary methods to machine learning and deep learning. Financial news contains abbreviations, sector-specific jargon, earnings language, analyst vocabulary, and event-driven context that often require contextual interpretation. This motivated the use of supervised learning, embedding-based methods, and transformer architectures for domain-sensitive classification. From a project perspective, this literature supports the idea that headline sentiment is not a decorative feature but a valid signal dimension when handled carefully.</p>
+
+  <h3>2.2 News-Driven Market Prediction Systems</h3>
+  <p>Schumaker and Chen [3] explored the use of breaking financial news for market prediction and showed that structured extraction from news could improve predictive systems. Their work is especially relevant because it moves beyond pure document classification and asks whether news can be transformed into a market-useful signal. In a similar spirit, Bollen, Mao, and Zeng [4] investigated whether collective mood and social content have predictive value for market behavior. While social media is not the focus of the present project, the broader lesson is that textual information can carry market-relevant signal content when processed systematically.</p>
+  <p>Xing, Cambria, and Welsch [5] surveyed natural-language-based financial forecasting approaches and emphasized that financial forecasting from text is challenging because it requires connecting event semantics, sentiment intensity, timing, and price dynamics. Their analysis makes clear that success in this domain depends not just on language accuracy but on system design, temporal alignment, and interpretability. This is directly relevant to FinSent, where the goal is not to produce a standalone label but to connect article timing with price context and then expose the result to the user.</p>
+  <p>Several research efforts also highlight the importance of hybrid systems that combine structured price data with text-derived features. In many cases, text alone provides direction but lacks market calibration, whereas price alone provides reaction but lacks explanation. This literature supports the design decision in FinSent to generate a composite signal using both news-related analysis and market context, rather than relying exclusively on one modality.</p>
+
+  <h3>2.3 NLP, Transformer, and Domain-Adapted Language Models</h3>
+  <p>Devlin et al. [6] introduced BERT, which significantly improved contextual language understanding by pre-training deep bidirectional transformer representations. BERT’s impact extends to many domains, including finance, where contextual understanding is important for interpreting short headlines and limited textual summaries. Araci [7] proposed FinBERT as a domain-adapted financial language model and showed that financial sentiment tasks benefit from specialized pretraining and fine-tuning. Even though the current runtime path in FinSent relies on a different analysis architecture, the literature around FinBERT remains important because it demonstrates why finance-specific modeling assumptions matter.</p>
+  <p>More recent systems increasingly rely on instruction-following large language models for structured extraction, summarization, and reasoning over limited context windows. These systems can return relevance, sentiment, confidence, and short rationale in a structured JSON-like form, making them attractive for prototype-level financial analytics pipelines. However, they also introduce concerns around cost, rate limits, malformed outputs, and reliability. This duality is reflected in the design of FinSent, where analyzer output is not accepted blindly but is normalized, capped, and combined with deterministic application logic.</p>
+  <p>The literature therefore suggests an important balance. Domain-adapted NLP models can improve semantic understanding, but robust systems still need validation rules, fallback behavior, and explicit scoring logic. FinSent adopts that balance by separating article interpretation from final signal computation.</p>
+
+  <h3>2.4 Dashboard-Oriented Financial Analytics Systems</h3>
+  <p>Many finance tools present charts, tables, and alerts, but not all of them make data quality visible. Academic and industrial dashboard systems increasingly focus on explainability, provenance, and workflow support in addition to metric display. A good analytics dashboard should help the user answer questions such as: Is the displayed signal based on current quotes? Are the headlines relevant? Is the system operating under fallback conditions? What is the most likely catalyst behind the signal?</p>
+  <p>The design of FinSent aligns more closely with this interactive analytics philosophy than with a static reporting interface. The dashboard is expected to serve as a workspace where charts, badges, status pills, tables, and signal notes all work together. This design orientation is strongly influenced by practical dashboard literature and official framework documentation [12], where component-based UI composition, callback-driven state updates, and modular view-model design are emphasized.</p>
+  <p>From a literature standpoint, dashboard systems matter because they determine whether advanced analysis remains usable. A highly accurate model hidden behind a poor interface may have limited decision-support value. By contrast, an interpretable dashboard with clear explanation and freshness cues can be more useful for real users even if the backend analytics remain intentionally conservative.</p>
+
+  <h3>2.5 Summary and Research Gap</h3>
+  <p>The reviewed literature confirms five important points. First, financial text requires domain-aware interpretation. Second, textual sentiment can influence market behavior and should not be ignored in short-term analysis. Third, effective systems must connect textual outputs with timing and market context. Fourth, transformer and LLM-style systems improve expressiveness but require careful integration and validation. Fifth, user-facing dashboards are most useful when they communicate not only the signal but also the assumptions and quality of the supporting data.</p>
+  <p>Despite this progress, a gap remains for academic prototype systems that integrate these ideas into a modular, inspectable, and testable software stack. Many papers focus on model accuracy, while many dashboards focus on visualization without transparent runtime data quality indicators. The gap addressed by FinSent is the construction of a practical finance analytics prototype that combines provider abstraction, structured persistence, runtime fallback behavior, short-term signal synthesis, and interactive visualization within one cohesive system.</p>
+
+  <h3>2.6 Comparative Analysis of Reviewed Literature</h3>
+  <table>
+    <tr>
+      <th>Reference</th>
+      <th>Primary Focus</th>
+      <th>Main Contribution</th>
+      <th>Relevance to FinSent</th>
+      <th>Observed Limitation</th>
+    </tr>
+    <tr>
+      <td>[1]</td>
+      <td>Finance-specific sentiment dictionaries</td>
+      <td>Showed the need for domain-aware financial language treatment</td>
+      <td>Supports finance-aware interpretation instead of generic polarity rules</td>
+      <td>Does not provide a full interactive system</td>
+    </tr>
+    <tr>
+      <td>[2]</td>
+      <td>Media tone and market behavior</td>
+      <td>Linked textual tone to stock market effects</td>
+      <td>Justifies use of headlines as a market-relevant feature</td>
+      <td>Focuses on economic relation more than software workflow</td>
+    </tr>
+    <tr>
+      <td>[3]</td>
+      <td>Breaking financial news prediction</td>
+      <td>Used structured news for predictive stock analysis</td>
+      <td>Supports article-to-signal transformation logic</td>
+      <td>Older architecture and tooling assumptions</td>
+    </tr>
+    <tr>
+      <td>[4]</td>
+      <td>Mood and market relationship</td>
+      <td>Studied predictive value of collective sentiment</td>
+      <td>Highlights usefulness of sentiment as an auxiliary market signal</td>
+      <td>Not focused on provider reliability or explainability</td>
+    </tr>
+    <tr>
+      <td>[5]</td>
+      <td>Survey of language-based financial forecasting</td>
+      <td>Explains modeling, timing, and forecasting challenges</td>
+      <td>Strong conceptual foundation for hybrid analytics design</td>
+      <td>Survey-level discussion rather than implementation blueprint</td>
+    </tr>
+    <tr>
+      <td>[6]</td>
+      <td>Contextual NLP representation</td>
+      <td>Introduced BERT and modern contextual text modeling</td>
+      <td>Supports use of context-sensitive analysis models</td>
+      <td>General language model, not finance-specific by itself</td>
+    </tr>
+    <tr>
+      <td>[7]</td>
+      <td>Finance-domain transformer adaptation</td>
+      <td>Demonstrated benefits of finance-specific language modeling</td>
+      <td>Validates financial sentiment modeling approach</td>
+      <td>Does not address system-level fallback and dashboard concerns</td>
+    </tr>
+  </table>
+  <p><strong>Chapter Summary and Next Chapter Outline:</strong> The literature survey shows that financial text and market behavior are meaningfully connected, but prior work often emphasizes either modeling or visualization rather than a full modular application. The next chapter presents the design of FinSent as a practical system that integrates these strands into one end-to-end architecture.</p>
+
+  <h1 class="chapter-title">Chapter 3<br>Project Design and System Architecture</h1>
+  <div class="chapter-box">This chapter describes the design of the proposed system. It explains the system overview, requirements, software modules, architecture, workflow, datasets, database design, and technology stack. The chapter establishes how the project translates literature and requirements into a practical and modular implementation architecture.</div>
+
+  <h3>3.1 System Overview</h3>
+  <p>FinSent is a modular software platform for stock-centric short-term analytics. The system accepts a selected symbol as its primary input, resolves that symbol into provider-specific and exchange-specific forms, acquires relevant news and market data, analyzes headlines for short-term sentiment and impact, computes a composite market-news signal, stores the resulting state in a local database, and serves the output through an interactive dashboard. The dashboard presents summary, stock detail, news impact, comparison, and alert-style views over the same common backend state.</p>
+  <p>The system is designed so that each stage can be independently improved without rewriting the entire stack. For example, a new market provider can be introduced without changing the dashboard logic, and a new analyzer can be added without restructuring the persistence layer. This modularity is important because financial data systems evolve quickly and often need provider substitution due to cost, reliability, or coverage changes.</p>
+  <p>The system also distinguishes between raw input, normalized data, persisted data, and derived analytics. This separation allows each layer to have a clear responsibility. Raw provider responses are converted into normalized objects and data frames. Persisted data act as a reusable state store. Derived analytics such as event alignment and comparison metrics are computed closer to the presentation layer. This design is beneficial for debugging, testability, and reportability.</p>
+
+  <div class="caption-box">Figure 3.1 Placeholder: High-level system architecture showing user interaction, dashboard, view model, intelligence service, provider layers, repositories, analytics module, and SQLite database.</div>
+
+  <h3>3.2 Functional and Non-Functional Requirements</h3>
+  <table>
+    <tr><th colspan="3">Table 3.1 Functional Requirements</th></tr>
+    <tr><th>ID</th><th>Requirement</th><th>Description</th></tr>
+    <tr><td>FR1</td><td>Ticker selection</td><td>The system shall allow the user to select supported US, NSE, or BSE symbols.</td></tr>
+    <tr><td>FR2</td><td>News retrieval</td><td>The system shall fetch relevant news articles through configured provider paths.</td></tr>
+    <tr><td>FR3</td><td>Market data retrieval</td><td>The system shall fetch quote snapshots and historical price bars where available.</td></tr>
+    <tr><td>FR4</td><td>Article analysis</td><td>The system shall generate article-level relevance, sentiment, confidence, and impact fields.</td></tr>
+    <tr><td>FR5</td><td>Signal scoring</td><td>The system shall produce a composite score and explicit operating mode.</td></tr>
+    <tr><td>FR6</td><td>Persistence</td><td>The system shall store news, prices, quote snapshots, and signal snapshots in SQLite.</td></tr>
+    <tr><td>FR7</td><td>Dashboard visualization</td><td>The system shall present metrics, charts, tables, and notes in an interactive interface.</td></tr>
+    <tr><td>FR8</td><td>Fallback behavior</td><td>The system shall indicate degraded modes when inputs are incomplete or stale.</td></tr>
+  </table>
+
+  <table>
+    <tr><th colspan="3">Table 3.2 Non-Functional Requirements</th></tr>
+    <tr><th>ID</th><th>Requirement</th><th>Description</th></tr>
+    <tr><td>NFR1</td><td>Modularity</td><td>The design should support replacement of providers and analyzers with minimal code changes.</td></tr>
+    <tr><td>NFR2</td><td>Readability</td><td>The dashboard should present signals in a way that is understandable to non-expert users.</td></tr>
+    <tr><td>NFR3</td><td>Robustness</td><td>The system should continue operating under partial data conditions.</td></tr>
+    <tr><td>NFR4</td><td>Traceability</td><td>Stored records should preserve provider, source, freshness, and parse-related metadata.</td></tr>
+    <tr><td>NFR5</td><td>Testability</td><td>Critical analytical and runtime paths should be validated through tests.</td></tr>
+    <tr><td>NFR6</td><td>Maintainability</td><td>Responsibilities should be separated into files and modules with clear roles.</td></tr>
+  </table>
+
+  <h3>3.3 Module Design</h3>
+  <table>
+    <tr><th colspan="3">Table 3.3 Core Software Modules and Responsibilities</th></tr>
+    <tr><th>Module</th><th>Main Responsibility</th><th>Representative Files</th></tr>
+    <tr><td>Configuration</td><td>Stores environment-driven runtime settings and defaults</td><td>config/settings.py</td></tr>
+    <tr><td>Symbol Registry</td><td>Maps exchange-specific symbols and user-facing ticker options</td><td>services/symbol_registry.py</td></tr>
+    <tr><td>News Providers</td><td>Fetch and normalize articles from provider sources</td><td>services/news_providers.py</td></tr>
+    <tr><td>Market Providers</td><td>Fetch quotes and OHLCV price bars</td><td>services/market_providers.py</td></tr>
+    <tr><td>Analyzer Layer</td><td>Generates article-level and aggregate analytical fields</td><td>services/llm_analyzers.py</td></tr>
+    <tr><td>Signal Engine</td><td>Combines market and news context into a composite signal</td><td>services/signal_engine.py</td></tr>
+    <tr><td>Persistence Layer</td><td>Stores and retrieves structured records from SQLite</td><td>database/entities.py, database/repository.py</td></tr>
+    <tr><td>Analytics Layer</td><td>Aligns news with prices and derives impact summaries</td><td>analysis/market_impact.py</td></tr>
+    <tr><td>Dashboard Layer</td><td>Builds application UI, callbacks, and state transformations</td><td>dashboard/app.py, dashboard/view_model.py</td></tr>
+    <tr><td>Dataset Import Layer</td><td>Loads local CSV datasets into project storage</td><td>services/kaggle_data.py</td></tr>
+  </table>
+
+  <p>The separation of these modules was a deliberate design decision. In finance-oriented software, provider logic often changes faster than UI logic, while UI requirements change faster than database entities. If all of these concerns are mixed together, the code becomes difficult to test and maintain. In FinSent, each layer exposes a narrow interface so that the rest of the stack can remain stable even if one source or analytical method changes.</p>
+
+  <div class="caption-box">Figure 3.2 Placeholder: Internal module interaction model showing provider layer, analyzer layer, signal engine, repository layer, analytics layer, and dashboard layer.</div>
+
+  <h3>3.4 System Architecture</h3>
+  <p>The overall architecture of FinSent is layered. At the bottom are raw data sources: provider APIs and local datasets. Above them is a normalization layer that converts heterogeneous inputs into common structures such as normalized news articles, quote snapshots, and OHLCV data frames. The intelligence layer then combines article analysis and market context to produce aggregate views and composite signals. A persistence layer stores all significant outputs. Finally, the view-model and dashboard layers transform stored and derived data into charts, cards, tables, and status indicators.</p>
+  <p>One strength of this architecture is that it distinguishes between <em>runtime intelligence generation</em> and <em>dashboard-time analytics assembly</em>. The intelligence service is responsible for obtaining and persisting fresh data. The dashboard view model then loads the necessary stored data and builds dashboard state objects, including event frames and comparison metrics. This avoids recomputing expensive provider calls during every simple UI interaction.</p>
+  <p>Another architectural strength is explicit fallback modeling. If market data exist but relevant news are unavailable, the architecture still yields a valid mode rather than failing silently. If quote quality is stale, the dashboard can still show the information but label it properly. This emphasis on operational truthfulness is one of the defining design decisions of the project.</p>
+
+  <h3>3.5 Workflow and Data Movement</h3>
+  <p>The runtime workflow starts when the user selects a ticker or loads an analysis page. The dashboard checks whether data need refresh. If refresh is required, the intelligence service resolves the symbol and invokes the appropriate market and news providers. Market providers return current quote snapshots and recent price bars. News providers return normalized article objects, which are deduplicated before analysis. Each article is then checked against cached analytical results. If no cached analysis exists, it is analyzed and persisted.</p>
+  <p>Once all article-level outputs are available, an aggregate analytical view is generated and then passed with market context into the composite signal engine. The resulting quote snapshot, price history, article data, and signal snapshot are written to the database. Later, when the dashboard builds its state, it loads the relevant persisted data, filters them by selected horizon or date window, aligns news to price movement, and derives view-specific metrics such as mean sentiment, impact summary, sector comparisons, and final note text.</p>
+  <p>This workflow supports both reproducibility and responsiveness. Because intermediate outputs are persisted, the dashboard can load quickly and does not depend entirely on re-fetching data every time the user navigates. At the same time, refresh logic ensures that stale data are not presented as if they were fresh.</p>
+
+  <div class="caption-box">Figure 3.3 Placeholder: Runtime data workflow from symbol selection to intelligence refresh, persistence, dashboard state construction, and user-facing visualization.</div>
+
+  <h3>3.6 Dataset and Database Design</h3>
+  <p>The project uses both datasets and a database, but these serve different roles. Datasets provide source material. The CSV files in the repository contain stock universes and historical price data, especially for baseline initialization and experimentation. The database provides organized persistent storage for runtime records produced by the application. This includes news articles, price bars, quote snapshots, and signal snapshots.</p>
+  <table>
+    <tr><th colspan="3">Table 3.4 Dataset Inventory Used by the Project</th></tr>
+    <tr><th>Dataset / File</th><th>Purpose</th><th>Project Use</th></tr>
+    <tr><td>All_Indian_Stocks_listed_in_nifty500.csv</td><td>Indian company universe</td><td>Defines valid Indian symbols and company names</td></tr>
+    <tr><td>6000 Largest Companies ranked by Market Cap.csv</td><td>US company universe</td><td>Provides a broad US stock universe for bootstrapping</td></tr>
+    <tr><td>SnP_daily_update.csv</td><td>Historical US prices</td><td>Used for seeded price imports and baseline experimentation</td></tr>
+    <tr><td>archive/v1/*.csv</td><td>Historical Indian prices</td><td>Used for NSE price history imports</td></tr>
+    <tr><td>Provider APIs</td><td>Live or near-live runtime inputs</td><td>Used for quotes, bars, and fresh article retrieval</td></tr>
+  </table>
+
+  <table>
+    <tr><th colspan="3">Table 3.5 Database Entities and Stored Attributes</th></tr>
+    <tr><th>Entity</th><th>Core Contents</th><th>Purpose</th></tr>
+    <tr><td>news_articles</td><td>Article source, title, URL, published time, provider, sentiment fields, relevance, impact, reason</td><td>Stores normalized and analyzed news records</td></tr>
+    <tr><td>price_bars</td><td>Ticker, timestamp, open, high, low, close, volume</td><td>Stores structured OHLCV history</td></tr>
+    <tr><td>quote_snapshots</td><td>Ticker, exchange, quote fields, freshness, provider, quality status</td><td>Stores runtime market snapshot state</td></tr>
+    <tr><td>signal_snapshots</td><td>Composite score, label, confidence, mode, aggregate reasoning</td><td>Stores final short-term signal output</td></tr>
+  </table>
+  <p>The database choice for the current stage is SQLite. This choice is suitable for a local academic prototype because it reduces deployment overhead, requires no separate server process, and integrates well with SQLAlchemy. The data model is intentionally simple and mostly keyed around ticker, exchange, and timestamp-like fields. For a future production deployment, a stronger multi-user database system would be more appropriate, but SQLite is a sensible engineering compromise for the current project.</p>
+
+  <div class="caption-box">Figure 3.4 Placeholder: Database-centered persistence view showing how news, price, quote, and signal entities are linked by ticker, exchange, and time.</div>
+
+  <h3>3.7 Technology Stack and Design Rationale</h3>
+  <table>
+    <tr><th colspan="3">Table 3.6 Technology Stack and Justification</th></tr>
+    <tr><th>Technology</th><th>Role</th><th>Reason for Selection</th></tr>
+    <tr><td>Python</td><td>Main implementation language</td><td>Rapid development, strong data tooling, clear ecosystem support</td></tr>
+    <tr><td>Plotly Dash</td><td>Dashboard UI framework</td><td>Good for interactive analytics dashboards in pure Python</td></tr>
+    <tr><td>SQLAlchemy</td><td>ORM and persistence layer</td><td>Structured database interaction with manageable abstraction</td></tr>
+    <tr><td>SQLite</td><td>Local database</td><td>Simple local persistence without external database server setup</td></tr>
+    <tr><td>Pandas</td><td>Data transformation and analytics support</td><td>Convenient for tabular runtime and historical data handling</td></tr>
+    <tr><td>Requests</td><td>API communication</td><td>Simple and reliable HTTP client for provider integration</td></tr>
+    <tr><td>Provider APIs</td><td>Quotes, bars, and news</td><td>Provide live or recent finance-domain inputs</td></tr>
+  </table>
+  <p>The technology stack was selected to balance implementability, clarity, and extensibility. Since the project is academically evaluated, code readability and modularity were treated as important selection criteria. Python-based tooling allows rapid experimentation while still supporting maintainable architecture. Plotly Dash fits the requirement for a data-centric dashboard without adding unnecessary frontend framework complexity. SQLAlchemy and SQLite fit the project’s local prototype status and allow a straightforward migration path later if needed.</p>
+
+  <h3>3.8 Core Algorithms and Logical Design</h3>
+  <p>Although FinSent is presented as a dashboard platform, its usefulness depends on a sequence of interconnected software algorithms. The first algorithmic layer is symbol resolution. This logic ensures that a user-provided identifier is mapped to a canonical stock record before any external provider is called. Such resolution is essential when the same company appears in different exchanges or when providers require exchange-prefixed, suffixed, or internally normalized identifiers.</p>
+  <p>The second major algorithmic layer is article normalization and deduplication. Incoming news articles may differ in provider structure, but the system converts them into a standard structure containing title, source, published time, URL, and provider metadata. Deduplication is based on a hash generated from article title and URL. The practical reason for this step is to prevent duplicate news stories from exaggerating sentiment or artificially increasing article counts.</p>
+  <p>The third algorithmic layer is article analysis. For each article, the system estimates whether the article is relevant to the stock, whether it indicates bullish, bearish, or neutral short-term sentiment, how strong the likely impact is, what time horizon is implied, and what catalyst category best describes the event. The system is designed so that this layer can be backed by structured analyzer output or by heuristic fallback logic. This makes the project both flexible and stable.</p>
+  <p>The fourth algorithmic layer is aggregate interpretation. Multiple article-level results are combined into an overall view by considering relevance, confidence, and impact. Instead of treating each article equally, the system gives more weight to stronger and more confident signals. This produces an aggregate sentiment and confidence level that better represents the overall news situation around a stock.</p>
+  <p>The fifth algorithmic layer is composite scoring. This is one of the most important logic blocks in the project. The composite signal engine does not blindly trust text analysis, and it does not blindly trust market data. Instead, it synthesizes both by combining a news-derived score with a market-derived component while also applying penalties related to liquidity spread and data freshness. The outcome is a final composite score, a categorical label, and a mode indicating whether the system is operating under full or fallback conditions.</p>
+  <p>The sixth layer is analytical alignment between news and prices. The market impact module aligns each article timestamp with the nearest available entry price and then finds a future price for a specified return window. From these two points it derives forward return. This allows the project to move beyond sentiment display and toward measured event-price linkage. At the next level, a daily summary function aggregates event counts, mean sentiment, mean forward return, and correlation estimates over grouped events.</p>
+  <table>
+    <tr><th colspan="3">Table 3.7 Core Algorithm Responsibilities</th></tr>
+    <tr><th>Algorithm Block</th><th>Main Input</th><th>Main Output</th></tr>
+    <tr><td>Symbol resolution</td><td>User ticker value</td><td>Canonical symbol record</td></tr>
+    <tr><td>News normalization</td><td>Provider article payload</td><td>Normalized article object</td></tr>
+    <tr><td>Deduplication</td><td>Normalized article list</td><td>Unique article sequence</td></tr>
+    <tr><td>Article analysis</td><td>Symbol and article text</td><td>Sentiment, confidence, impact, catalyst, reason</td></tr>
+    <tr><td>Aggregate interpretation</td><td>Article-analysis pairs</td><td>Overall sentiment and confidence</td></tr>
+    <tr><td>Composite scoring</td><td>Quote snapshot and aggregate news view</td><td>Final score, label, confidence, mode</td></tr>
+    <tr><td>Impact alignment</td><td>News events and price bars</td><td>Event-level forward return observations</td></tr>
+    <tr><td>Daily summary generation</td><td>Aligned event frame</td><td>Daily impact summary table</td></tr>
+  </table>
+  <p>From a logical-design standpoint, the project follows a “normalize first, score later” principle. That is, raw provider data are not used directly for user-facing decisions. Instead, they are normalized, validated, deduplicated, and persisted before higher-level metrics are derived. This improves repeatability and reduces hidden dependency on provider-specific structures. The project also follows a “signal with context” principle: the user is shown not only what the signal is, but also whether it came from integrated data, market-only fallback, or other degraded states.</p>
+
+  <h3>3.9 Ethical, Academic, and Practical Considerations</h3>
+  <p>Since the project concerns market-related analytics, it is important to state that the system is designed as a decision-support and educational prototype, not as an automated financial-advice platform. The output of the system should not be interpreted as guaranteed investment guidance. This distinction is important both academically and practically. In an academic setting, it shows clear awareness of scope. In a practical setting, it reminds users that analytics systems can assist judgment but should not replace it entirely.</p>
+  <p>Another important consideration is data integrity. The project includes multiple sources, multiple transformations, and different freshness levels. Therefore, representing quality, fallback state, and provenance is part of responsible system design. A prototype that hides these uncertainties would be easier to present superficially, but less trustworthy as an engineering artifact. FinSent instead exposes enough system state so that the user can see the basis on which the displayed result was produced.</p>
+  <p>From an academic point of view, the work also needs to remain honest about its contribution. The project does not claim to have invented a new state-of-the-art financial prediction model. Its contribution lies in the structured engineering of a modular analytics workflow, the integration of textual and price-based data, the persistence design, the dashboard implementation, and the validation approach used to show reliable behavior. This framing is academically sound and aligns the report with the actual work performed.</p>
+  <p><strong>Chapter Summary and Next Chapter Outline:</strong> This chapter translated the project requirements into a layered architecture, dataset/database design, and software module structure. The next chapter explains how these design ideas were implemented in code, how the system was tested, and what results were observed during experimentation.</p>
+
+  <h1 class="chapter-title">Chapter 4<br>Implementation and Experimentation</h1>
+  <div class="chapter-box">This chapter presents the practical realization of the system. It describes the development environment, core implementation modules, runtime behavior, testing strategy, functional validation, observed results, and design modifications made after analysis. The chapter focuses on how the designed system was turned into a working and testable prototype.</div>
+
+  <h3>4.1 Development Environment and Setup</h3>
+  <p>The project was implemented in Python using a virtual environment for dependency isolation. The environment includes Dash for the dashboard, SQLAlchemy for persistence, Pandas and NumPy for data handling, Requests for provider access, and additional application-specific utilities for symbol management and runtime orchestration. The development process followed an iterative loop of coding, local execution, observation, patching, and test-based verification.</p>
+  <p>The repository is organized so that the application layer, provider layer, database layer, dashboard layer, and test layer remain separated. This made it easier to reason about errors. For example, when price bars were not appearing correctly for specific markets, the issue could be traced either to the market provider normalization path or to view-model filtering logic rather than being lost inside a monolithic script.</p>
+  <p>The implementation also had to accommodate the reality that the dashboard should be runnable from a project-local interpreter rather than assuming globally installed packages. This is important for reproducibility and for academic demonstration, because many runtime issues in prototypes are caused not by logic errors but by environment mismatches. The final project therefore emphasizes a consistent local execution path through the project virtual environment.</p>
+
+  <h3>4.2 Implementation Details</h3>
+  <h4>4.2.1 Symbol Resolution and Provider Mapping</h4>
+  <p>A key design challenge in financial software is that the same real-world stock can be represented differently for different exchanges and providers. The project solves this using a symbol registry layer that stores an internal record for each supported symbol. This record includes ticker, display name, exchange, provider symbol, sector, and optional provider-specific identifiers. This normalization allows the rest of the system to work with consistent symbol semantics even if the raw provider strings differ.</p>
+  <p>This implementation decision is especially useful for supporting both US and Indian symbols. A user-facing symbol may be entered as a raw ticker, an exchange-prefixed symbol, or a market-suffixed name. The registry resolves these forms into a canonical record before the provider layer is invoked. This reduced downstream branching and kept provider code cleaner.</p>
+
+  <h4>4.2.2 News Acquisition and Normalization</h4>
+  <p>The news provider layer abstracts multiple acquisition strategies. Different provider classes fetch and normalize articles into a common `NormalizedNewsArticle` structure. This structure includes title, source, URL, published timestamp, provider, dedupe hash, and relevance score. By using a normalized structure, the rest of the system is decoupled from provider-specific response shapes.</p>
+  <p>An important implementation detail is the use of deduplication. Financial stories are often syndicated, repeated, or refreshed. If duplicate articles are processed repeatedly, the final signal may be biased. Therefore, the intelligence service sorts incoming articles, removes duplicates by hash, and then checks whether analytical results for the article are already cached in the repository. This improves both efficiency and stability.</p>
+
+  <h4>4.2.3 Market Data Acquisition</h4>
+  <p>The market provider layer retrieves current quote snapshots and historical price bars. The code distinguishes between immediate quote-like data and bar-based history. Quote snapshots are useful for current price display, freshness estimation, and spread-based logic. Price bars are useful for charts, price change summaries, and event alignment. Keeping these two forms separate is important because they may have different refresh rates, quality states, and provider support.</p>
+  <p>The normalization of price bars into the standard OHLCV structure is one of the practical achievements of the implementation. Different providers and imported datasets expose market history differently. The project converts them into a consistent format so that analytical functions can remain provider-agnostic. This is validated through runtime tests.</p>
+
+  <h4>4.2.4 Article Analysis and Aggregate Interpretation</h4>
+  <p>For each article, the analyzer layer produces structured fields such as relevance, sentiment, confidence, impact strength, time horizon, catalyst tag, and short reason. The aggregate layer then combines all article-level results into an overall sentiment view, overall confidence, action bias, and summary reason. The project architecture intentionally separates article-level interpretation from final signal scoring because these are conceptually different tasks.</p>
+  <p>An important practical feature is fallback analysis. If structured analyzer output is malformed or unavailable, the system falls back to heuristic article analysis. This makes the implementation more resilient and prevents a single analyzer issue from making the dashboard unusable. The test suite explicitly verifies safe handling of malformed numeric analyzer outputs.</p>
+
+  <h4>4.2.5 Composite Signal Scoring</h4>
+  <p>The composite signal engine combines article-derived information with quote-related context to produce a final score, label, confidence, and operating mode. This engine is deterministic application logic. That means the final signal is not simply copied from one model output. Instead, it is computed by weighting recency, confidence, impact strength, market freshness, and liquidity-related penalties. This design was chosen because it offers better explainability and greater control over behavior under partial data conditions.</p>
+  <p>Another benefit of this approach is that operating modes become explicit. When both market and news context are available, the mode is `Market + News`. If only market data are present, the system enters `Market-only fallback`. If only news are present, it enters `News-only fallback`. This clarity is valuable in an academic prototype because it makes the system behavior easier to interpret and defend.</p>
+
+  <h4>4.2.6 Database Persistence</h4>
+  <p>The persistence layer stores all meaningful outputs from the intelligence refresh cycle. News records preserve not only article text and provider metadata but also analysis-specific fields. Price history is stored as structured OHLCV records. Quote snapshots and signal snapshots capture the latest market and analytical state. This persistent model allows the dashboard to reload quickly and makes the application state inspectable for debugging and testing.</p>
+  <p>A practical advantage of the persistence design is that it supports partial recomputation. If a quote is already stored but new news arrive, not everything has to be rebuilt from scratch conceptually. The repositories create a stable interface between runtime acquisition and user-facing views.</p>
+
+  <h4>4.2.7 Dashboard Implementation</h4>
+  <p>The dashboard is built using Plotly Dash with multiple pages. The summary page presents top-level status, metrics, a primary chart, and signal notes. The stock detail page provides deeper charting and stock-specific statistics. Additional pages support comparison, news-impact inspection, and alert-style watchlist logic. The view-model layer computes dashboard state so that pages remain relatively declarative.</p>
+  <p>The dashboard design evolved significantly during the project. Earlier views relied too heavily on dense explanatory text and charts that were not always meaningful when data were sparse. Through iteration, the dashboard was refined toward clearer cards, status pills, more honest fallback notes, and simplified visuals such as fixed recent-price bars for summary views. This change demonstrates that implementation in analytics systems includes UX calibration, not only backend coding.</p>
+
+  <h4>4.2.8 Database Schema and Repository Realization</h4>
+  <p>On the implementation side, the database schema is realized through SQLAlchemy entity definitions. Each database entity captures a clear slice of application state. The `news_articles` table stores article metadata and analysis-related fields. The `price_bars` table stores the normalized OHLCV history required for charts and event alignment. The `quote_snapshots` table records live or delayed quote context, while the `signal_snapshots` table stores the final computed state of the application’s short-term signal layer.</p>
+  <p>The repository layer was implemented to hide raw database operations from the rest of the application. This improves readability and keeps data access logic centralized. Repositories also allow targeted testing of persistence behavior, making it easier to verify that the stored and retrieved data maintain the correct structure across refresh cycles.</p>
+
+  <h4>4.2.9 View-Model and Callback Orchestration</h4>
+  <p>A notable engineering part of the project is the dashboard view-model layer. Rather than placing all transformation logic directly inside UI callbacks, the project computes a `DashboardState` that bundles news, prices, event summaries, comparison frames, snapshot maps, and data-quality metadata. This pattern reduces duplication across pages and improves maintainability.</p>
+  <p>The callback architecture also demonstrates event-driven software design. User interactions such as selecting a ticker, changing the time window, or refreshing live data trigger state updates. These updates then propagate to the visible components. This design keeps the interface responsive and makes the code path easier to reason about during debugging.</p>
+
+  <div class="caption-box">Figure 4.1 Placeholder: Dashboard landing flow and analysis workspace navigation.</div>
+  <div class="caption-box">Figure 4.2 Placeholder: Summary page showing current price, composite signal, confidence, ratio, and recent chart view.</div>
+
+  <h3>4.3 Testing Strategy and Validation</h3>
+  <p>The project uses functional unit tests and runtime-style tests to validate important system behaviors. Testing was necessary because a finance analytics dashboard can easily appear to work while producing incorrect transformations internally. The test suite therefore focuses on analytical correctness, deterministic scoring, provider normalization, and failure safety.</p>
+  <table>
+    <tr><th colspan="4">Table 4.2 Functional Test Cases Used for Validation</th></tr>
+    <tr><th>Test Area</th><th>Purpose</th><th>Representative Validation</th><th>Expected Outcome</th></tr>
+    <tr><td>News-price alignment</td><td>Verify forward-return computation</td><td>Align article time with price bars and compute future return window</td><td>Correct return values and summary columns</td></tr>
+    <tr><td>Signal scoring</td><td>Verify deterministic app logic</td><td>Use fixed quote/article inputs and inspect composite label and mode</td><td>Stable score, confidence, and explicit mode</td></tr>
+    <tr><td>Analyzer safety</td><td>Verify malformed output handling</td><td>Inject malformed numeric fields into analyzer response</td><td>No crash; sanitized defaults used</td></tr>
+    <tr><td>Market data normalization</td><td>Verify OHLCV shape</td><td>Normalize Indian market bars to standard columns</td><td>Expected Open, High, Low, Close, Volume frame</td></tr>
+    <tr><td>Persistence</td><td>Verify repository storage path</td><td>Persist normalized news and inspect stored fields</td><td>Provider, catalyst, parse status available</td></tr>
+    <tr><td>Provider selection</td><td>Verify region-aware source choice</td><td>Check market/news provider selection for India under configuration</td><td>Correct provider chosen</td></tr>
+    <tr><td>Status presentation</td><td>Verify fallback transparency</td><td>Build banner under missing-bars condition</td><td>Bars status and fallback mode explicitly shown</td></tr>
+  </table>
+  <p>These tests are especially valuable because they capture the real engineering risks of the system. A dashboard bug is often visible to the user, but a data normalization error may not be. The test suite therefore acts as evidence that the project was implemented with software reliability in mind, not just feature accumulation.</p>
+
+  <h4>4.3.1 Unit Testing</h4>
+  <p>Unit testing in the project targets deterministic analytical functions. For example, the `align_news_with_prices` function is tested with controlled article and price timestamps so that the exact forward return can be verified numerically. Likewise, the daily impact summary routine is tested to ensure that grouped output columns and counts are computed as expected. These unit tests are important because they validate mathematical correctness at the function level.</p>
+
+  <h4>4.3.2 Integration and Runtime Validation</h4>
+  <p>Integration-style tests cover interactions across modules. For example, a normalized news article is passed through the repository layer, committed to an in-memory database, and later read back to verify whether provider name, catalyst tag, and parse status were preserved. Another runtime-oriented test checks whether India-specific market bars are normalized into the standard OHLCV shape expected by the rest of the pipeline. These tests provide evidence that multiple layers of the system operate correctly together.</p>
+
+  <h4>4.3.3 User Acceptance and Operational Validation</h4>
+  <p>In an academic project, user acceptance testing may not always be formalized as enterprise UAT. However, the project still includes an informal operational validation process in which the application is run, the dashboard is navigated, charts are checked for interpretability, and visible texts are refined based on human feedback. This step is important because a technically correct output can still be unusable if the user cannot interpret it quickly. The redesign of summary charts and explanatory wording is one result of this operational validation layer.</p>
+
+  <h3>4.4 Results and Discussion</h3>
+  <p>The project resulted in a working prototype capable of loading supported symbols, retrieving or reusing data, computing structured short-term signal information, and presenting it through multiple dashboard views. The implementation demonstrates that a finance analytics system can be built in a modular way where providers, repositories, analytics functions, and UI state assembly remain separable and testable.</p>
+  <p>From a functional perspective, the system achieved the intended workflow:
+  news articles are fetched and normalized, quote snapshots and recent bars are obtained where supported, article-level signals are computed, aggregate outputs are derived, data are persisted, and the dashboard uses those outputs for user-facing metrics and charts. This confirms that the project meets its main system-integration objective.</p>
+  <p>From a robustness perspective, one of the most meaningful outcomes is the introduction of explicit fallback modes. Instead of assuming ideal conditions, the system differentiates between complete and partial input states. This result is important because it improves trustworthiness. A user can understand whether a displayed signal is based on both market and news data or only one source.</p>
+  <p>From a UI perspective, results showed that overly abstract or sparse sentiment charts can be less useful than simpler and more literal views. This led to modifications in chart presentation and summary wording. The broader lesson is that a successful analytics system depends not only on algorithmic processing but also on representation choices that match user expectations.</p>
+  <table>
+    <tr><th colspan="3">Table 4.3 Observed Project-Level Outcomes and Interpretations</th></tr>
+    <tr><th>Observation</th><th>Interpretation</th><th>Project Response</th></tr>
+    <tr><td>Different providers expose different response shapes and coverage limits</td><td>Provider-specific logic is unavoidable</td><td>Introduced provider abstraction and normalization layers</td></tr>
+    <tr><td>Sparse news can make sentiment-only visualizations misleading</td><td>Dashboard needs literal and quality-aware presentation</td><td>Simplified chart views and emphasized status/freshness</td></tr>
+    <tr><td>Malformed analyzer output can occur in real runtime conditions</td><td>Blind trust in model output is unsafe</td><td>Added sanitization and heuristic fallback logic</td></tr>
+    <tr><td>Indian and US symbols require different handling</td><td>Cross-market support needs explicit symbol normalization</td><td>Implemented registry-driven exchange/provider mapping</td></tr>
+    <tr><td>Users need to know whether a signal is based on full or partial context</td><td>Signal truthfulness is a UX requirement</td><td>Added explicit `Market + News` and fallback modes</td></tr>
+  </table>
+
+  <p>In addition to functionality, the results also reveal the character of the system as an engineering artifact. FinSent behaves more like a cautious analytical assistant than a speculative prediction engine. It attempts to present what is known, what is stale, what is inferred, and what is unavailable. This conservative behavior is one of the project’s stronger outcomes because it aligns with real-world data uncertainty.</p>
+
+  <h3>4.5 Practical Usage Scenarios</h3>
+  <p>To understand the practical value of the platform, it is useful to consider realistic usage scenarios. In the first scenario, a user wants a quick sense of whether a major US technology stock has constructive short-term context. The summary page can provide current price, composite signal, confidence, and a recent bar chart in one view. In the second scenario, a user wants to inspect how recent headlines align with market movement for one stock. In this case the stock detail and news impact pages help reveal whether sentiment and price have moved together or diverged.</p>
+  <p>Another scenario involves comparison across multiple stocks. Instead of reading each chart independently, the user may want to know which stock has the strongest recent signal, which has the highest confidence, and which shows the best recent price change. The comparison page supports this need by structuring the information into relative metrics. A fourth scenario involves degraded data conditions, such as live quotes but limited bars or fallback-quality news. The platform remains useful here by clearly signaling degraded mode instead of showing ambiguous or misleading results.</p>
+  <table>
+    <tr><th colspan="3">Table 4.4 Sample User Scenarios and Expected Platform Responses</th></tr>
+    <tr><th>Scenario</th><th>User Need</th><th>Expected FinSent Response</th></tr>
+    <tr><td>Quick stock check</td><td>Understand current short-term setup</td><td>Summary page metrics, recent chart, signal notes, status pills</td></tr>
+    <tr><td>Deeper inspection</td><td>Understand price, confidence, and context in more detail</td><td>Stock detail page with richer charting and summary statistics</td></tr>
+    <tr><td>Headline impact review</td><td>Check how recent news maps to price behavior</td><td>News impact page with event-derived view and table</td></tr>
+    <tr><td>Relative comparison</td><td>Compare multiple stocks at a glance</td><td>Comparison page showing relative performance and signal context</td></tr>
+    <tr><td>Partial data condition</td><td>Avoid being misled when data are incomplete</td><td>Fallback mode labels, bars status, freshness and quality notes</td></tr>
+  </table>
+  <div class="caption-box">Figure 4.8 Placeholder: End-to-end user workflow from ticker search to comparative signal interpretation.</div>
+
+  <h3>4.6 Design Modifications Based on Observed Results</h3>
+  <p>The system was modified several times after early runs and testing. First, the project moved away from a narrow legacy sentiment path toward a broader runtime pipeline built around provider normalization, article analysis, and deterministic composite scoring. This increased control and made the behavior easier to test.</p>
+  <p>Second, the system added stronger status indicators. Rather than quietly failing when bars or fresh articles were absent, it began exposing price source, bars status, freshness age, news tier, and operating mode. This improved interpretability and reduced ambiguity.</p>
+  <p>Third, chart design was simplified. Initial chart outputs were sometimes technically valid but not practically readable. This led to replacing visually confusing charts in summary contexts with simpler daily-bar presentations. That change was not only aesthetic; it was a usability improvement based on analysis of how the dashboard was actually being interpreted.</p>
+  <p>Fourth, repository and runtime tests were expanded. As more provider and fallback paths were introduced, the need for regression prevention increased. Adding tests around persistence, malformed outputs, and India-specific market-bar normalization reduced the risk of silent breakage.</p>
+  <div class="caption-box">Figure 4.3 Placeholder: Comparison between initial dense dashboard view and improved simplified summary presentation.</div>
+  <div class="caption-box">Figure 4.4 Placeholder: Execution behavior under normal mode versus fallback mode.</div>
+  <p><strong>Chapter Summary and Next Chapter Outline:</strong> This chapter showed how the designed system was implemented, validated, and iteratively refined based on actual runtime behavior. The next chapter closes the report by summarizing the overall contribution, identifying limitations, and outlining future improvements.</p>
+
+  <h1 class="chapter-title">Chapter 5<br>Conclusion, Limitations, and Future Work</h1>
+  <div class="chapter-box">This chapter presents the final conclusions drawn from the work, identifies the main limitations of the current prototype, and outlines the future development opportunities that can extend the project into a more mature and scalable financial analytics platform.</div>
+
+  <h3>5.1 Conclusion</h3>
+  <p>The FinSent project successfully demonstrates the design and implementation of a modular financial analytics prototype that combines qualitative news interpretation with quantitative market context. The work began with the observation that price charts alone do not explain market behavior and that textual news alone does not provide sufficient market calibration. By integrating both streams through a structured pipeline, the project delivers a more interpretable short-term stock analysis experience.</p>
+  <p>The major contribution of the project is not a single algorithm in isolation, but the engineering of an end-to-end system. This includes symbol resolution, news normalization, market-data normalization, article-level analysis, aggregate reasoning, deterministic composite signal scoring, persistent storage, and dashboard presentation. The work therefore demonstrates strong system-integration value and reflects practical software engineering concerns such as provider abstraction, fallback behavior, testing, and UI readability.</p>
+  <p>Another important conclusion is that truthful system behavior is as important as analytical sophistication. In finance-related software, incomplete or stale data are common. A project that hides these conditions can mislead users. FinSent addresses this by showing operating mode, freshness, quote quality, and other status cues. This makes the prototype more reliable as a decision-support tool.</p>
+  <p>Finally, the testing results show that the project is not only demonstrable but also verifiable. Key analytical functions and runtime flows were validated through targeted test cases. This adds credibility to the implementation and makes the project stronger as an academic submission.</p>
+  <ul class="bullet-list">
+    <li>The project achieved its primary objective of integrating market and news signals into a single dashboard-driven workflow.</li>
+    <li>The modular design improved maintainability and allowed clear separation of concerns.</li>
+    <li>Runtime fallback behavior significantly improved robustness and usability.</li>
+    <li>The system provides a practical prototype foundation for future finance-oriented analytics extensions.</li>
+  </ul>
+
+  <h3>5.2 Limitations</h3>
+  <p>Although the system is functional, it has clear limitations. The first limitation is dependence on external data providers. API availability, latency, quotas, or format changes can affect system behavior. The second limitation is that the current project emphasizes functional validation rather than deep historical performance benchmarking. While the prototype computes useful signals, it does not yet include a large-scale backtesting framework to quantify predictive performance over long horizons.</p>
+  <p>A third limitation is that the supported symbol universe is curated rather than exhaustive. This makes the project easier to manage academically but limits universal market coverage. A fourth limitation is that the database layer uses SQLite, which is ideal for local prototyping but not for multi-user or production-scale deployment. A fifth limitation is that analyzer quality depends on upstream output stability. While the project includes fallbacks and sanitization, model behavior can still vary in ways that require careful interpretation.</p>
+  <p>A final limitation is that the dashboard is optimized for clarity rather than institutional-grade analytical depth. Features such as portfolio tracking, alert subscriptions, backtest reports, and user-role-based collaboration are not yet implemented. Therefore, the system should be viewed as an applied academic prototype and not a complete commercial financial platform.</p>
+
+  <h3>5.3 Future Scope</h3>
+  <ul class="bullet-list">
+    <li>Add large-scale historical backtesting to evaluate signal quality across different sectors, horizons, and market conditions.</li>
+    <li>Expand the supported symbol universe and add richer exchange coverage.</li>
+    <li>Introduce a stronger persistence backend such as PostgreSQL for larger deployments.</li>
+    <li>Support asynchronous background refresh jobs and more advanced caching strategies.</li>
+    <li>Improve explainability by linking individual articles more explicitly to final signal contributions.</li>
+    <li>Add alerting, watchlists, and portfolio-level tracking for practical user workflows.</li>
+    <li>Introduce model comparison and calibration layers to evaluate multiple analyzer strategies.</li>
+    <li>Provide exportable reports and scheduled daily summaries for operational usage.</li>
+    <li>Package the project for containerized deployment and remote multi-user access.</li>
+  </ul>
+  <p><strong>Overall Closing Remark:</strong> FinSent demonstrates that a thoughtfully engineered academic prototype can go beyond a simple classroom demo and evolve into a realistic decision-support system. Even in its current form, it shows how financial news, market data, database persistence, and interactive visualization can be combined into a coherent and extensible analytics platform.</p>
+
+  <h1 class="chapter-title">References</h1>
+  <ol class="reference-list">
+    <li>T. Loughran and B. McDonald, “When Is a Liability Not a Liability? Textual Analysis, Dictionaries, and 10-Ks,” <em>The Journal of Finance</em>, vol. 66, no. 1, pp. 35-65, 2011.</li>
+    <li>P. C. Tetlock, “Giving Content to Investor Sentiment: The Role of Media in the Stock Market,” <em>The Journal of Finance</em>, vol. 62, no. 3, pp. 1139-1168, 2007.</li>
+    <li>R. P. Schumaker and H. Chen, “Textual Analysis of Stock Market Prediction Using Breaking Financial News: The AZFin Text System,” <em>ACM Transactions on Information Systems</em>, vol. 27, no. 2, 2009.</li>
+    <li>J. Bollen, H. Mao, and X. Zeng, “Twitter Mood Predicts the Stock Market,” <em>Journal of Computational Science</em>, vol. 2, no. 1, pp. 1-8, 2011.</li>
+    <li>F. Z. Xing, E. Cambria, and R. E. Welsch, “Natural Language Based Financial Forecasting: A Survey,” <em>Artificial Intelligence Review</em>, vol. 50, pp. 49-73, 2018.</li>
+    <li>J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, “BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding,” in <em>Proceedings of NAACL-HLT</em>, 2019.</li>
+    <li>D. Araci, “FinBERT: Financial Sentiment Analysis with Pre-trained Language Models,” arXiv:1908.10063, 2019.</li>
+    <li>A. Vaswani et al., “Attention Is All You Need,” in <em>Advances in Neural Information Processing Systems</em>, 2017.</li>
+    <li>Plotly Technologies, “Dash Documentation,” official documentation, accessed for dashboard design and callback patterns.</li>
+    <li>SQLAlchemy Authors, “SQLAlchemy Documentation,” official ORM and database toolkit documentation.</li>
+    <li>SQLite Consortium, “SQLite Documentation,” official documentation for lightweight relational persistence.</li>
+    <li>Polygon.io, “Stocks Market Data API Documentation,” official provider documentation for quote and aggregate endpoints.</li>
+    <li>Marketaux, “Marketaux News API Documentation,” official provider documentation for news retrieval and entity relevance.</li>
+    <li>Zerodha, “Kite Connect API Documentation,” official provider documentation for Indian market quote and historical data endpoints.</li>
+    <li>Pandas Development Team, “Pandas Documentation,” official documentation for tabular data manipulation and analysis.</li>
+  </ol>
+
+  <h1 class="chapter-title">Appendix A<br>Key Module Map</h1>
+  <p>The project structure was designed to remain readable and modular. The following mapping can be used while preparing viva material or discussing implementation flow:</p>
+  <table>
+    <tr><th>Area</th><th>Key Files</th><th>Purpose</th></tr>
+    <tr><td>Configuration</td><td>finsent/app/config/settings.py</td><td>Environment-driven settings and defaults</td></tr>
+    <tr><td>Data Providers</td><td>finsent/app/services/news_providers.py, finsent/app/services/market_providers.py</td><td>Runtime input acquisition</td></tr>
+    <tr><td>Analysis</td><td>finsent/app/services/llm_analyzers.py, finsent/app/services/signal_engine.py</td><td>Headline analysis and signal generation</td></tr>
+    <tr><td>Persistence</td><td>finsent/app/database/entities.py, finsent/app/database/repository.py</td><td>Database schema and storage access</td></tr>
+    <tr><td>Workflow</td><td>finsent/app/services/intelligence_service.py, finsent/app/services/pipeline.py</td><td>Runtime orchestration</td></tr>
+    <tr><td>Analytics</td><td>finsent/app/analysis/market_impact.py</td><td>Event alignment and summary calculation</td></tr>
+    <tr><td>Dashboard</td><td>finsent/app/dashboard/app.py, view_model.py, pages/</td><td>User-facing UI and state assembly</td></tr>
+    <tr><td>Testing</td><td>finsent/tests/</td><td>Functional and runtime validation</td></tr>
+  </table>
+
+  <h1 class="chapter-title">Appendix B<br>Test Coverage Summary</h1>
+  <p>The project includes focused test cases that validate important runtime and analytical concerns rather than broad placeholder tests. This is significant because it demonstrates that the implementation was built with verifiability in mind.</p>
+  <ul class="bullet-list">
+    <li><strong>Market impact analytics:</strong> verification of forward-return computation and daily summary generation.</li>
+    <li><strong>Signal scoring:</strong> validation that the deterministic composite signal logic behaves correctly under controlled bullish and market-only cases.</li>
+    <li><strong>Provider normalization:</strong> verification that Indian price bars are converted into standard OHLCV format.</li>
+    <li><strong>Persistence path:</strong> verification that normalized news and analysis outputs are written to and read from the database correctly.</li>
+    <li><strong>Safety handling:</strong> verification that malformed analyzer responses do not crash the application and instead degrade safely.</li>
+    <li><strong>Status messaging:</strong> verification that dashboard status banners correctly represent fallback conditions.</li>
+  </ul>
+
+  <h1 class="chapter-title">Appendix C<br>Suggested Screenshots and Insertables</h1>
+  <p>To strengthen the final submission visually, the following images can be inserted into the report before printing or PDF export:</p>
+  <ul class="bullet-list">
+    <li>Title screenshot of dashboard landing page after ticker selection</li>
+    <li>Summary page showing current price, signal confidence, and 7-day chart</li>
+    <li>Stock detail page with detailed chart and summary statistics</li>
+    <li>Comparison page showing multi-ticker comparative metrics</li>
+    <li>News impact page with impact table or scatter visualization</li>
+    <li>Database schema or entity relationship diagram</li>
+    <li>High-level system architecture diagram</li>
+    <li>Representative test execution screenshot from terminal</li>
+  </ul>
+  <p class="small"><strong>Customization Note:</strong> Replace placeholder student names, roll numbers, guide name, and optionally insert institute-approved logos or chapter figures before final submission. Review page numbering and table of contents fields inside Word after opening the generated document.</p>
+
+  <h1 class="chapter-title">Appendix D<br>Core Algorithm Descriptions</h1>
+  <p>This appendix summarizes the logical flow of the most important software algorithms used in the project in plain engineering language.</p>
+  <h4>D.1 Symbol Resolution Algorithm</h4>
+  <p>Accept raw user ticker input, normalize case and suffix style, attempt direct provider-symbol match, attempt exchange-suffixed match, then fall back to exchange-specific ticker lookup. If a valid symbol record is found, use it as the canonical runtime identity for subsequent processing.</p>
+  <h4>D.2 News Refresh Algorithm</h4>
+  <p>Fetch recent articles from the configured news provider, normalize each article to the common project schema, compute a dedupe hash, remove duplicates by recency order, and then pass each surviving article into the article-analysis stage. Reuse cached analysis if already stored.</p>
+  <h4>D.3 Composite Signal Algorithm</h4>
+  <p>For each analyzed article, compute a recency-weighted contribution using article confidence and impact strength. Normalize total news contribution, blend it with a market component, apply liquidity and freshness penalties where appropriate, cap the final result to a bounded range, and then derive a label and operating mode.</p>
+  <h4>D.4 Event Alignment Algorithm</h4>
+  <p>For each article timestamp, find the nearest valid market entry price at or before publication time, then find a future price at the desired return window. Compute the forward return using the entry and future close values. Aggregate these event-level results by day to obtain mean sentiment and mean forward return summaries.</p>
+  <h4>D.5 Dashboard State Construction Algorithm</h4>
+  <p>Load persisted datasets for the selected ticker and comparison symbols, filter them to the active horizon or date window, derive event and summary frames, assemble metric cards, chart inputs, and explanation lines, and return one structured state object that each dashboard page can consume.</p>
+
+  <h1 class="chapter-title">Appendix E<br>User Workflow and Finalization Checklist</h1>
+  <p>This appendix is intended to help with final submission and demonstration.</p>
+  <ol class="reference-list">
+    <li>Open the generated report in Microsoft Word and replace all placeholder student details, roll numbers, and guide name.</li>
+    <li>Insert institute-approved logos on the title page if required.</li>
+    <li>Insert actual architecture, class, ER, dataset, and UML diagrams in the figure placeholders of Chapter 3 and Chapter 4.</li>
+    <li>Update the table of contents, list of figures, and list of tables after final edits.</li>
+    <li>Check page numbering rules required by the department: no page numbers on initial pages, Roman numerals for front matter if needed, and regular numbering for the main body.</li>
+    <li>Verify margins, font, and spacing after Word opens the generated document. The draft was prepared for A4, Times New Roman, 12 pt, and 1.5 line spacing.</li>
+    <li>Add final dashboard screenshots from your latest working version so the report clearly reflects your implementation.</li>
+    <li>Review the references section and update any guide-preferred citation formatting if required by your department.</li>
+    <li>Proofread tense consistency, figure numbering, and table captions before PDF submission.</li>
+  </ol>
+
+</body>
+</html>

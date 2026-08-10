@@ -1,0 +1,7 @@
+-r requirements-dev.txt
+
+# FinBERT / transformer research path. These are intentionally kept out of
+# the default runtime install because they are large and not active in the
+# current dashboard pipeline.
+torch==2.6.0
+transformers==4.49.0

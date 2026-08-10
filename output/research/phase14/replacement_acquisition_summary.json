@@ -1,0 +1,22 @@
+{
+  "checksum_sha256": "063cbfdb230b00a677bc05f229b42cfeb746b26594ac0f01bb730afd671f8c75",
+  "per_symbol_counts": {
+    "AAPL": 30,
+    "AMZN": 0,
+    "GOOGL": 0,
+    "NVDA": 0,
+    "TSLA": 0
+  },
+  "quota_satisfied": false,
+  "requested_symbols": [
+    "AAPL",
+    "AMZN",
+    "GOOGL",
+    "NVDA",
+    "TSLA"
+  ],
+  "scan_limit_reached": true,
+  "scanned_rows": 30001,
+  "subset_path": "data\\research_sources\\fnspid\\subsets\\phase14_final_holdout_v2.csv",
+  "written_rows": 30
+}

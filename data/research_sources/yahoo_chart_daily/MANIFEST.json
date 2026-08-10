@@ -1,0 +1,104 @@
+[
+  {
+    "acquired_at": "2026-08-09T23:52:00.138317",
+    "adapter_version": "yahoo_chart_daily_price_adapter_v1",
+    "dry_run": false,
+    "failures": {},
+    "filters": {
+      "end_date": "2020-06-15T23:59:59",
+      "frequency": "1d",
+      "start_date": "2020-05-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN",
+        "GOOGL",
+        "NVDA",
+        "TSLA"
+      ]
+    },
+    "local_relative_path": "data/research_sources/yahoo_chart_daily/prices/phase12_locked_multisymbol_v1",
+    "price_basis": "Unadjusted OHLC quote.close imported; adjclose retained in CSV for audit only.",
+    "record_count": 175,
+    "source_identifier": "Yahoo Finance chart API",
+    "source_name": "yahoo_chart_daily",
+    "written_files": [
+      "data/research_sources/yahoo_chart_daily/prices/phase12_locked_multisymbol_v1/AAPL.csv",
+      "data/research_sources/yahoo_chart_daily/prices/phase12_locked_multisymbol_v1/AMZN.csv",
+      "data/research_sources/yahoo_chart_daily/prices/phase12_locked_multisymbol_v1/GOOGL.csv",
+      "data/research_sources/yahoo_chart_daily/prices/phase12_locked_multisymbol_v1/NVDA.csv",
+      "data/research_sources/yahoo_chart_daily/prices/phase12_locked_multisymbol_v1/TSLA.csv"
+    ]
+  },
+  {
+    "acquired_at": "2026-08-10T00:40:11.106026",
+    "adapter_version": "yahoo_chart_daily_price_adapter_v1",
+    "dry_run": false,
+    "failures": {},
+    "filters": {
+      "end_date": "2023-12-13T23:59:59",
+      "frequency": "1d",
+      "start_date": "2023-11-01T00:00:00",
+      "symbols": [
+        "AAPL"
+      ]
+    },
+    "local_relative_path": "data/research_sources/yahoo_chart_daily/prices/phase13_final_holdout_v1",
+    "price_basis": "Unadjusted OHLC quote.close imported; adjclose retained in CSV for audit only.",
+    "record_count": 33,
+    "source_identifier": "Yahoo Finance chart API",
+    "source_name": "yahoo_chart_daily",
+    "written_files": [
+      "data/research_sources/yahoo_chart_daily/prices/phase13_final_holdout_v1/AAPL.csv"
+    ]
+  },
+  {
+    "acquired_at": "2026-08-10T19:13:01.455672",
+    "adapter_version": "yahoo_chart_daily_price_adapter_v1",
+    "dry_run": false,
+    "failures": {},
+    "filters": {
+      "end_date": "2023-12-31T23:59:59",
+      "frequency": "1d",
+      "start_date": "2023-01-01T00:00:00",
+      "symbols": [
+        "AAPL"
+      ]
+    },
+    "local_relative_path": "data/research_sources/yahoo_chart_daily/prices/phase14_final_holdout_v2",
+    "price_basis": "Unadjusted OHLC quote.close imported; adjclose retained in CSV for audit only.",
+    "record_count": 254,
+    "source_identifier": "Yahoo Finance chart API",
+    "source_name": "yahoo_chart_daily",
+    "written_files": [
+      "data/research_sources/yahoo_chart_daily/prices/phase14_final_holdout_v2/AAPL.csv"
+    ]
+  },
+  {
+    "acquired_at": "2026-08-10T19:55:26.612880",
+    "adapter_version": "yahoo_chart_daily_price_adapter_v1",
+    "dry_run": false,
+    "failures": {},
+    "filters": {
+      "end_date": "2023-04-10T23:59:59",
+      "frequency": "1d",
+      "start_date": "2022-12-02T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN",
+        "NVDA",
+        "TSLA"
+      ]
+    },
+    "local_relative_path": "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3",
+    "price_basis": "Unadjusted OHLC quote.close imported; adjclose retained in CSV for audit only.",
+    "record_count": 364,
+    "source_identifier": "Yahoo Finance chart API",
+    "source_name": "yahoo_chart_daily",
+    "written_files": [
+      "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3/AAPL.csv",
+      "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3/AMZN.csv",
+      "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3/NVDA.csv",
+      "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3/TSLA.csv"
+    ]
+  }
+]

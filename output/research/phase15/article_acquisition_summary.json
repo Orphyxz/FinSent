@@ -1,0 +1,45 @@
+{
+  "acquired_counts": {
+    "AAPL": 40,
+    "AMZN": 40,
+    "NVDA": 40,
+    "TSLA": 40
+  },
+  "checksum_sha256": "54cfd1013ab4c4fba9db0e29ac2e235116dd1156a2873476c20ce9fd67554314",
+  "duplicate_rows": 0,
+  "requested_symbols": [
+    "AAPL",
+    "AMZN",
+    "GOOGL",
+    "NVDA",
+    "TSLA"
+  ],
+  "selected_window": {
+    "adequate": true,
+    "algorithm": "Earliest 90-day future window with >=3 supported symbols, >=20 candidate articles per represented symbol, and >=90 total candidate articles; tie-break by represented symbol count then balance.",
+    "blockers": [],
+    "candidate_counts": {
+      "AAPL": 1250,
+      "AMZN": 318,
+      "NVDA": 662,
+      "TSLA": 1280
+    },
+    "end_date": "2023-03-31T23:59:59",
+    "represented_symbols": [
+      "AAPL",
+      "AMZN",
+      "NVDA",
+      "TSLA"
+    ],
+    "start_date": "2023-01-01T00:00:00"
+  },
+  "source_bytes_requested": 320000000,
+  "source_candidate_counts": {
+    "AAPL": 5753,
+    "AMZN": 3757,
+    "NVDA": 2668,
+    "TSLA": 4271
+  },
+  "subset_path": "data\\research_sources\\fnspid\\subsets\\phase15_final_holdout_v3.csv",
+  "written_rows": 160
+}

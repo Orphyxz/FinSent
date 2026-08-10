@@ -1,0 +1,10 @@
+{
+  "checksum_sha256": "bb1e277a4167fb85472d93ebbae58a1727e5b32f518aa0a8cbc988a3a4e3ae2c",
+  "matched_rows": 30,
+  "requested_symbols": [
+    "AAPL"
+  ],
+  "scan_limit_reached": false,
+  "scanned_rows": 12110,
+  "subset_path": "data\\research_sources\\fnspid\\subsets\\phase13_final_holdout_v1.csv"
+}

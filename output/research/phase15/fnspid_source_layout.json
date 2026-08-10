@@ -1,0 +1,15 @@
+{
+  "alternative_formats": "Hugging Face API exposes All_external.csv and nasdaq_exteral_data.csv only; no Parquet files reported.",
+  "full_source_downloaded": false,
+  "organization": "Rows are clustered/sorted by Stock_symbol alphabetically; dates within symbol are generally reverse chronological or mixed by source region.",
+  "sampled_regions": {
+    "0": "A",
+    "11_350_000_000": "NVDA region",
+    "15_050_000_000": "TSLA region",
+    "1_450_000_000": "AMZN region",
+    "80_000_000": "AAP/AAPL region",
+    "8_200_000_000": "GOOG region; GOOGL not observed as supported source symbol"
+  },
+  "size_bytes": 23232979597,
+  "source_file": "Stock_news/nasdaq_exteral_data.csv"
+}

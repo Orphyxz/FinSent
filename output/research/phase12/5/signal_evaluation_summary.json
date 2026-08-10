@@ -1,0 +1,299 @@
+{
+  "cohort_fingerprint": "b6299de35bd8bbd6ab88b2d071329e1dba227f356f07597c9081489fbe217db2",
+  "component_analysis": {
+    "news": {
+      "mean": 0.2908622292952914,
+      "n": 183
+    },
+    "price_momentum": {
+      "mean": 0.3515902587384337,
+      "n": 183
+    },
+    "volume_confirmation": {
+      "mean": 0.0839585299259459,
+      "n": 183
+    }
+  },
+  "conditional_returns": [
+    {
+      "direction": "BULLISH",
+      "engine": "v1",
+      "horizon": "1D",
+      "mean_abs_return": 0.02378202780965681,
+      "mean_return": -0.006835944744622238,
+      "median_return": -0.0014362995405968748,
+      "n": 80
+    },
+    {
+      "direction": "BEARISH",
+      "engine": "v1",
+      "horizon": "1D",
+      "mean_abs_return": 0.007908951092308518,
+      "mean_return": 0.007908951092308518,
+      "median_return": 0.004629455355348977,
+      "n": 25
+    },
+    {
+      "direction": "BULLISH",
+      "engine": "v2",
+      "horizon": "1D",
+      "mean_abs_return": 0.02348679790130078,
+      "mean_return": -0.014441694994845202,
+      "median_return": -0.018416628784101885,
+      "n": 71
+    },
+    {
+      "direction": "BEARISH",
+      "engine": "v2",
+      "horizon": "1D",
+      "mean_abs_return": 0.008979388902418051,
+      "mean_return": 0.008979388902418051,
+      "median_return": 0.005569380697793891,
+      "n": 10
+    }
+  ],
+  "config": {
+    "cohort": {
+      "dataset_id": "phase12_locked_multisymbol_v1",
+      "end_date": "2020-06-15T23:59:59",
+      "holdout_start": "2020-06-05T00:00:00",
+      "horizons": [
+        "1d"
+      ],
+      "limit": 200,
+      "markets": [
+        "US"
+      ],
+      "minimum_data_quality_label": null,
+      "seed": 42,
+      "start_date": "2020-05-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN",
+        "GOOGL",
+        "NVDA",
+        "TSLA"
+      ]
+    },
+    "cohort_fingerprint": "b6299de35bd8bbd6ab88b2d071329e1dba227f356f07597c9081489fbe217db2",
+    "engines": [
+      "v1",
+      "v2"
+    ],
+    "evaluation_version": "historical_signal_evaluation_v1",
+    "event_study_engine_version": "2.0",
+    "experiment_name": "Phase 12 locked multi-symbol FinBERT baseline",
+    "horizons": [
+      "1d"
+    ],
+    "news_lookback_hours": 72,
+    "realized_return_threshold": 0.001,
+    "sentiment_source": "FINBERT_LOCKED_COHORT",
+    "signal_v1_version": "1.0",
+    "signal_v2_version": "2.0"
+  },
+  "coverage": {
+    "articles": 183,
+    "horizons": {
+      "1D": {
+        "eligible": 159,
+        "no_coverage": 0,
+        "unsupported_granularity": 0
+      }
+    },
+    "with_historical_bars": 183,
+    "with_instrument": 183
+  },
+  "data_quality_segmentation": [
+    {
+      "data_quality": "UNASSESSED",
+      "horizon": "1D",
+      "metrics": {
+        "balanced_accuracy": 0.25925925925925924,
+        "correct": 73,
+        "directional_accuracy": 0.26143790849673204,
+        "directional_correct": 40,
+        "directional_eligible": 153,
+        "f1": {
+          "BEARISH": null,
+          "BULLISH": 0.2711864406779661,
+          "NEUTRAL": 0.3333333333333333
+        },
+        "incorrect": 245,
+        "neutral_outcome_count": 66,
+        "neutral_prediction_count": 132,
+        "precision": {
+          "BEARISH": 0.0,
+          "BULLISH": 0.26490066225165565,
+          "NEUTRAL": 0.25
+        },
+        "recall": {
+          "BEARISH": 0.0,
+          "BULLISH": 0.2777777777777778,
+          "NEUTRAL": 0.5
+        },
+        "strict_accuracy": 0.22955974842767296,
+        "total": 318,
+        "wilson_interval": [
+          0.18672805968935435,
+          0.27884755266156613
+        ]
+      },
+      "n": 318
+    }
+  ],
+  "disagreement": [
+    {
+      "both_wrong": 15,
+      "horizon": "1D",
+      "n": 30,
+      "realized_neutral": 9,
+      "v1_correct": 6,
+      "v2_correct": 9
+    }
+  ],
+  "experiment_id": 5,
+  "metrics_by_engine_horizon": [
+    {
+      "balanced_accuracy": 0.2276936026936027,
+      "correct": 35,
+      "directional_accuracy": 0.27380952380952384,
+      "directional_correct": 23,
+      "directional_eligible": 84,
+      "engine": "v1",
+      "f1": {
+        "BEARISH": null,
+        "BULLISH": 0.30263157894736836,
+        "NEUTRAL": 0.27586206896551724
+      },
+      "horizon": "1D",
+      "incorrect": 124,
+      "neutral_outcome_count": 33,
+      "neutral_prediction_count": 54,
+      "precision": {
+        "BEARISH": 0.0,
+        "BULLISH": 0.2875,
+        "NEUTRAL": 0.2222222222222222
+      },
+      "recall": {
+        "BEARISH": 0.0,
+        "BULLISH": 0.3194444444444444,
+        "NEUTRAL": 0.36363636363636365
+      },
+      "strict_accuracy": 0.22012578616352202,
+      "total": 159,
+      "wilson_interval": [
+        0.16274804066231596,
+        0.29070856993350236
+      ]
+    },
+    {
+      "balanced_accuracy": 0.2908249158249158,
+      "correct": 38,
+      "directional_accuracy": 0.2463768115942029,
+      "directional_correct": 17,
+      "directional_eligible": 69,
+      "engine": "v2",
+      "f1": {
+        "BEARISH": null,
+        "BULLISH": 0.23776223776223776,
+        "NEUTRAL": 0.37837837837837834
+      },
+      "horizon": "1D",
+      "incorrect": 121,
+      "neutral_outcome_count": 33,
+      "neutral_prediction_count": 78,
+      "precision": {
+        "BEARISH": 0.0,
+        "BULLISH": 0.23943661971830985,
+        "NEUTRAL": 0.2692307692307692
+      },
+      "recall": {
+        "BEARISH": 0.0,
+        "BULLISH": 0.2361111111111111,
+        "NEUTRAL": 0.6363636363636364
+      },
+      "strict_accuracy": 0.2389937106918239,
+      "total": 159,
+      "wilson_interval": [
+        0.17935941502124525,
+        0.31094281733215834
+      ]
+    }
+  ],
+  "mode_segmentation": [
+    {
+      "horizon": "1D",
+      "metrics": {
+        "balanced_accuracy": 0.2908249158249158,
+        "correct": 38,
+        "directional_accuracy": 0.2463768115942029,
+        "directional_correct": 17,
+        "directional_eligible": 69,
+        "f1": {
+          "BEARISH": null,
+          "BULLISH": 0.23776223776223776,
+          "NEUTRAL": 0.37837837837837834
+        },
+        "incorrect": 121,
+        "neutral_outcome_count": 33,
+        "neutral_prediction_count": 78,
+        "precision": {
+          "BEARISH": 0.0,
+          "BULLISH": 0.23943661971830985,
+          "NEUTRAL": 0.2692307692307692
+        },
+        "recall": {
+          "BEARISH": 0.0,
+          "BULLISH": 0.2361111111111111,
+          "NEUTRAL": 0.6363636363636364
+        },
+        "strict_accuracy": 0.2389937106918239,
+        "total": 159,
+        "wilson_interval": [
+          0.17935941502124525,
+          0.31094281733215834
+        ]
+      },
+      "mode": "NEWS_PLUS_MARKET",
+      "n": 159
+    },
+    {
+      "horizon": "1D",
+      "metrics": {
+        "balanced_accuracy": 0.2276936026936027,
+        "correct": 35,
+        "directional_accuracy": 0.27380952380952384,
+        "directional_correct": 23,
+        "directional_eligible": 84,
+        "f1": {
+          "BEARISH": null,
+          "BULLISH": 0.30263157894736836,
+          "NEUTRAL": 0.27586206896551724
+        },
+        "incorrect": 124,
+        "neutral_outcome_count": 33,
+        "neutral_prediction_count": 54,
+        "precision": {
+          "BEARISH": 0.0,
+          "BULLISH": 0.2875,
+          "NEUTRAL": 0.2222222222222222
+        },
+        "recall": {
+          "BEARISH": 0.0,
+          "BULLISH": 0.3194444444444444,
+          "NEUTRAL": 0.36363636363636365
+        },
+        "strict_accuracy": 0.22012578616352202,
+        "total": 159,
+        "wilson_interval": [
+          0.16274804066231596,
+          0.29070856993350236
+        ]
+      },
+      "mode": "News-only signal",
+      "n": 159
+    }
+  ],
+  "rows": []
+}

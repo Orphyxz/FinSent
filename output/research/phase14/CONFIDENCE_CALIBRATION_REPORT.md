@@ -1,0 +1,950 @@
+# Signal V2 Confidence Calibration
+
+## Confidence Semantics
+Raw confidence remains an engineering reliability score. Calibrated reliability, if justified, estimates empirical signal correctness on development data; it is not probability of price increase or profit.
+
+## Development Cohort
+N = 118 Phase 12 DEVELOPMENT observations.
+
+## Temporal Folds
+[
+  {
+    "fold_id": "fold_1",
+    "train_article_ids": [
+      123,
+      124,
+      125,
+      126,
+      155,
+      156,
+      51,
+      130,
+      131,
+      178,
+      179,
+      180,
+      181,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      91,
+      92,
+      93,
+      132,
+      133,
+      182
+    ],
+    "train_end_index": 29,
+    "train_start_index": 0,
+    "validation_article_ids": [
+      183,
+      62,
+      63,
+      64,
+      65,
+      94,
+      95,
+      96,
+      97,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      184,
+      195,
+      196,
+      197,
+      198,
+      66,
+      98,
+      99,
+      100,
+      101,
+      140,
+      141,
+      142,
+      143,
+      144
+    ],
+    "validation_end": "2020-05-29 00:00:00",
+    "validation_end_index": 59,
+    "validation_start": "2020-05-27 00:00:00",
+    "validation_start_index": 29
+  },
+  {
+    "fold_id": "fold_2",
+    "train_article_ids": [
+      123,
+      124,
+      125,
+      126,
+      155,
+      156,
+      51,
+      130,
+      131,
+      178,
+      179,
+      180,
+      181,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      91,
+      92,
+      93,
+      132,
+      133,
+      182,
+      183,
+      62,
+      63,
+      64,
+      65,
+      94,
+      95,
+      96,
+      97,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      184,
+      195,
+      196,
+      197,
+      198,
+      66,
+      98,
+      99,
+      100,
+      101,
+      140,
+      141,
+      142,
+      143,
+      144
+    ],
+    "train_end_index": 59,
+    "train_start_index": 0,
+    "validation_article_ids": [
+      199,
+      200,
+      201,
+      202,
+      102,
+      203,
+      204,
+      67,
+      68,
+      103,
+      104,
+      205,
+      185,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      145
+    ],
+    "validation_end": "2020-06-01 00:00:00",
+    "validation_end_index": 88,
+    "validation_start": "2020-05-29 00:00:00",
+    "validation_start_index": 59
+  },
+  {
+    "fold_id": "fold_3",
+    "train_article_ids": [
+      123,
+      124,
+      125,
+      126,
+      155,
+      156,
+      51,
+      130,
+      131,
+      178,
+      179,
+      180,
+      181,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      91,
+      92,
+      93,
+      132,
+      133,
+      182,
+      183,
+      62,
+      63,
+      64,
+      65,
+      94,
+      95,
+      96,
+      97,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      184,
+      195,
+      196,
+      197,
+      198,
+      66,
+      98,
+      99,
+      100,
+      101,
+      140,
+      141,
+      142,
+      143,
+      144,
+      199,
+      200,
+      201,
+      202,
+      102,
+      203,
+      204,
+      67,
+      68,
+      103,
+      104,
+      205,
+      185,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      145
+    ],
+    "train_end_index": 88,
+    "train_start_index": 0,
+    "validation_article_ids": [
+      206,
+      207,
+      208,
+      209,
+      210,
+      211,
+      212,
+      213,
+      214,
+      215,
+      216,
+      217,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      114,
+      115,
+      218,
+      219,
+      220,
+      221,
+      222,
+      223,
+      186,
+      187,
+      146,
+      147
+    ],
+    "validation_end": "2020-06-04 09:08:37",
+    "validation_end_index": 118,
+    "validation_start": "2020-06-01 00:00:00",
+    "validation_start_index": 88
+  }
+]
+
+## Raw Calibration
+{
+  "brier": 0.2759385961520829,
+  "ece": 0.27353004672663445,
+  "mce": 0.35267262878536065,
+  "n": 118,
+  "reliability_bins": [
+    {
+      "calibration_gap": null,
+      "empirical_correctness": null,
+      "lower": 0.0,
+      "mean_confidence": null,
+      "n": 0,
+      "upper": 0.2
+    },
+    {
+      "calibration_gap": 0.160510927301885,
+      "empirical_correctness": 0.5,
+      "lower": 0.2,
+      "mean_confidence": 0.339489072698115,
+      "n": 4,
+      "upper": 0.4
+    },
+    {
+      "calibration_gap": 0.22846715230716086,
+      "empirical_correctness": 0.2753623188405797,
+      "lower": 0.4,
+      "mean_confidence": 0.5038294711477406,
+      "n": 69,
+      "upper": 0.6
+    },
+    {
+      "calibration_gap": 0.35267262878536065,
+      "empirical_correctness": 0.28888888888888886,
+      "lower": 0.6,
+      "mean_confidence": 0.6415615176742495,
+      "n": 45,
+      "upper": 0.8
+    },
+    {
+      "calibration_gap": null,
+      "empirical_correctness": null,
+      "lower": 0.8,
+      "mean_confidence": null,
+      "n": 0,
+      "upper": 1.0
+    }
+  ]
+}
+
+## Candidate Methods
+identity, monotonic_binned_laplace, platt_logistic_l2
+
+## Brier Score
+{
+  "identity": 0.2385347853983167,
+  "monotonic_binned_laplace": 0.27933884297520656,
+  "platt_logistic_l2": 0.2851428477812335
+}
+
+## ECE
+{
+  "identity": 0.1666928405587468,
+  "monotonic_binned_laplace": 0.3454545454545454,
+  "platt_logistic_l2": 0.19420396506563592
+}
+
+## MCE
+{
+  "identity": 0.5021258513683071,
+  "monotonic_binned_laplace": 0.3454545454545454,
+  "platt_logistic_l2": 0.19420396506563592
+}
+
+## Selected Method
+{
+  "created_at": "2026-08-10T19:13:24.209005",
+  "method": "identity",
+  "metrics": [
+    {
+      "fold_metrics": [
+        {
+          "brier": 0.22393524794538153,
+          "ece": 0.1666928405587468,
+          "fold_id": "fold_1",
+          "mce": 0.3720579756206801,
+          "n": 30,
+          "reliability_bins": [
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.0,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.2,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": 0.13509820439537246,
+              "empirical_correctness": 0.34615384615384615,
+              "lower": 0.4,
+              "mean_confidence": 0.4812520505492186,
+              "n": 26,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": 0.3720579756206801,
+              "empirical_correctness": 1.0,
+              "lower": 0.6,
+              "mean_confidence": 0.6279420243793199,
+              "n": 4,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        },
+        {
+          "brier": 0.2385347853983167,
+          "ece": 0.15170085566600272,
+          "fold_id": "fold_2",
+          "mce": 0.6701688677777398,
+          "n": 29,
+          "reliability_bins": [
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.0,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": 0.6701688677777398,
+              "empirical_correctness": 1.0,
+              "lower": 0.2,
+              "mean_confidence": 0.3298311322222602,
+              "n": 2,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": 0.11061498337573594,
+              "empirical_correctness": 0.4,
+              "lower": 0.4,
+              "mean_confidence": 0.510614983375736,
+              "n": 25,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": 0.1468062471826005,
+              "empirical_correctness": 0.5,
+              "lower": 0.6,
+              "mean_confidence": 0.6468062471826005,
+              "n": 2,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        },
+        {
+          "brier": 0.2813241226760546,
+          "ece": 0.3799037728453578,
+          "fold_id": "fold_3",
+          "mce": 0.5021258513683071,
+          "n": 30,
+          "reliability_bins": [
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.0,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": 0.34914701317396984,
+              "empirical_correctness": 0.0,
+              "lower": 0.2,
+              "mean_confidence": 0.34914701317396984,
+              "n": 2,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": 0.5021258513683071,
+              "empirical_correctness": 0.0,
+              "lower": 0.4,
+              "mean_confidence": 0.5021258513683071,
+              "n": 10,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": 0.3154200358516513,
+              "empirical_correctness": 0.3333333333333333,
+              "lower": 0.6,
+              "mean_confidence": 0.6487533691849846,
+              "n": 18,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        }
+      ],
+      "justified": false,
+      "mean_brier": 0.24793138533991763,
+      "median_brier": 0.2385347853983167,
+      "median_ece": 0.1666928405587468,
+      "median_mce": 0.5021258513683071,
+      "method": "identity",
+      "parameters": {
+        "mapping": "raw_confidence"
+      },
+      "selected": true
+    },
+    {
+      "fold_metrics": [
+        {
+          "brier": 0.3568227665477606,
+          "ece": 0.35222988505747127,
+          "fold_id": "fold_1",
+          "mce": 0.35222988505747127,
+          "n": 30,
+          "reliability_bins": [
+            {
+              "calibration_gap": 0.35222988505747127,
+              "empirical_correctness": 0.43333333333333335,
+              "lower": 0.0,
+              "mean_confidence": 0.08110344827586208,
+              "n": 30,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.2,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.4,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.6,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        },
+        {
+          "brier": 0.27608166779808097,
+          "ece": 0.16123227413946906,
+          "fold_id": "fold_2",
+          "mce": 0.16123227413946906,
+          "n": 29,
+          "reliability_bins": [
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.0,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": 0.16123227413946906,
+              "empirical_correctness": 0.4482758620689655,
+              "lower": 0.2,
+              "mean_confidence": 0.28704358792949647,
+              "n": 29,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.4,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.6,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        },
+        {
+          "brier": 0.27933884297520656,
+          "ece": 0.3454545454545454,
+          "fold_id": "fold_3",
+          "mce": 0.3454545454545454,
+          "n": 30,
+          "reliability_bins": [
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.0,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.2,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": 0.3454545454545454,
+              "empirical_correctness": 0.2,
+              "lower": 0.4,
+              "mean_confidence": 0.5454545454545454,
+              "n": 30,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.6,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        }
+      ],
+      "justified": false,
+      "mean_brier": 0.30408109244034937,
+      "median_brier": 0.27933884297520656,
+      "median_ece": 0.3454545454545454,
+      "median_mce": 0.3454545454545454,
+      "method": "monotonic_binned_laplace",
+      "parameters": {
+        "bins": [
+          0.0,
+          0.2,
+          0.4,
+          0.6,
+          0.8,
+          1.0
+        ],
+        "mapping": [
+          [
+            0.0,
+            0.2,
+            0.3181818181818182
+          ],
+          [
+            0.2,
+            0.4,
+            0.5454545454545454
+          ],
+          [
+            0.4,
+            0.6,
+            0.5454545454545454
+          ],
+          [
+            0.6,
+            0.8,
+            0.5454545454545454
+          ],
+          [
+            0.8,
+            1.0,
+            0.5454545454545454
+          ]
+        ],
+        "min_bin_n": 10,
+        "prior": 0.5,
+        "prior_strength": 4.0
+      },
+      "selected": false
+    },
+    {
+      "fold_metrics": [
+        {
+          "brier": 0.37809937770222124,
+          "ece": 0.3641507868747109,
+          "fold_id": "fold_1",
+          "mce": 0.3641507868747109,
+          "n": 30,
+          "reliability_bins": [
+            {
+              "calibration_gap": 0.3641507868747109,
+              "empirical_correctness": 0.43333333333333335,
+              "lower": 0.0,
+              "mean_confidence": 0.0691825464586224,
+              "n": 30,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.2,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.4,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.6,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        },
+        {
+          "brier": 0.2851428477812335,
+          "ece": 0.19420396506563592,
+          "fold_id": "fold_2",
+          "mce": 0.19420396506563592,
+          "n": 29,
+          "reliability_bins": [
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.0,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": 0.19420396506563592,
+              "empirical_correctness": 0.4482758620689655,
+              "lower": 0.2,
+              "mean_confidence": 0.2540718970033296,
+              "n": 29,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.4,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.6,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        },
+        {
+          "brier": 0.1739653091139521,
+          "ece": 0.11820814862292972,
+          "fold_id": "fold_3",
+          "mce": 0.11820814862292972,
+          "n": 30,
+          "reliability_bins": [
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.0,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.2
+            },
+            {
+              "calibration_gap": 0.11820814862292972,
+              "empirical_correctness": 0.2,
+              "lower": 0.2,
+              "mean_confidence": 0.31820814862292973,
+              "n": 30,
+              "upper": 0.4
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.4,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.6
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.6,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 0.8
+            },
+            {
+              "calibration_gap": null,
+              "empirical_correctness": null,
+              "lower": 0.8,
+              "mean_confidence": null,
+              "n": 0,
+              "upper": 1.0
+            }
+          ]
+        }
+      ],
+      "justified": false,
+      "mean_brier": 0.2790691781991356,
+      "median_brier": 0.2851428477812335,
+      "median_ece": 0.19420396506563592,
+      "median_mce": 0.19420396506563592,
+      "method": "platt_logistic_l2",
+      "parameters": {
+        "a": 0.001097318937691991,
+        "b": -0.7626550255118528,
+        "fallback_rate": 0.3181818181818182,
+        "iterations": 600,
+        "l2": 1.0,
+        "learning_rate": 0.05
+      },
+      "selected": false
+    }
+  ],
+  "parameters": {
+    "mapping": "raw_confidence"
+  },
+  "parent_engine_name": "finsent_composite",
+  "parent_engine_version": "2.0",
+  "status": "NO_CALIBRATION_JUSTIFIED_IDENTITY_SELECTED",
+  "target": "strict empirical signal correctness on Phase 12 DEVELOPMENT rows",
+  "training_cohort_fingerprint": "df69a23963287330da8ab8a904bfd659a2cea41a38c320ead6db63e7977bed6d",
+  "version": "signal_confidence_calibration_v1"
+}
+
+## Calibration Mapping
+{
+  "mapping": "raw_confidence"
+}
+
+## Limitations
+N=118 is small. Calibration is not a true market probability and does not change direction scores or labels.
+
+## Observed Validation if used
+Skipped in Phase 14.
+
+## Final Holdout Status
+{
+  "status": "not_attempted"
+}
+
+## What Cannot Yet Be Claimed
+Do not claim production calibration, profitability, or final generalization before Phase 15.

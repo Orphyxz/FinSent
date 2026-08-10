@@ -1,0 +1,731 @@
+from __future__ import annotations
+
+import dash
+import dash_bootstrap_components as dbc
+import pandas as pd
+from dash import Input, Output, State, ctx, html, no_update
+from dash.exceptions import PreventUpdate
+
+from finsent.app.dashboard.components import build_empty_state, build_nav_links
+from finsent.app.dashboard.layout import build_app_layout
+from finsent.app.dashboard.pages import alerts, compare, news_impact, research, stock_detail, summary
+from finsent.app.dashboard.view_model import (
+    buy_sell_ratio_series,
+    build_ai_explanation,
+    build_alert_panel,
+    build_alerts,
+    build_compare_chart,
+    build_dashboard_state,
+    build_empty_figure,
+    build_focus_status_banner,
+    build_impact_scatter,
+    build_metric_grid,
+    build_news_table,
+    build_overlay_chart,
+    build_recent_price_histogram,
+    build_price_timeline,
+    build_buy_readout,
+    build_sector_heatmap,
+    build_sentiment_timeline_with_title,
+    build_summary_list,
+    confidence_series,
+    ensure_live_data,
+    get_default_ticker_for_exchange,
+    get_exchange_for_ticker,
+    get_company_name,
+    get_assets_folder,
+    latest_recent_close,
+    get_price_status_note,
+    get_ticker_options,
+    label_for_signal,
+    spread_pct_series,
+    volume_ratio_series,
+)
+
+
+def _selection(data: dict | None) -> dict:
+    base = {
+        "focus_ticker": "AAPL",
+        "exchange_filter": "US",
+        "compare_tickers": [],
+        "horizon": "medium",
+        "date_window": "30d",
+        "alert_threshold": 40,
+        "analysis_ready": True,
+    }
+    if data:
+        base.update(data)
+    return base
+
+
+def _resolve_date_window(selection: dict) -> tuple[str | None, str | None]:
+    today = pd.Timestamp.now().normalize()
+    date_window = selection.get("date_window", "30d")
+    if date_window == "7d":
+        return (today - pd.Timedelta(days=7)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
+    if date_window == "30d":
+        return (today - pd.Timedelta(days=30)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
+    if date_window == "90d":
+        return (today - pd.Timedelta(days=90)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
+    return None, None
+
+
+def _format_price(value: float | None, currency: str | None) -> str:
+    if value is None or not pd.notna(value):
+        return "n/a"
+    symbol = "$" if (currency or "").upper() == "USD" else "Rs " if (currency or "").upper() == "INR" else ""
+    return f"{symbol}{float(value):.2f}"
+
+
+def create_app(default_ticker: str = "AAPL") -> dash.Dash:
+    app = dash.Dash(
+        __name__,
+        external_stylesheets=[dbc.themes.BOOTSTRAP],
+        assets_folder=get_assets_folder(),
+        suppress_callback_exceptions=True,
+    )
+    app.layout = build_app_layout(default_ticker)
+
+    @app.callback(
+        Output("page-container", "children"),
+        Input("url", "pathname"),
+        Input("selection-store", "data"),
+    )
+    def render_page(pathname: str | None, selection_data: dict | None):
+        selection = _selection(selection_data)
+        routes = {
+            "/": summary.layout,
+            "/summary": summary.layout,
+            "/stock-detail": stock_detail.layout,
+            "/news-impact": news_impact.layout,
+            "/compare": compare.layout,
+            "/research": research.layout,
+            "/alerts": alerts.layout,
+        }
+        current_path = pathname or "/"
+        if not selection["analysis_ready"] and current_path != "/research":
+            return build_empty_state(
+                "Select a symbol",
+                "Choose a supported ticker from the top bar to populate the research workspace.",
+            )
+        return routes.get(current_path, summary.layout)()
+
+    @app.callback(
+        Output("live-refresh-store", "data"),
+        Input("live-refresh-interval", "n_intervals"),
+        State("selection-store", "data"),
+        prevent_initial_call=True,
+    )
+    def refresh_live_workspace(_: int | None, selection_data: dict | None):
+        selection = _selection(selection_data)
+        if not selection["analysis_ready"] or not selection["focus_ticker"]:
+            raise PreventUpdate
+        ensure_live_data([selection["focus_ticker"], *selection["compare_tickers"]])
+        return {"refreshed_at": pd.Timestamp.utcnow().isoformat()}
+
+    @app.callback(
+        Output("top-controls-container", "style"),
+        Output("landing-controls-container", "style"),
+        Output("horizon-toolbar-control", "style"),
+        Output("date-toolbar-control", "style"),
+        Output("compare-toolbar-control", "style"),
+        Output("alert-toolbar-control", "style"),
+        Input("url", "pathname"),
+        Input("selection-store", "data"),
+    )
+    def toggle_top_controls(pathname: str | None, selection_data: dict | None):
+        selection = _selection(selection_data)
+        current_path = pathname or "/"
+        if not selection["analysis_ready"]:
+            return {"display": "block"}, {"display": "none"}, {"display": "none"}, {"display": "none"}, {"display": "none"}, {"display": "none"}
+
+        horizon_style = {"display": "block"} if current_path in {"/", "/summary", "/stock-detail", "/compare", "/alerts"} else {"display": "none"}
+        date_style = {"display": "block"} if current_path in {"/", "/summary", "/news-impact"} else {"display": "none"}
+        compare_style = {"display": "block"} if current_path in {"/", "/summary", "/stock-detail", "/news-impact", "/compare", "/alerts"} else {"display": "none"}
+        alert_style = {"display": "block"} if current_path == "/alerts" else {"display": "none"}
+        top_style = {"display": "none"} if current_path == "/research" else {"display": "block"}
+        return top_style, {"display": "none"}, horizon_style, date_style, compare_style, alert_style
+
+    @app.callback(
+        Output("landing-ticker-search", "value"),
+        Output("landing-exchange-filter", "value"),
+        Output("global-focus-ticker", "value"),
+        Output("global-exchange-filter", "value"),
+        Output("global-compare-tickers", "value"),
+        Output("global-horizon-toggle", "value"),
+        Output("global-date-window", "value"),
+        Output("global-alert-threshold", "value"),
+        Input("selection-store", "data"),
+    )
+    def sync_controls_from_selection(selection_data: dict | None):
+        selection = _selection(selection_data)
+        return (
+            selection["focus_ticker"],
+            selection["exchange_filter"],
+            selection["focus_ticker"],
+            selection["exchange_filter"],
+            selection["compare_tickers"],
+            selection["horizon"],
+            selection["date_window"],
+            selection["alert_threshold"],
+        )
+
+    @app.callback(
+        Output("landing-ticker-search", "options"),
+        Output("landing-ticker-search", "value", allow_duplicate=True),
+        Input("landing-exchange-filter", "value"),
+        State("landing-ticker-search", "value"),
+        prevent_initial_call=True,
+    )
+    def sync_landing_tickers(exchange_filter: str | None, current_ticker: str | None):
+        options = get_ticker_options(exchange_filter)
+        valid_values = {option["value"] for option in options}
+        value = current_ticker if current_ticker in valid_values else get_default_ticker_for_exchange(exchange_filter)
+        return options, value
+
+    @app.callback(
+        Output("global-focus-ticker", "options"),
+        Output("global-focus-ticker", "value", allow_duplicate=True),
+        Output("global-compare-tickers", "options"),
+        Output("global-compare-tickers", "value", allow_duplicate=True),
+        Input("global-exchange-filter", "value"),
+        State("global-focus-ticker", "value"),
+        State("global-compare-tickers", "value"),
+        prevent_initial_call=True,
+    )
+    def sync_workspace_tickers(
+        exchange_filter: str | None,
+        current_focus: str | None,
+        current_compare: list[str] | None,
+    ):
+        options = get_ticker_options(exchange_filter)
+        valid_values = {option["value"] for option in options}
+        focus_value = current_focus if current_focus in valid_values else get_default_ticker_for_exchange(exchange_filter)
+        compare_values = [ticker for ticker in (current_compare or []) if ticker in valid_values and ticker != focus_value][:2]
+        return options, focus_value, options, compare_values
+
+    @app.callback(
+        Output("selection-store", "data", allow_duplicate=True),
+        Output("url", "pathname"),
+        Input("landing-search-button", "n_clicks"),
+        State("landing-ticker-search", "value"),
+        State("landing-exchange-filter", "value"),
+        State("selection-store", "data"),
+        prevent_initial_call=True,
+    )
+    def update_selection_from_landing(
+        landing_clicks: int | None,
+        landing_ticker: str | None,
+        landing_exchange: str | None,
+        selection_data: dict | None,
+    ):
+        if not landing_clicks:
+            raise PreventUpdate
+
+        selection = _selection(selection_data)
+        if not landing_ticker:
+            return no_update, no_update
+
+        selection["focus_ticker"] = landing_ticker
+        selection["exchange_filter"] = landing_exchange or get_exchange_for_ticker(landing_ticker)
+        selection["analysis_ready"] = True
+        ensure_live_data([landing_ticker])
+        return selection, "/summary"
+
+    @app.callback(
+        Output("selection-store", "data", allow_duplicate=True),
+        Input("global-exchange-filter", "value"),
+        Input("global-focus-ticker", "value"),
+        Input("global-horizon-toggle", "value"),
+        Input("global-date-window", "value"),
+        Input("global-alert-threshold", "value"),
+        State("selection-store", "data"),
+        prevent_initial_call=True,
+    )
+    def update_selection_from_filters(
+        global_exchange_filter: str | None,
+        global_focus_ticker: str | None,
+        global_horizon: str | None,
+        global_date_window: str | None,
+        global_alert_threshold: int | None,
+        selection_data: dict | None,
+    ):
+        trigger = ctx.triggered_id
+        if trigger is None:
+            raise PreventUpdate
+
+        selection = _selection(selection_data)
+
+        if trigger == "global-exchange-filter" and global_exchange_filter:
+            selection["exchange_filter"] = global_exchange_filter
+            selection["focus_ticker"] = get_default_ticker_for_exchange(global_exchange_filter)
+            selection["compare_tickers"] = []
+            ensure_live_data([selection["focus_ticker"]])
+        elif trigger == "global-focus-ticker" and global_focus_ticker:
+            selection["focus_ticker"] = global_focus_ticker
+            selection["exchange_filter"] = get_exchange_for_ticker(global_focus_ticker)
+            ensure_live_data([global_focus_ticker])
+        elif trigger == "global-horizon-toggle" and global_horizon:
+            selection["horizon"] = global_horizon
+        elif trigger == "global-date-window" and global_date_window:
+            selection["date_window"] = global_date_window
+        elif trigger == "global-alert-threshold" and global_alert_threshold is not None:
+            selection["alert_threshold"] = global_alert_threshold
+        else:
+            raise PreventUpdate
+
+        return selection
+
+    @app.callback(
+        Output("selection-store", "data", allow_duplicate=True),
+        Output("url", "pathname", allow_duplicate=True),
+        Input("global-compare-apply", "n_clicks"),
+        State("global-compare-tickers", "value"),
+        State("selection-store", "data"),
+        prevent_initial_call=True,
+    )
+    def apply_compare_selection(
+        compare_apply_clicks: int | None,
+        global_compare_tickers: list[str] | None,
+        selection_data: dict | None,
+    ):
+        if not compare_apply_clicks:
+            raise PreventUpdate
+
+        selection = _selection(selection_data)
+        compare_values = [ticker for ticker in (global_compare_tickers or []) if ticker and ticker != selection["focus_ticker"]]
+        selection["compare_tickers"] = compare_values[:2]
+        return selection, "/compare"
+
+    @app.callback(
+        Output("nav-home-link", "style"),
+        Output("nav-links", "children"),
+        Output("nav-mode-badge", "children"),
+        Input("selection-store", "data"),
+        Input("url", "pathname"),
+        Input("live-refresh-store", "data"),
+    )
+    def update_nav_badge(selection_data: dict | None, pathname: str | None, _refresh_data: dict | None):
+        selection = _selection(selection_data)
+        current_path = pathname or "/"
+        nav_links = build_nav_links(pathname, selection["analysis_ready"])
+        home_style = {"display": "inline-flex"} if current_path != "/" else {"display": "none"}
+        if not selection["analysis_ready"]:
+            return home_style, nav_links, "Select a ticker"
+        if current_path == "/research":
+            return home_style, nav_links, "Research results locked"
+
+        start_date, end_date = _resolve_date_window(selection)
+        state = build_dashboard_state(
+            selection["focus_ticker"],
+            selection["compare_tickers"],
+            selection["horizon"],
+            start_date,
+            end_date,
+        )
+        company_name = get_company_name(selection["focus_ticker"])
+        focus_row = state.compare_df[state.compare_df["ticker"] == selection["focus_ticker"]]
+        mode_label = focus_row["mode"].iloc[0] if not focus_row.empty else "Unavailable"
+        data_label = f"{mode_label} | Auto-refresh on"
+        return home_style, nav_links, f'{selection["focus_ticker"]} | {company_name} | {data_label}'
+
+    @app.callback(
+        Output("summary-page-title", "children"),
+        Output("summary-badge-row", "children"),
+        Output("summary-status-banner", "children"),
+        Output("summary-metric-row", "children"),
+        Output("summary-price-chart", "figure"),
+        Output("summary-ai-explanation", "children"),
+        Input("selection-store", "data"),
+        Input("live-refresh-store", "data"),
+    )
+    def refresh_summary(selection_data: dict | None, _refresh_data: dict | None):
+        selection = _selection(selection_data)
+        focus_ticker = selection["focus_ticker"]
+        if not selection["analysis_ready"] or not focus_ticker:
+            raise PreventUpdate
+
+        start_date, end_date = _resolve_date_window(selection)
+        state = build_dashboard_state(
+            focus_ticker,
+            selection["compare_tickers"],
+            selection["horizon"],
+            start_date,
+            end_date,
+        )
+        company_name = get_company_name(focus_ticker)
+        ticker_news = state.news_df[state.news_df["ticker"] == focus_ticker]
+        ticker_prices = state.price_df[state.price_df["ticker"] == focus_ticker]
+        compare_row = state.compare_df[state.compare_df["ticker"] == focus_ticker]
+        snapshot = state.snapshot_map.get(focus_ticker)
+        quote_meta = state.quote_meta_map.get(focus_ticker)
+        avg_sentiment = float(ticker_news["sentiment_score"].mean()) if not ticker_news.empty else float(snapshot.market_signal if snapshot is not None else 0.0)
+        avg_confidence = float(confidence_series(ticker_news).mean() * 100.0) if not ticker_news.empty else float("nan")
+        avg_buy_sell_ratio = float(buy_sell_ratio_series(ticker_news).mean()) if not ticker_news.empty else float(snapshot.buy_sell_ratio if snapshot is not None else 1.0)
+        latest_label = (
+            ticker_news["sentiment_label"].iloc[-1].title()
+            if not ticker_news.empty
+            else str(compare_row["signal_label"].iloc[0]).title() if not compare_row.empty
+            else label_for_signal(avg_sentiment).title()
+        )
+        fallback_close = latest_recent_close(ticker_prices)
+        current_price = float(snapshot.last_price) if snapshot is not None and snapshot.last_price is not None else fallback_close or 0.0
+        currency = compare_row["currency"].iloc[0] if not compare_row.empty else (quote_meta or {}).get("currency")
+        price_note = get_price_status_note(focus_ticker, bool(current_price), quote_meta)
+        price_change = 0.0
+        if len(ticker_prices) >= 2:
+            first_close = float(ticker_prices["close"].iloc[0])
+            last_close = float(ticker_prices["close"].iloc[-1])
+            price_change = ((last_close - first_close) / first_close) * 100.0 if first_close else 0.0
+
+        badges = [
+            html.Div(f"{latest_label} signal", className="pill-badge"),
+            html.Div(f"Price move {price_change:.2f}%", className="pill-badge"),
+        ]
+        confidence_value = f"{avg_confidence:.0f}%" if pd.notna(avg_confidence) else "n/a"
+        confidence_note = "Average article/model confidence" if pd.notna(avg_confidence) else "Awaiting fresh headlines; quote-quality only"
+        metrics = build_metric_grid(
+            [
+                ("Current Price", _format_price(current_price if current_price else None, currency), price_note),
+                ("Composite Signal", f"{avg_sentiment:.2f}", compare_row["mode"].iloc[0] if not compare_row.empty else "News signal with quote-quality adjustment when available"),
+                ("Signal Confidence", confidence_value, confidence_note),
+                ("Liquidity Proxy", f"{avg_buy_sell_ratio:.2f}x", "Derived from quote spread; not order flow"),
+            ],
+            column_size=3,
+        )
+        figure = (
+            build_recent_price_histogram(
+                ticker_prices,
+                title=f"{focus_ticker} Last 7 Trading Days",
+            )
+            if not ticker_prices.empty
+            else build_empty_figure(
+                f"{focus_ticker} Last 7 Trading Days",
+                "No live market price history is available for the current window.",
+            )
+        )
+        explanation_lines = build_ai_explanation(focus_ticker, state.news_df, state.compare_df)[:3]
+        return (
+            f"{focus_ticker} | {company_name}",
+            badges,
+            build_focus_status_banner(focus_ticker, state),
+            metrics,
+            figure,
+            [html.Div(line, className="explanation-line") for line in explanation_lines],
+        )
+
+    @app.callback(
+        Output("stock-page-title", "children"),
+        Output("stock-badge-row", "children"),
+        Output("stock-metric-row", "children"),
+        Output("stock-main-chart", "figure"),
+        Output("stock-ai-explanation", "children"),
+        Output("stock-summary-panel", "children"),
+        Input("stock-chart-mode", "value"),
+        Input("selection-store", "data"),
+        Input("live-refresh-store", "data"),
+    )
+    def refresh_stock_detail(chart_mode: str | None, selection_data: dict | None, _refresh_data: dict | None):
+        selection = _selection(selection_data)
+        focus_ticker = selection["focus_ticker"]
+        if not selection["analysis_ready"] or not focus_ticker:
+            raise PreventUpdate
+        start_date, end_date = _resolve_date_window(selection)
+        state = build_dashboard_state(
+            focus_ticker,
+            selection["compare_tickers"],
+            selection["horizon"],
+            start_date,
+            end_date,
+        )
+        ticker_news = state.news_df[state.news_df["ticker"] == focus_ticker]
+        ticker_prices = state.price_df[state.price_df["ticker"] == focus_ticker]
+        ticker_events = state.event_df[state.event_df["ticker"] == focus_ticker] if not state.event_df.empty else pd.DataFrame()
+        compare_row = state.compare_df[state.compare_df["ticker"] == focus_ticker]
+        snapshot = state.snapshot_map.get(focus_ticker)
+        quote_meta = state.quote_meta_map.get(focus_ticker)
+        company_name = get_company_name(focus_ticker)
+        avg_sentiment = float(ticker_news["sentiment_score"].mean()) if not ticker_news.empty else float(snapshot.market_signal if snapshot is not None else 0.0)
+        avg_confidence = float(confidence_series(ticker_news).mean() * 100.0) if not ticker_news.empty else float("nan")
+        avg_spread_pct = float(spread_pct_series(ticker_news).mean() * 100.0) if not ticker_news.empty else float((snapshot.spread_pct * 100.0) if snapshot is not None else 0.0)
+        avg_buy_sell_ratio = float(buy_sell_ratio_series(ticker_news).mean()) if not ticker_news.empty else float(snapshot.buy_sell_ratio if snapshot is not None else 1.0)
+        avg_volume_ratio = float(volume_ratio_series(ticker_news).mean()) if not ticker_news.empty else float(snapshot.volume_ratio if snapshot is not None else 1.0)
+        price_change = 0.0
+        if len(ticker_prices) >= 2:
+            first_close = float(ticker_prices["close"].iloc[0])
+            last_close = float(ticker_prices["close"].iloc[-1])
+            price_change = ((last_close - first_close) / first_close) * 100.0 if first_close else 0.0
+        latest_label = (
+            ticker_news["sentiment_label"].iloc[-1].title()
+            if not ticker_news.empty
+            else str(compare_row["signal_label"].iloc[0]).title() if not compare_row.empty
+            else label_for_signal(avg_sentiment).title()
+        )
+        avg_impact = float(ticker_events["impact_pct"].mean()) if not ticker_events.empty else 0.0
+        fallback_close = latest_recent_close(ticker_prices)
+        current_price = float(snapshot.last_price) if snapshot is not None and snapshot.last_price is not None else fallback_close or 0.0
+        currency = compare_row["currency"].iloc[0] if not compare_row.empty else (quote_meta or {}).get("currency")
+        price_note = get_price_status_note(focus_ticker, bool(current_price), quote_meta)
+        badges = [
+            html.Div(f"{latest_label} sentiment", className="pill-badge"),
+            html.Div(f"Estimated impact {avg_impact:.2f}%", className="pill-badge"),
+        ]
+        confidence_value = f"{avg_confidence:.0f}%" if pd.notna(avg_confidence) else "n/a"
+        confidence_note = "Average article/model confidence" if pd.notna(avg_confidence) else "Awaiting fresh headlines; quote-quality only"
+        metrics = build_metric_grid(
+            [
+                ("Current Price", _format_price(current_price if current_price else None, currency), price_note),
+                ("Price Change", f"{price_change:.2f}%", "Selected window"),
+                ("Composite Signal", f"{avg_sentiment:.2f}", compare_row["mode"].iloc[0] if not compare_row.empty else latest_label),
+                ("Signal Confidence", confidence_value, confidence_note),
+            ],
+            column_size=3,
+        )
+        summary = build_summary_list(
+            [
+                (
+                    "Sector",
+                    compare_row["sector"].iloc[0]
+                    if not compare_row.empty
+                    else "n/a",
+                ),
+                ("Company", company_name),
+                ("Exchange", compare_row["exchange"].iloc[0] if not compare_row.empty else "n/a"),
+                ("Quote Quality", compare_row["quote_quality"].iloc[0] if not compare_row.empty else "n/a"),
+                ("News Volume", str(len(ticker_news))),
+                ("Articles", str(len(ticker_news))),
+                ("Last Update", ticker_news["published_at"].max().strftime("%Y-%m-%d %H:%M") if not ticker_news.empty else "n/a"),
+                ("Average Impact", f"{avg_impact:.2f}%"),
+                ("Avg Spread", f"{avg_spread_pct:.2f}%"),
+                ("Liquidity Proxy", f"{avg_buy_sell_ratio:.2f}x"),
+                ("Stored Volume Context", f"{avg_volume_ratio:.2f}x"),
+                ("Correlation", f'{ticker_events["sentiment_score"].corr(ticker_events["forward_return"]):.2f}' if len(ticker_events) >= 2 else "n/a"),
+            ]
+        )
+        if chart_mode == "overlay":
+            main_chart = build_overlay_chart(focus_ticker, state.price_df, state.news_df)
+        else:
+            main_chart = (
+                build_price_timeline(
+                    ticker_prices if not ticker_prices.empty else state.price_df.head(0),
+                    title=f"{focus_ticker} Price Timeline",
+                )
+                if not ticker_prices.empty
+                else build_empty_figure(f"{focus_ticker} Price Timeline", "No live market price history is available for the current window.")
+            )
+        return (
+            f"{focus_ticker} | {company_name}",
+            badges,
+            metrics,
+            main_chart,
+            [html.Div(line, className="explanation-line") for line in build_ai_explanation(focus_ticker, state.news_df, state.compare_df)],
+            summary,
+        )
+
+    @app.callback(
+        Output("news-impact-status-banner", "children"),
+        Output("news-impact-scatter", "figure"),
+        Output("news-impact-summary", "children"),
+        Output("news-impact-table", "data"),
+        Output("news-impact-table", "columns"),
+        Input("selection-store", "data"),
+        Input("live-refresh-store", "data"),
+    )
+    def refresh_news_impact(selection_data: dict | None, _refresh_data: dict | None):
+        selection = _selection(selection_data)
+        focus_ticker = selection["focus_ticker"]
+        if not selection["analysis_ready"] or not focus_ticker:
+            raise PreventUpdate
+        start_date, end_date = _resolve_date_window(selection)
+        state = build_dashboard_state(
+            focus_ticker,
+            selection["compare_tickers"],
+            selection["horizon"],
+            start_date,
+            end_date,
+        )
+        ticker_news = state.news_df[state.news_df["ticker"] == focus_ticker]
+        ticker_events = state.event_df[state.event_df["ticker"] == focus_ticker] if not state.event_df.empty else pd.DataFrame()
+        table_df = build_news_table(ticker_events, ticker_news)
+        impact_source = ticker_events if not ticker_events.empty else ticker_news
+        average_impact = (
+            float(ticker_events["impact_pct"].mean())
+            if not ticker_events.empty
+            else float(pd.to_numeric(ticker_news.get("impact_strength"), errors="coerce").fillna(0.0).mean() * 100.0)
+            if not ticker_news.empty
+            else None
+        )
+        highest_positive = (
+            float(ticker_events["impact_pct"].max())
+            if not ticker_events.empty
+            else float((pd.to_numeric(ticker_news.get("impact_strength"), errors="coerce").fillna(0.0) * 100.0).max())
+            if not ticker_news.empty
+            else None
+        )
+        highest_negative = (
+            float(ticker_events["impact_pct"].min())
+            if not ticker_events.empty
+            else None
+        )
+        average_confidence = (
+            float(ticker_events["confidence_pct"].mean())
+            if not ticker_events.empty
+            else float(confidence_series(ticker_news).mean() * 100.0)
+            if not ticker_news.empty
+            else None
+        )
+        summary = build_summary_list(
+            [
+                ("Headlines", str(len(table_df))),
+                ("Average Impact", f"{average_impact:.2f}%" if average_impact is not None else "n/a"),
+                ("Highest Positive", f"{highest_positive:.2f}%" if highest_positive is not None else "n/a"),
+                ("Highest Negative", f"{highest_negative:.2f}%" if highest_negative is not None else "n/a"),
+                ("Average Confidence", f"{average_confidence:.0f}%" if average_confidence is not None else "n/a"),
+            ]
+        )
+        return (
+            build_focus_status_banner(focus_ticker, state),
+            build_impact_scatter(ticker_events, ticker_news)
+            if not impact_source.empty
+            else build_empty_figure(
+                "Sentiment vs Estimated Impact",
+                f"No recent headlines or usable impact estimates are available for {focus_ticker} in this window.",
+            ),
+            summary,
+            table_df.to_dict("records"),
+            [{"name": col, "id": col} for col in table_df.columns],
+        )
+
+    @app.callback(
+        Output("compare-selection-summary", "children"),
+        Output("compare-empty-state", "children"),
+        Output("compare-empty-state", "style"),
+        Output("compare-content", "style"),
+        Output("compare-metric-row", "children"),
+        Output("compare-main-chart", "figure"),
+        Output("compare-secondary-chart", "figure"),
+        Output("compare-ai-summary", "children"),
+        Input("selection-store", "data"),
+        Input("live-refresh-store", "data"),
+    )
+    def refresh_compare(selection_data: dict | None, _refresh_data: dict | None):
+        selection = _selection(selection_data)
+        focus_ticker = selection["focus_ticker"]
+        if not selection["analysis_ready"] or not focus_ticker:
+            raise PreventUpdate
+        start_date, end_date = _resolve_date_window(selection)
+        state = build_dashboard_state(
+            focus_ticker,
+            selection["compare_tickers"],
+            selection["horizon"],
+            start_date,
+            end_date,
+        )
+        compare_df = state.compare_df.copy()
+        applied_peers = selection["compare_tickers"][:2]
+        selection_summary = (
+            html.Div(
+                [
+                    html.Div("Applied Comparison", className="section-kicker"),
+                    html.Div(
+                        f'{focus_ticker} vs ' + " | ".join(applied_peers),
+                        className="compare-selection-value",
+                    ),
+                ],
+                className="section-shell compare-selection-shell",
+            )
+            if applied_peers
+            else html.Div()
+        )
+        if len(compare_df) < 2:
+            return (
+                selection_summary,
+                build_empty_state(
+                    "Add peer tickers to compare",
+                    f"Use More filters to choose up to 2 peers, then press Compare. The page will then rank sentiment, window returns, and model confidence against {focus_ticker}.",
+                ),
+                {"display": "block"},
+                {"display": "none"},
+                [],
+                build_empty_figure("Peer Comparison", "Peer comparison will appear after you select additional tickers."),
+                build_empty_figure("Relative Price Performance", "Choose peer tickers to unlock the secondary comparison view."),
+                [html.Div("Comparison insights will appear here once at least two tickers are loaded.", className="explanation-line")],
+            )
+
+        metrics = build_metric_grid(
+            [
+                ("Best Sentiment", compare_df.sort_values("avg_sentiment", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Highest average headline tone"),
+                ("Best Return", compare_df.sort_values("pct_change", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Strongest move in the live window"),
+                ("Highest News Volume", compare_df.sort_values("news_volume", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Most headline coverage"),
+                ("Best Confidence", compare_df.sort_values("avg_confidence", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "Highest average model confidence"),
+            ],
+            column_size=3,
+        )
+        summary_lines: list[html.Div] = []
+        if not compare_df.empty:
+            leader = compare_df.sort_values("avg_sentiment", ascending=False).iloc[0]
+            winner = compare_df.sort_values("pct_change", ascending=False).iloc[0]
+            laggard = compare_df.sort_values("pct_change", ascending=True).iloc[0]
+            reliable = compare_df.sort_values("avg_confidence", ascending=False).iloc[0]
+            summary_lines = [
+                html.Div(f'{winner["ticker"]} is leading on relative performance at {winner["pct_change"]:.2f}% in the current live comparison window.', className="explanation-line"),
+                html.Div(f'{leader["ticker"]} has the strongest sentiment signal with an average score of {leader["avg_sentiment"]:.2f}.', className="explanation-line"),
+                html.Div(f'{reliable["ticker"]} has the highest average model confidence at {reliable["avg_confidence"]:.0f}%, while {laggard["ticker"]} is the weakest price mover.', className="explanation-line"),
+            ]
+        return (
+            selection_summary,
+            [],
+            {"display": "none"},
+            {"display": "block"},
+            metrics,
+            build_price_timeline(state.price_df, title="Indexed Price Performance", normalize=True),
+            build_compare_chart(compare_df),
+            summary_lines,
+        )
+
+    @app.callback(
+        Output("alerts-status-banner", "children"),
+        Output("alerts-feed", "children"),
+        Output("alerts-summary-panel", "children"),
+        Output("alerts-sector-heatmap", "figure"),
+        Output("alerts-shift-chart", "figure"),
+        Input("selection-store", "data"),
+        Input("live-refresh-store", "data"),
+    )
+    def refresh_alerts(selection_data: dict | None, _refresh_data: dict | None):
+        selection = _selection(selection_data)
+        focus_ticker = selection["focus_ticker"]
+        if not selection["analysis_ready"] or not focus_ticker:
+            raise PreventUpdate
+        start_date, end_date = _resolve_date_window(selection)
+        state = build_dashboard_state(
+            focus_ticker,
+            selection["compare_tickers"],
+            selection["horizon"],
+            start_date,
+            end_date,
+        )
+        alerts_data = build_alerts(state.compare_df, state.event_df, selection["alert_threshold"])
+        bearish = int((state.compare_df["avg_sentiment"] < 0).sum()) if not state.compare_df.empty else 0
+        summary = build_summary_list(
+            [
+                ("Active Alerts", str(len(alerts_data))),
+                ("Bearish Tickers", str(bearish)),
+                ("Strongest Mover", state.compare_df.sort_values("pct_change", ascending=False)["ticker"].iloc[0] if not state.compare_df.empty else "n/a"),
+                ("Latest Shift", state.news_df.sort_values("published_at", ascending=False)["ticker"].iloc[0] if not state.news_df.empty else "n/a"),
+            ]
+        )
+        summary = [build_buy_readout(focus_ticker, state.compare_df)] + summary
+        return (
+            build_focus_status_banner(focus_ticker, state),
+            build_alert_panel(alerts_data, state.demo_mode),
+            summary,
+            build_sector_heatmap(state.sector_df)
+            if not state.sector_df.empty
+            else build_empty_figure("Sector Mood", "Sector-level mood appears when peer data is available."),
+            build_sentiment_timeline_with_title(state.news_df, "Recent Sentiment Trend")
+            if not state.news_df.empty
+            else build_empty_figure("Recent Sentiment Trend", "No recent sentiment series is available in the selected window."),
+        )
+
+    return app

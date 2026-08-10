@@ -1,0 +1,14 @@
+{
+  "candidate_n": 157,
+  "dataset_id": "phase15_final_holdout_v3",
+  "evaluated_at": "2026-08-10T20:20:21.627889",
+  "execution_config_hash": "e4b7e0355d9514415c5ce57147ee7ea156d0fa8c74d18ccd4fe5c1d03b527f0e",
+  "experiment_id": 6,
+  "final_evaluated_n": 111,
+  "fingerprint": "8b2baffa76672e164ee5c29be3858f81d7c985615a0b3a0fb45e452fd2a3b93e",
+  "permanently_blocked_from_tuning": true,
+  "previous_status": "FINAL_HOLDOUT_V3_LOCKED",
+  "protocol_hash": "d9f0781f59f63279a896719f4a7327c124fd53ae05d2f62f8c292f6d221282c3",
+  "status": "FINAL_HOLDOUT_V3_EVALUATED_LOCKED",
+  "technical_eligible_n": 111
+}

@@ -1,0 +1,29 @@
+{
+  "confidence_coefficients": {
+    "agreement": 0.2,
+    "availability": 0.15,
+    "component_reliability": 0.3,
+    "strength": 0.35
+  },
+  "label_thresholds": {
+    "directional_threshold": 0.2,
+    "strong_threshold": 0.55
+  },
+  "momentum_normalization": {
+    "horizon_weights": [
+      0.5,
+      0.3,
+      0.2
+    ],
+    "momentum_return_scale": 0.05
+  },
+  "momentum_weight": 0.35,
+  "news_decay": {
+    "max_news_age_hours": 72.0,
+    "min_news_recency_weight": 0.2
+  },
+  "news_weight": 0.55,
+  "read_only": true,
+  "volume_behavior": "confirmation-only; volume does not create independent direction",
+  "volume_confirmation_weight": 0.1
+}

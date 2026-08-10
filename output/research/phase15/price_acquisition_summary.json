@@ -1,0 +1,24 @@
+{
+  "dry_run": false,
+  "failures": {},
+  "imported_rows": {
+    "AAPL": 91,
+    "AMZN": 91,
+    "NVDA": 91,
+    "TSLA": 91
+  },
+  "manifest_path": "data\\research_sources\\yahoo_chart_daily\\MANIFEST.json",
+  "source_name": "yahoo_chart_daily",
+  "symbols": [
+    "AAPL",
+    "AMZN",
+    "NVDA",
+    "TSLA"
+  ],
+  "written_files": [
+    "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3/AAPL.csv",
+    "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3/AMZN.csv",
+    "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3/NVDA.csv",
+    "data/research_sources/yahoo_chart_daily/prices/phase15_final_holdout_v3/TSLA.csv"
+  ]
+}

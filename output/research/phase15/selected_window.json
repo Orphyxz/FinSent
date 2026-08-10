@@ -1,0 +1,19 @@
+{
+  "adequate": true,
+  "algorithm": "Earliest 90-day future window with >=3 supported symbols, >=20 candidate articles per represented symbol, and >=90 total candidate articles; tie-break by represented symbol count then balance.",
+  "blockers": [],
+  "candidate_counts": {
+    "AAPL": 1250,
+    "AMZN": 318,
+    "NVDA": 662,
+    "TSLA": 1280
+  },
+  "end_date": "2023-03-31T23:59:59",
+  "represented_symbols": [
+    "AAPL",
+    "AMZN",
+    "NVDA",
+    "TSLA"
+  ],
+  "start_date": "2023-01-01T00:00:00"
+}

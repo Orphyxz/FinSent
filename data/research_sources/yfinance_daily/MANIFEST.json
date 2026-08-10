@@ -1,0 +1,77 @@
+[
+  {
+    "acquired_at": "2026-08-09T23:08:48.568539",
+    "adapter_version": "yfinance_daily_price_adapter_v1",
+    "dry_run": false,
+    "failures": {},
+    "filters": {
+      "end_date": "2023-12-31T00:00:00",
+      "frequency": "1d",
+      "start_date": "2023-01-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN"
+      ]
+    },
+    "local_relative_path": "data/research_sources/yfinance_daily/prices/phase11_fnspid_aapl_amzn_2023_v1",
+    "record_count": 502,
+    "source_identifier": "Yahoo Finance via yfinance",
+    "source_name": "yfinance_daily",
+    "written_files": [
+      "data/research_sources/yfinance_daily/prices/phase11_fnspid_aapl_amzn_2023_v1/AAPL.csv",
+      "data/research_sources/yfinance_daily/prices/phase11_fnspid_aapl_amzn_2023_v1/AMZN.csv"
+    ]
+  },
+  {
+    "acquired_at": "2026-08-09T23:10:23.064221",
+    "adapter_version": "yfinance_daily_price_adapter_v1",
+    "dry_run": false,
+    "failures": {
+      "AAPL": "No daily price rows returned.",
+      "AMZN": "No daily price rows returned."
+    },
+    "filters": {
+      "end_date": "2023-12-31T00:00:00",
+      "frequency": "1d",
+      "start_date": "2023-01-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN"
+      ]
+    },
+    "local_relative_path": "data/research_sources/yfinance_daily/prices/phase11_fnspid_aapl_amzn_2023_v1",
+    "record_count": 0,
+    "source_identifier": "Yahoo Finance via yfinance",
+    "source_name": "yfinance_daily",
+    "written_files": []
+  },
+  {
+    "acquired_at": "2026-08-09T23:50:09.035312",
+    "adapter_version": "yfinance_daily_price_adapter_v1",
+    "dry_run": false,
+    "failures": {
+      "AAPL": "No daily price rows returned.",
+      "AMZN": "No daily price rows returned.",
+      "GOOGL": "No daily price rows returned.",
+      "NVDA": "No daily price rows returned.",
+      "TSLA": "No daily price rows returned."
+    },
+    "filters": {
+      "end_date": "2020-06-15T23:59:59",
+      "frequency": "1d",
+      "start_date": "2020-05-01T00:00:00",
+      "symbols": [
+        "AAPL",
+        "AMZN",
+        "GOOGL",
+        "NVDA",
+        "TSLA"
+      ]
+    },
+    "local_relative_path": "data/research_sources/yfinance_daily/prices/phase12_locked_multisymbol_v1",
+    "record_count": 0,
+    "source_identifier": "Yahoo Finance via yfinance",
+    "source_name": "yfinance_daily",
+    "written_files": []
+  }
+]

@@ -1,0 +1,68 @@
+{
+  "article_ids": [
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255
+  ],
+  "cohort_fingerprint": "a6db3f66a5a648a755dca53325577e499f1fe607ab4b70d1e6c896133395b9c4",
+  "coverage_summary": {
+    "articles": 30,
+    "horizons": {
+      "1D": {
+        "eligible": 30,
+        "no_coverage": 0,
+        "unsupported_granularity": 0
+      }
+    },
+    "with_historical_bars": 30,
+    "with_instrument": 30
+  },
+  "dataset_id": "phase13_final_holdout_v1",
+  "date_end": "2023-12-13T00:00:00",
+  "date_start": "2023-12-12T00:00:00",
+  "excluded_count": 0,
+  "exclusion_counts": {},
+  "instruments": [
+    "US:AAPL"
+  ],
+  "lock_rule": "No Phase 13 performance evaluation. Technical coverage only.",
+  "locked_at": "2026-08-10T00:40:11.994428",
+  "source_manifest": {
+    "checksum_sha256": "bb1e277a4167fb85472d93ebbae58a1727e5b32f518aa0a8cbc988a3a4e3ae2c",
+    "matched_rows": 30,
+    "requested_symbols": [
+      "AAPL"
+    ],
+    "scan_limit_reached": false,
+    "scanned_rows": 12110,
+    "subset_path": "data\\research_sources\\fnspid\\subsets\\phase13_final_holdout_v1.csv"
+  },
+  "status": "FINAL_HOLDOUT_LOCKED"
+}
