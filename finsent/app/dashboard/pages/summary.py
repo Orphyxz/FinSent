@@ -17,26 +17,10 @@ def layout() -> html.Div:
                     ),
                     html.Div(id="summary-badge-row", className="badge-row"),
                 ],
-                className="section-shell page-header-shell compact-page-header mb-2",
+                className="section-shell page-header-shell terminal-page-header mb-2",
             ),
-            html.Div(id="summary-status-banner", className="mb-2"),
-            html.Div(
-                [
-                    html.Div("Market Context", className="section-kicker"),
-                    html.H3("Broad Market and Relative Strength", className="section-title"),
-                    html.Div(id="summary-market-context", className="summary-stack"),
-                ],
-                className="section-shell mb-3",
-            ),
-            dbc.Row(id="summary-metric-row", className="g-2 mb-2"),
-            html.Div(
-                [
-                    html.Div("Catalyst Intelligence", className="section-kicker"),
-                    html.H3("Active Catalysts", className="section-title"),
-                    html.Div(id="summary-active-catalysts", className="summary-stack"),
-                ],
-                className="section-shell mb-3",
-            ),
+            html.Div(id="summary-status-banner", className="mb-2 market-status-strip"),
+            dbc.Row(id="summary-metric-row", className="g-2 metric-strip mb-2"),
             dbc.Row(
                 [
                     dbc.Col(
@@ -44,23 +28,50 @@ def layout() -> html.Div:
                             [
                                 html.Div("Market Chart", className="section-kicker"),
                                 html.H3("Recent Close", className="section-title"),
-                                dcc.Graph(id="summary-price-chart"),
+                                dcc.Graph(id="summary-price-chart", config={"displayModeBar": False, "responsive": True}),
                             ],
-                            className="chart-card",
+                            className="chart-card primary-chart-card",
                         ),
                         lg=8,
                     ),
                     dbc.Col(
                         html.Div(
                             [
-                                html.Div("Signal Transparency", className="section-kicker"),
+                                html.Div("Signal Intelligence", className="section-kicker"),
                                 html.H3("Why This Signal", className="section-title"),
-                                html.Div("LIVE PRODUCT: market/news providers first; Research page contains the locked validation layer.", className="research-note compact-note"),
+                                html.Div("Research signal context only; not trading advice.", className="research-note compact-note"),
                                 html.Div(id="summary-ai-explanation", className="explanation-box compact"),
                             ],
                             className="section-shell explanation-shell",
                         ),
                         lg=4,
+                    ),
+                ],
+                className="g-3 mb-3",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Div(
+                            [
+                                html.Div("Market Context", className="section-kicker"),
+                                html.H3("Broad Market and Relative Strength", className="section-title"),
+                                html.Div(id="summary-market-context", className="summary-stack market-context-grid"),
+                            ],
+                            className="section-shell",
+                        ),
+                        lg=5,
+                    ),
+                    dbc.Col(
+                        html.Div(
+                            [
+                                html.Div("Catalyst Intelligence", className="section-kicker"),
+                                html.H3("Active Catalysts", className="section-title"),
+                                html.Div(id="summary-active-catalysts", className="summary-stack catalyst-list"),
+                            ],
+                            className="section-shell",
+                        ),
+                        lg=7,
                     ),
                 ],
                 className="g-3 mb-3",

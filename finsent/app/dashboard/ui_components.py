@@ -7,7 +7,7 @@ def section_header(kicker: str, title: str, subtitle: str | None = None) -> html
     children: list = [html.Div(kicker, className="section-kicker"), html.H2(title, className="section-title")]
     if subtitle:
         children.append(html.P(subtitle, className="section-helper"))
-    return html.Div(children, className="panel-header")
+    return html.Div(children, className="panel-header section-header")
 
 
 def metric_cell(label: str, value: str, note: str | None = None, *, tone: str = "neutral") -> html.Div:
@@ -17,7 +17,7 @@ def metric_cell(label: str, value: str, note: str | None = None, *, tone: str = 
             html.Div(value, className=f"metric-value tone-{tone}"),
             html.Div(note or "", className="metric-note"),
         ],
-        className="metric-card compact-metric",
+        className=f"metric-card compact-metric metric-{tone}",
     )
 
 

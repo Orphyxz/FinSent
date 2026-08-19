@@ -16,9 +16,9 @@ def layout() -> html.Div:
                         className="page-subtitle",
                     ),
                 ],
-                className="section-shell page-header-shell compact-page-header mb-2",
+                className="section-shell page-header-shell terminal-page-header mb-2",
             ),
-            html.Div(id="news-impact-status-banner", className="mb-2"),
+            html.Div(id="news-impact-status-banner", className="mb-2 market-status-strip"),
             html.Div(
                 [
                     html.Div(
@@ -43,7 +43,7 @@ def layout() -> html.Div:
                         className="control-card workspace-filter-card",
                     ),
                 ],
-                className="workspace-filter-grid mb-3",
+                className="workspace-filter-grid compact-filter-row mb-3",
             ),
             dbc.Row(
                 [
@@ -52,7 +52,7 @@ def layout() -> html.Div:
                             [
                                 html.Div("Impact Map", className="section-kicker"),
                                 html.H3("Sentiment vs Estimated Impact", className="section-title"),
-                                dcc.Graph(id="news-impact-scatter"),
+                                dcc.Graph(id="news-impact-scatter", config={"displayModeBar": False, "responsive": True}),
                             ],
                             className="chart-card",
                         ),
@@ -78,9 +78,19 @@ def layout() -> html.Div:
                         [
                             dash_table.DataTable(
                                 id="news-impact-table",
-                                page_size=8,
+                                page_size=10,
                                 sort_action="native",
                                 filter_action="native",
+                                hidden_columns=[
+                                    "Provider",
+                                    "Catalyst Direction",
+                                    "Catalyst Horizon",
+                                    "Novelty",
+                                    "Event Group",
+                                    "Analysis",
+                                    "Parse Status",
+                                    "Explanation",
+                                ],
                                 style_table={"overflowX": "auto"},
                                 style_cell={
                                     "textAlign": "left",
@@ -92,6 +102,7 @@ def layout() -> html.Div:
                                     "whiteSpace": "normal",
                                     "height": "auto",
                                     "fontSize": "12px",
+                                    "lineHeight": "1.35",
                                 },
                                 style_header={
                                     "backgroundColor": "#171c22",
@@ -99,9 +110,15 @@ def layout() -> html.Div:
                                     "color": "#f4f7fa",
                                     "border": "1px solid #303843",
                                 },
+                                style_data_conditional=[
+                                    {"if": {"column_id": "Confidence %"}, "textAlign": "right"},
+                                    {"if": {"column_id": "Impact %"}, "textAlign": "right"},
+                                    {"if": {"state": "active"}, "backgroundColor": "#1a2024", "border": "1px solid #3a4249"},
+                                    {"if": {"state": "selected"}, "backgroundColor": "#1a2024", "border": "1px solid #3a4249"},
+                                ],
                             ),
                         ],
-                        title="Headline table",
+                        title="Headline terminal",
                         item_id="headline-table",
                     )
                 ],

@@ -421,8 +421,8 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         local_symbols = ", ".join(local_summary.get("symbols", [])[:5]) if local_summary.get("symbols") else "n/a"
         metrics = build_metric_grid(
             [
-                ("Current / Latest Price", _format_price(current_price if current_price else None, currency), price_note),
-                ("Day / Window Change", f"{price_change:.2f}%", "Computed from available live/recent bars"),
+                ("Price", _format_price(current_price if current_price else None, currency), price_note),
+                ("Window Move", f"{price_change:+.2f}%", "Computed from available live/recent bars"),
                 ("Live News", str(len(ticker_news)), f"Research dataset secondary: {local_summary.get('articles', 0)} archived articles across {local_symbols}"),
                 ("FinBERT Signal", confidence_value, confidence_note),
             ],
@@ -518,9 +518,9 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         confidence_note = "Average article/model confidence" if pd.notna(avg_confidence) else "Awaiting fresh headlines; quote-quality only"
         metrics = build_metric_grid(
             [
-                ("Current / Latest Price", "Unavailable" if state.data_mode == DATA_MODE_LOCAL else _format_price(current_price if current_price else None, currency), price_note),
-                ("Day / Window Move", f"{price_change:.2f}%", "Selected live/recent price window"),
-                ("Live Signal V1", f"{avg_sentiment:.2f}", compare_row["mode"].iloc[0] if not compare_row.empty else latest_label),
+                ("Price", "Unavailable" if state.data_mode == DATA_MODE_LOCAL else _format_price(current_price if current_price else None, currency), price_note),
+                ("Window Move", f"{price_change:+.2f}%", "Selected live/recent price window"),
+                ("Signal V1", f"{avg_sentiment:+.2f}", compare_row["mode"].iloc[0] if not compare_row.empty else latest_label),
                 ("Signal Confidence", confidence_value, confidence_note),
             ],
             column_size=3,
@@ -740,10 +740,10 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
 
         metrics = build_metric_grid(
             [
-                ("Best Sentiment", compare_df.sort_values("avg_sentiment", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Highest average headline tone"),
-                ("Best Return", compare_df.sort_values("pct_change", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Strongest move in the selected live/latest window"),
-                ("Highest News Volume", compare_df.sort_values("news_volume", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Most headline coverage"),
-                ("Best Confidence", compare_df.sort_values("avg_confidence", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Highest average model confidence"),
+                ("Top Sentiment", compare_df.sort_values("avg_sentiment", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Highest average headline tone"),
+                ("Leading Return", compare_df.sort_values("pct_change", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Strongest move in the selected live/latest window"),
+                ("News Volume", compare_df.sort_values("news_volume", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Most headline coverage"),
+                ("Confidence", compare_df.sort_values("avg_confidence", ascending=False)["ticker"].iloc[0] if not compare_df.empty else "n/a", "Highest average model confidence"),
             ],
             column_size=3,
         )

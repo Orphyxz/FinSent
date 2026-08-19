@@ -32,11 +32,12 @@ def build_navbar() -> html.Div:
                 ],
                 href="/",
                 className="brand-wrap",
+                title="FinSent Overview",
             ),
             html.Div(id="nav-links", className="nav-links"),
             html.Div(
                 [
-                    dcc.Link("Overview", href="/", id="nav-home-link", className="nav-home-link"),
+                    dcc.Link("Home", href="/", id="nav-home-link", className="nav-home-link", title="Return to overview"),
                     html.Div(id="nav-mode-badge", className="nav-mode-badge"),
                 ],
                 className="nav-actions",
@@ -54,7 +55,7 @@ def build_nav_links(pathname: str | None, analysis_ready: bool) -> list[dcc.Link
     links: list[dcc.Link] = []
     for label, path in ANALYSIS_NAV_ITEMS:
         class_name = "nav-link-item is-active" if active_path == path else "nav-link-item"
-        links.append(dcc.Link(label, href=path, className=class_name))
+        links.append(dcc.Link(label, href=path, className=class_name, title=label))
     return links
 
 
@@ -107,8 +108,8 @@ def build_workspace_bar(
                     ),
                     html.Div(
                         [
-                            html.Div("Workspace controls", className="workspace-disclosure-label"),
-                            html.Div("Live Alpaca/Polygon/Marketaux providers refresh when configured; Research remains the locked validation layer.", className="workspace-disclosure-copy"),
+                            html.Div("Mode", className="workspace-disclosure-label"),
+                            html.Div("Live/latest provider data is separated from locked historical research.", className="workspace-disclosure-copy"),
                         ],
                         className="workspace-disclosure-copy-wrap",
                     ),
@@ -181,6 +182,7 @@ def build_workspace_bar(
                                                 id="global-compare-apply",
                                                 n_clicks=0,
                                                 className="workspace-action-button",
+                                                title="Apply selected peer tickers",
                                             ),
                                         ],
                                         id="compare-toolbar-control",

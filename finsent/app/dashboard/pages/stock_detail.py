@@ -17,9 +17,9 @@ def layout() -> html.Div:
                     ),
                     html.Div(id="stock-badge-row", className="badge-row"),
                 ],
-                className="section-shell page-header-shell compact-page-header mb-2",
+                className="section-shell page-header-shell stock-terminal-header mb-2",
             ),
-            dbc.Row(id="stock-metric-row", className="g-2 mb-2"),
+            dbc.Row(id="stock-metric-row", className="g-2 metric-strip mb-2"),
             dbc.Row(
                 [
                     dbc.Col(
@@ -43,9 +43,9 @@ def layout() -> html.Div:
                                     ],
                                     className="chart-card-header",
                                 ),
-                                dcc.Graph(id="stock-main-chart"),
+                                dcc.Graph(id="stock-main-chart", config={"displayModeBar": False, "responsive": True}),
                             ],
-                            className="chart-card",
+                            className="chart-card primary-chart-card",
                         ),
                         lg=8,
                     ),
@@ -55,16 +55,16 @@ def layout() -> html.Div:
                                 html.Div(
                                     [
                                         html.Div("Instrument", className="section-kicker"),
-                                        html.H3("Market Metadata", className="section-title"),
+                                        html.H3("Market Header", className="section-title"),
                                         html.Div(id="stock-summary-panel", className="summary-stack"),
                                     ],
-                                    className="section-shell mb-3",
+                                    className="section-shell compact-panel mb-3",
                                 ),
                                 html.Div(
                                     [
-                                        html.Div("Signal Transparency", className="section-kicker"),
-                                        html.H3("Why This Signal", className="section-title"),
-                                        html.Div("LIVE SIGNAL V1 + LIVE SIGNAL V2. Locked research remains separate under Research.", className="research-note compact-note"),
+                                        html.Div("Signal Intelligence", className="section-kicker"),
+                                        html.H3("V1 / V2 / FinBERT", className="section-title"),
+                                        html.Div("Live/latest analysis only. Locked validation remains under Research.", className="research-note compact-note"),
                                         html.Div(id="stock-ai-explanation", className="explanation-box compact"),
                                     ],
                                     className="section-shell explanation-shell",
@@ -92,7 +92,7 @@ def layout() -> html.Div:
                             [
                                 html.Div("Market Context", className="section-kicker"),
                                 html.H3("Relative Performance", className="section-title"),
-                                dcc.Graph(id="stock-relative-chart"),
+                                dcc.Graph(id="stock-relative-chart", config={"displayModeBar": False, "responsive": True}),
                             ],
                             className="chart-card",
                         ),
@@ -103,7 +103,7 @@ def layout() -> html.Div:
                             [
                                 html.Div("Benchmark Intelligence", className="section-kicker"),
                                 html.H3("Market Context", className="section-title"),
-                                html.Div(id="stock-market-context-panel", className="summary-stack"),
+                                html.Div(id="stock-market-context-panel", className="summary-stack market-context-grid"),
                             ],
                             className="section-shell",
                         ),
@@ -119,7 +119,7 @@ def layout() -> html.Div:
                             [
                                 html.Div("Catalyst Intelligence", className="section-kicker"),
                                 html.H3("Key Catalysts", className="section-title"),
-                                html.Div(id="stock-key-catalysts", className="summary-stack"),
+                                html.Div(id="stock-key-catalysts", className="summary-stack catalyst-list"),
                             ],
                             className="section-shell",
                         ),
@@ -130,7 +130,7 @@ def layout() -> html.Div:
                             [
                                 html.Div("Event Timeline", className="section-kicker"),
                                 html.H3("Recent Catalyst Events", className="section-title"),
-                                html.Div(id="stock-catalyst-timeline", className="summary-stack"),
+                                html.Div(id="stock-catalyst-timeline", className="summary-stack catalyst-timeline"),
                             ],
                             className="section-shell",
                         ),

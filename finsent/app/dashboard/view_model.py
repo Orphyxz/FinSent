@@ -67,17 +67,18 @@ LOCAL_DEMO_SYMBOLS = ["AMZN", "NVDA", "TSLA", "AAPL", "GOOGL"]
 LIVE_WATCHLIST_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "JPM"]
 DEFAULT_COMPARE_SYMBOLS = ["NVDA", "TSLA"]
 PALETTE = {
-    "bg": "#07111f",
-    "paper": "#0c1729",
-    "ink": "#e8eefb",
-    "muted": "#9aa8c7",
-    "accent": "#2dd4bf",
-    "accent_2": "#fb923c",
-    "bull": "#34d399",
-    "bear": "#f87171",
-    "neutral": "#fbbf24",
-    "line": "#60a5fa",
-    "grid": "#22314e",
+    "bg": "#0a0c0e",
+    "paper": "#101315",
+    "ink": "#eef2f3",
+    "muted": "#9aa4aa",
+    "accent": "#22c55e",
+    "accent_2": "#9ca3af",
+    "bull": "#22c55e",
+    "bear": "#ef4444",
+    "neutral": "#a3a3a3",
+    "warning": "#f59e0b",
+    "line": "#7aa2c7",
+    "grid": "#24292d",
 }
 
 logger = logging.getLogger(__name__)
@@ -391,13 +392,13 @@ def get_price_status_note(ticker: str, has_price: bool, quote_meta: dict[str, ob
             else "Freshness unavailable"
         )
         if quality == "live":
-            return f"Live quote from {source} • {age_note}"
+            return f"Live quote from {source} | {age_note}"
         if quality == "delayed":
             market_status = str(quote_meta.get("market_status") or "UNKNOWN")
-            return f"Latest available market data from {source} ({market_status}) • {age_note}"
+            return f"Latest available market data from {source} ({market_status}) | {age_note}"
         if quality == "stale":
             market_status = str(quote_meta.get("market_status") or "UNKNOWN")
-            return f"Stale/latest available market data from {source} ({market_status}) • {age_note}"
+            return f"Stale/latest available market data from {source} ({market_status}) | {age_note}"
         note = str(quote_meta.get("note") or "").strip()
         if quality == "unconfigured":
             return f"Quote provider unconfigured: {note or source}"
@@ -681,7 +682,7 @@ def build_focus_status_banner(focus_ticker: str, state: DashboardState) -> html.
     ]
     return html.Div(
         [
-            html.Div("Runtime Status", className="status-value"),
+            html.Div("Data Status", className="status-value"),
             html.Div(state.data_status, className="status-copy"),
             html.Div(pills, className="badge-row"),
         ],
@@ -1045,7 +1046,10 @@ def load_live_data(
             research_signal_meta = _latest_research_signal_meta(session, symbol)
             if research_signal_meta:
                 existing_meta = signal_meta_map.get(key, {})
-                merged = {**research_signal_meta, **existing_meta}
+                if detect_data_mode() == DATA_MODE_LOCAL:
+                    merged = {**existing_meta, **research_signal_meta}
+                else:
+                    merged = {**research_signal_meta, **existing_meta}
                 merged_lines = [
                     *[str(line) for line in existing_meta.get("explanation_bullets", []) if line],
                     *[str(line) for line in research_signal_meta.get("explanation_bullets", []) if line],
@@ -1881,9 +1885,9 @@ def build_metric_cards(compare_df: pd.DataFrame, event_df: pd.DataFrame) -> list
     avg_return = float(compare_df["pct_change"].mean()) if not compare_df.empty else 0.0
     avg_spread = float(compare_df["avg_spread_pct"].mean()) if not compare_df.empty else 0.0
     metrics = [
-        ("Workspace Mood Index", f"{mood_score}", mood_label),
+        ("Mood Index", f"{mood_score}", mood_label),
         ("Signal Confidence", f"{avg_confidence:.0f}%", "Average article/model confidence across the active workspace"),
-        ("Average Window Return", f"{avg_return:.2f}%", "Selected live price window"),
+        ("Window Return", f"{avg_return:+.2f}%", "Selected live/latest price window"),
         ("Average Spread", f"{avg_spread:.2f}%", mood_note),
     ]
     return build_metric_grid(metrics, column_size=3)
@@ -1983,7 +1987,7 @@ def build_overlay_chart(focus_ticker: str, price_df: pd.DataFrame, news_df: pd.D
             secondary_y=True,
         )
     fig.update_layout(
-        title=f"Price vs Sentiment Overlay • {focus_ticker}",
+        title=f"Price vs Sentiment Overlay | {focus_ticker}",
         paper_bgcolor=PALETTE["paper"],
         plot_bgcolor=PALETTE["paper"],
         font={"color": PALETTE["ink"]},
@@ -2067,7 +2071,7 @@ def build_sector_heatmap(sector_df: pd.DataFrame) -> go.Figure:
                     for _, row in sector_df.iterrows()
                 ]],
                 hoverinfo="text",
-                colorscale=[[0.0, "#c0392b"], [0.5, "#f3d9a6"], [1.0, "#148f77"]],
+                colorscale=[[0.0, PALETTE["bear"]], [0.5, "#8a8170"], [1.0, PALETTE["bull"]]],
                 zmin=-1,
                 zmax=1,
             )
@@ -2088,7 +2092,7 @@ def build_compare_chart(compare_df: pd.DataFrame) -> go.Figure:
         ordered = compare_df.sort_values("pct_change", ascending=False)
         v2_values = pd.to_numeric(ordered.get("v2_score"), errors="coerce")
         fig.add_trace(go.Bar(x=ordered["ticker"], y=ordered["avg_sentiment"], name="V1 / Sentiment", marker_color=PALETTE["bull"]))
-        fig.add_trace(go.Bar(x=ordered["ticker"], y=v2_values, name="V2 Score", marker_color=PALETTE["accent_2"]))
+        fig.add_trace(go.Bar(x=ordered["ticker"], y=v2_values, name="V2 Score", marker_color=PALETTE["line"]))
         fig.add_trace(go.Scatter(x=ordered["ticker"], y=ordered["news_volume"], name="Article Volume", mode="lines+markers", line={"color": PALETTE["line"], "width": 3}, marker={"size": 10}, yaxis="y2"))
     fig.update_layout(
         title="Signal Snapshot",
@@ -2182,7 +2186,10 @@ def build_recent_price_histogram(
         go.Bar(
             x=daily["label"],
             y=daily["close"],
-            marker_color=PALETTE["bull"],
+            marker_color=[
+                PALETTE["bull"] if close >= open_value else PALETTE["bear"]
+                for close, open_value in zip(daily["close"], daily["open"].fillna(daily["close"]), strict=False)
+            ],
             text=[f"{value:.2f}" for value in daily["close"]],
             textposition="outside",
             cliponaxis=False,
@@ -2378,13 +2385,16 @@ def build_relative_performance_chart(focus_ticker: str, price_df: pd.DataFrame, 
         start_close = float(normalized["close"].iloc[0])
         if not start_close:
             continue
+        is_focus = label == focus_ticker
+        line_color = PALETTE["accent"] if is_focus else PALETTE["line"] if label in {"SPY", "QQQ"} else PALETTE["accent_2"]
         fig.add_trace(
             go.Scatter(
                 x=normalized["timestamp"],
                 y=(normalized["close"] / start_close) * 100.0,
                 mode="lines",
                 name=label,
-                line={"width": 3 if label == focus_ticker else 2},
+                line={"width": 3.5 if is_focus else 2, "color": line_color},
+                opacity=1.0 if is_focus else 0.62,
             )
         )
     fig.update_layout(
@@ -2396,6 +2406,7 @@ def build_relative_performance_chart(focus_ticker: str, price_df: pd.DataFrame, 
         legend={"orientation": "h", "y": 1.12},
         xaxis={"title": "", "gridcolor": PALETTE["grid"]},
         yaxis={"title": "Indexed Close (100 = start)", "gridcolor": PALETTE["grid"]},
+        hoverlabel={"bgcolor": PALETTE["paper"], "font_color": PALETTE["ink"]},
     )
     return fig
 
@@ -2655,8 +2666,8 @@ def build_buy_readout(focus_ticker: str, compare_df: pd.DataFrame) -> html.Div:
     reason = str(row.get("final_reason") or "").strip()
 
     if label in {"bullish", "positive"} and confidence >= 60 and mode == "News + Quote Quality":
-        verdict = "Constructive"
-        tone = f"{focus_ticker} has a constructive short-term setup right now."
+        verdict = "Constructive Context"
+        tone = f"{focus_ticker} has supportive short-term signal context right now."
     elif label in {"bearish", "negative"} and confidence >= 55:
         verdict = "Caution"
         tone = f"{focus_ticker} has a cautious short-term signal right now."
@@ -2681,8 +2692,8 @@ def build_buy_readout(focus_ticker: str, compare_df: pd.DataFrame) -> html.Div:
 
     return html.Div(
         [
-            html.Div("Final Read", className="section-kicker"),
-            html.Div(f"{verdict} • {tone}", className="summary-value", style={"textAlign": "left"}),
+            html.Div("Signal Read", className="section-kicker"),
+            html.Div(f"{verdict} | {tone}", className="summary-value", style={"textAlign": "left"}),
             html.Div(support_line, className="explanation-line"),
             html.Div(caution_line, className="explanation-line"),
         ],

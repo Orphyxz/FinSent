@@ -9,16 +9,16 @@ def layout() -> html.Div:
         [
             html.Div(
                 [
-                    html.Div("Alerts", className="section-kicker"),
-                    html.H1("Operational Watchlist", className="page-title"),
+                    html.Div("Monitoring", className="section-kicker"),
+                    html.H1("Contextual Alerts", className="page-title"),
                     html.P(
                         "Compact monitoring for weak sentiment, coverage shifts, and notable movement in the current workspace.",
                         className="page-subtitle",
                     ),
                 ],
-                className="section-shell page-header-shell compact-page-header mb-2",
+                className="section-shell page-header-shell terminal-page-header mb-2",
             ),
-            html.Div(id="alerts-status-banner", className="mb-3"),
+            html.Div(id="alerts-status-banner", className="mb-3 market-status-strip"),
             dbc.Row(
                 [
                     dbc.Col(
@@ -53,7 +53,7 @@ def layout() -> html.Div:
                             [
                                 html.Div("Sentiment Trend", className="section-kicker"),
                                 html.H3("Recent Shifts", className="section-title"),
-                                dcc.Graph(id="alerts-shift-chart"),
+                                dcc.Graph(id="alerts-shift-chart", config={"displayModeBar": False, "responsive": True}),
                             ],
                             className="chart-card",
                         ),
@@ -70,7 +70,7 @@ def layout() -> html.Div:
                                 [
                                     html.Div("Sector Mood", className="section-kicker"),
                                     html.H3("Optional Macro View", className="section-title"),
-                                    dcc.Graph(id="alerts-sector-heatmap"),
+                                    dcc.Graph(id="alerts-sector-heatmap", config={"displayModeBar": False, "responsive": True}),
                                 ],
                                 className="chart-card compact-chart-card",
                             )

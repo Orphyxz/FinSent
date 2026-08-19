@@ -35,9 +35,10 @@ def layout() -> html.Div:
         [
             html.Div(
                 [
-                    section_header("Research", "Research & Validation", "Historical evaluation of FinSent's sentiment and signal methodologies."),
+                    section_header("Locked Research", "Phase 16 Final Evaluation", "Historical 1D evaluation of FinSent's sentiment and signal methodologies."),
                     html.Div(
                         [
+                            status_badge("Locked research", "PHASE_16"),
                             status_badge("Final experiment", "COMPLETED_LOCKED"),
                             status_badge("Holdout", "FINAL_HOLDOUT_V3_EVALUATED_LOCKED" if artifact.locked else "WARNING"),
                             status_badge("Fingerprint", "verified" if artifact.locked else "warning"),
@@ -49,7 +50,7 @@ def layout() -> html.Div:
                         className="research-note compact-note",
                     ),
                 ],
-                className="section-shell page-header-shell research-header-shell",
+                className="section-shell page-header-shell research-header-shell locked-research-banner",
             ),
             html.Div(
                 [
@@ -113,21 +114,21 @@ def layout() -> html.Div:
             ),
             html.Div(
                 [
-                    html.Div([html.Div("Confusion", className="section-kicker"), html.H3("V1 vs Realized", className="section-title"), dcc.Graph(figure=confusion_figure(v1["confusion_matrix"], "Signal V1"))], className="chart-card"),
-                    html.Div([html.Div("Confusion", className="section-kicker"), html.H3("V2.0 vs Realized", className="section-title"), dcc.Graph(figure=confusion_figure(v2["confusion_matrix"], "Signal V2.0"))], className="chart-card"),
+                    html.Div([html.Div("Confusion", className="section-kicker"), html.H3("V1 vs Realized", className="section-title"), dcc.Graph(figure=confusion_figure(v1["confusion_matrix"], "Signal V1"), config={"displayModeBar": False, "responsive": True})], className="chart-card"),
+                    html.Div([html.Div("Confusion", className="section-kicker"), html.H3("V2.0 vs Realized", className="section-title"), dcc.Graph(figure=confusion_figure(v2["confusion_matrix"], "Signal V2.0"), config={"displayModeBar": False, "responsive": True})], className="chart-card"),
                 ],
                 className="research-two-column",
             ),
             html.Div(
                 [
-                    html.Div([html.Div("Class Distribution", className="section-kicker"), html.H3("Signal and Outcome Mix", className="section-title"), dcc.Graph(figure=distribution_figure(summary["class_distributions"]))], className="chart-card"),
-                    html.Div([html.Div("Paired Result", className="section-kicker"), html.H3("Identical Observations", className="section-title"), dcc.Graph(figure=paired_figure(summary["paired_analysis"])), html.Div("McNemar not run: discordant N=19 was insufficient for meaningful inference.", className="research-note")], className="chart-card"),
+                    html.Div([html.Div("Class Distribution", className="section-kicker"), html.H3("Signal and Outcome Mix", className="section-title"), dcc.Graph(figure=distribution_figure(summary["class_distributions"]), config={"displayModeBar": False, "responsive": True})], className="chart-card"),
+                    html.Div([html.Div("Paired Result", className="section-kicker"), html.H3("Identical Observations", className="section-title"), dcc.Graph(figure=paired_figure(summary["paired_analysis"]), config={"displayModeBar": False, "responsive": True}), html.Div("McNemar not run: discordant N=19 was insufficient for meaningful inference.", className="research-note")], className="chart-card"),
                 ],
                 className="research-two-column",
             ),
             html.Div(
                 [
-                    html.Div([html.Div("Per Symbol", className="section-kicker"), html.H3("AMZN / NVDA / TSLA", className="section-title"), dcc.Graph(figure=per_symbol_figure(summary["symbol_results"]))], className="chart-card"),
+                    html.Div([html.Div("Per Symbol", className="section-kicker"), html.H3("AMZN / NVDA / TSLA", className="section-title"), dcc.Graph(figure=per_symbol_figure(summary["symbol_results"]), config={"displayModeBar": False, "responsive": True})], className="chart-card"),
                     html.Div(
                         [
                             html.Div("Research Candidate", className="section-kicker"),

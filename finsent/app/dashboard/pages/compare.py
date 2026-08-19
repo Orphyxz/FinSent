@@ -16,13 +16,13 @@ def layout() -> html.Div:
                         className="page-subtitle",
                     ),
                 ],
-                className="section-shell page-header-shell compact-page-header mb-2",
+                className="section-shell page-header-shell terminal-page-header mb-2",
             ),
             html.Div(id="compare-empty-state", className="mb-3"),
             html.Div(
                 [
                     html.Div(id="compare-selection-summary", className="compare-selection-summary mb-3"),
-                    dbc.Row(id="compare-metric-row", className="g-3 mb-3"),
+                    dbc.Row(id="compare-metric-row", className="g-2 metric-strip mb-3"),
                     dbc.Row(
                         [
                             dbc.Col(
@@ -34,7 +34,7 @@ def layout() -> html.Div:
                                             "All selected tickers are rebased to 100 so the price move is actually comparable.",
                                             className="section-helper",
                                         ),
-                                        dcc.Graph(id="compare-main-chart"),
+                                        dcc.Graph(id="compare-main-chart", config={"displayModeBar": False, "responsive": True}),
                                     ],
                                     className="chart-card",
                                 ),
@@ -66,7 +66,7 @@ def layout() -> html.Div:
                                 "Use this to compare each symbol's return against SPY and its mapped sector ETF.",
                                 className="section-helper",
                             ),
-                            dcc.Graph(id="compare-secondary-chart"),
+                            dcc.Graph(id="compare-secondary-chart", config={"displayModeBar": False, "responsive": True}),
                         ],
                         className="chart-card compact-chart-card mb-4",
                     ),
@@ -74,7 +74,7 @@ def layout() -> html.Div:
                         [
                             html.Div("Market Context", className="section-kicker"),
                             html.H3("Relative Context", className="section-title"),
-                            html.Div(id="compare-market-context-table", className="summary-stack"),
+                            html.Div(id="compare-market-context-table", className="summary-stack market-context-grid"),
                         ],
                         className="section-shell mb-4",
                     ),
@@ -82,7 +82,7 @@ def layout() -> html.Div:
                         [
                             html.Div("Catalyst Intelligence", className="section-kicker"),
                             html.H3("Strongest Recent Catalysts", className="section-title"),
-                            html.Div(id="compare-catalyst-table", className="summary-stack"),
+                            html.Div(id="compare-catalyst-table", className="summary-stack catalyst-list"),
                         ],
                         className="section-shell mb-4",
                     ),
