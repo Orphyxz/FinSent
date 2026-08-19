@@ -90,6 +90,33 @@ def layout() -> html.Div:
                     dbc.Col(
                         html.Div(
                             [
+                                html.Div("Market Context", className="section-kicker"),
+                                html.H3("Relative Performance", className="section-title"),
+                                dcc.Graph(id="stock-relative-chart"),
+                            ],
+                            className="chart-card",
+                        ),
+                        lg=8,
+                    ),
+                    dbc.Col(
+                        html.Div(
+                            [
+                                html.Div("Benchmark Intelligence", className="section-kicker"),
+                                html.H3("Market Context", className="section-title"),
+                                html.Div(id="stock-market-context-panel", className="summary-stack"),
+                            ],
+                            className="section-shell",
+                        ),
+                        lg=4,
+                    ),
+                ],
+                className="g-3 mb-4",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Div(
+                            [
                                 html.Div("Catalyst Intelligence", className="section-kicker"),
                                 html.H3("Key Catalysts", className="section-title"),
                                 html.Div(id="stock-key-catalysts", className="summary-stack"),

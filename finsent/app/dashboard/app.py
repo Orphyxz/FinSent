@@ -17,6 +17,8 @@ from finsent.app.dashboard.view_model import (
     build_active_catalysts,
     build_catalyst_summary,
     build_compare_catalyst_table,
+    build_compare_market_context_table,
+    build_compare_relative_chart,
     build_compare_chart,
     build_dashboard_state,
     build_empty_figure,
@@ -25,9 +27,13 @@ from finsent.app.dashboard.view_model import (
     build_metric_grid,
     build_news_table,
     build_key_catalysts,
+    build_market_context_explanation,
+    build_market_context_panel,
     build_overlay_chart,
+    build_overview_market_context,
     build_recent_price_histogram,
     build_price_timeline,
+    build_relative_performance_chart,
     build_buy_readout,
     build_sector_heatmap,
     build_sentiment_timeline_with_title,
@@ -346,6 +352,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Output("summary-page-title", "children"),
         Output("summary-badge-row", "children"),
         Output("summary-status-banner", "children"),
+        Output("summary-market-context", "children"),
         Output("summary-metric-row", "children"),
         Output("summary-active-catalysts", "children"),
         Output("summary-price-chart", "figure"),
@@ -428,6 +435,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             f"{focus_ticker} | {company_name}",
             badges,
             build_focus_status_banner(focus_ticker, state),
+            build_overview_market_context(state.market_context_df, state.compare_df),
             metrics,
             build_active_catalysts(state.catalyst_df),
             figure,
@@ -441,6 +449,8 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Output("stock-main-chart", "figure"),
         Output("stock-ai-explanation", "children"),
         Output("stock-summary-panel", "children"),
+        Output("stock-relative-chart", "figure"),
+        Output("stock-market-context-panel", "children"),
         Output("stock-catalyst-summary", "children"),
         Output("stock-key-catalysts", "children"),
         Output("stock-catalyst-timeline", "children"),
@@ -542,6 +552,9 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
                 else build_empty_figure(f"{focus_ticker} Price Timeline", "Live quote unavailable. No stored historical price bars were found for this selected symbol.")
             )
         signal_lines = build_ai_explanation(focus_ticker, state.news_df, state.compare_df)
+        for line in build_market_context_explanation(focus_ticker, state.market_context_df, state.catalyst_df):
+            if line and line not in signal_lines:
+                signal_lines.append(line)
         signal_meta = state.signal_meta_map.get(focus_ticker, {})
         for line in signal_meta.get("explanation_bullets", [])[:5]:
             if line and line not in signal_lines:
@@ -553,6 +566,8 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             main_chart,
             [html.Div(line, className="explanation-line") for line in signal_lines],
             summary,
+            build_relative_performance_chart(focus_ticker, state.price_df, state.market_context_df),
+            build_market_context_panel(state.market_context_df, focus_ticker),
             build_catalyst_summary(state.catalyst_df, focus_ticker),
             build_key_catalysts(state.catalyst_df, focus_ticker),
             build_catalyst_timeline(state.catalyst_df, focus_ticker),
@@ -663,6 +678,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Output("compare-main-chart", "figure"),
         Output("compare-secondary-chart", "figure"),
         Output("compare-ai-summary", "children"),
+        Output("compare-market-context-table", "children"),
         Output("compare-catalyst-table", "children"),
         Input("selection-store", "data"),
         Input("live-refresh-store", "data"),
@@ -710,6 +726,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
                 build_empty_figure("Relative Price Performance", "Choose peer tickers to unlock the secondary comparison view."),
                 [html.Div("Comparison insights will appear here once at least two tickers are loaded.", className="explanation-line")],
                 [],
+                [],
             )
 
         metrics = build_metric_grid(
@@ -732,6 +749,15 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
                 html.Div(f'{leader["ticker"]} has the strongest sentiment signal with an average score of {leader["avg_sentiment"]:.2f}.', className="explanation-line"),
                 html.Div(f'{reliable["ticker"]} has the highest average model confidence at {reliable["avg_confidence"]:.0f}%, while {laggard["ticker"]} is the weakest price mover.', className="explanation-line"),
             ]
+            relative_rows = compare_df.dropna(subset=["market_relative_return"]) if "market_relative_return" in compare_df.columns else pd.DataFrame()
+            if not relative_rows.empty:
+                relative_leader = relative_rows.sort_values("market_relative_return", ascending=False).iloc[0]
+                summary_lines.append(
+                    html.Div(
+                        f'{relative_leader["ticker"]} leads the relative strength ranking versus SPY in the selected window.',
+                        className="explanation-line",
+                    )
+                )
             catalyst_rows = compare_df[compare_df["catalyst_count"] > 0] if "catalyst_count" in compare_df.columns else pd.DataFrame()
             if not catalyst_rows.empty:
                 top = catalyst_rows.sort_values("catalyst_count", ascending=False).iloc[0]
@@ -748,8 +774,9 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             {"display": "block"},
             metrics,
             build_price_timeline(state.price_df, title="Indexed Price Performance", normalize=True),
-            build_compare_chart(compare_df),
+            build_compare_relative_chart(compare_df),
             summary_lines,
+            build_compare_market_context_table(compare_df),
             build_compare_catalyst_table(compare_df),
         )
 

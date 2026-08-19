@@ -20,6 +20,14 @@ def layout() -> html.Div:
                 className="section-shell page-header-shell compact-page-header mb-2",
             ),
             html.Div(id="summary-status-banner", className="mb-2"),
+            html.Div(
+                [
+                    html.Div("Market Context", className="section-kicker"),
+                    html.H3("Broad Market and Relative Strength", className="section-title"),
+                    html.Div(id="summary-market-context", className="summary-stack"),
+                ],
+                className="section-shell mb-3",
+            ),
             dbc.Row(id="summary-metric-row", className="g-2 mb-2"),
             html.Div(
                 [

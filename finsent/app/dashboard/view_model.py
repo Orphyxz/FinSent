@@ -34,6 +34,14 @@ from finsent.app.services.catalyst_intelligence import (
     catalyst_intelligence_service,
     catalyst_results_to_records,
 )
+from finsent.app.services.market_context import (
+    BROAD_MARKET_BENCHMARKS,
+    MarketContextQuality,
+    market_context_results_to_frame,
+    market_context_service,
+    normalize_bars,
+    sector_etf_for_symbol,
+)
 from finsent.app.services.symbol_registry import SymbolRecord, registry
 from finsent.app.utils.logging import safe_log_message
 
@@ -144,6 +152,22 @@ COMPARE_COLUMNS = [
     "top_catalyst_direction",
     "top_catalyst_impact",
     "top_catalyst_title",
+    "benchmark_symbol",
+    "sector_benchmark_symbol",
+    "market_relative_return",
+    "sector_relative_return",
+    "relative_strength_label",
+    "stock_volatility",
+    "benchmark_volatility",
+    "volatility_ratio",
+    "volatility_label",
+    "correlation_to_market",
+    "correlation_to_sector",
+    "beta_to_market",
+    "market_regime",
+    "stock_move_context",
+    "market_context_quality",
+    "market_context_freshness",
 ]
 
 
@@ -163,6 +187,7 @@ class DashboardState:
     data_mode: str = DATA_MODE_UNAVAILABLE
     local_summary: dict[str, object] | None = None
     catalyst_df: pd.DataFrame = field(default_factory=pd.DataFrame)
+    market_context_df: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 def get_pipeline() -> FinSentPipeline:
@@ -1195,6 +1220,47 @@ def enrich_news_with_catalysts(news_df: pd.DataFrame, catalyst_df: pd.DataFrame)
     return enriched.drop(columns=["_article_id"])
 
 
+def build_market_context_frame(tickers: list[str], price_df: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "symbol",
+        "benchmark_symbol",
+        "sector_benchmark_symbol",
+        "stock_return",
+        "benchmark_return",
+        "sector_return",
+        "qqq_return",
+        "market_relative_return",
+        "sector_relative_return",
+        "relative_strength_label",
+        "stock_volatility",
+        "benchmark_volatility",
+        "sector_volatility",
+        "volatility_ratio",
+        "volatility_label",
+        "correlation_to_market",
+        "correlation_to_sector",
+        "correlation_label",
+        "beta_to_market",
+        "market_regime",
+        "sector_regime",
+        "stock_move_context",
+        "data_start",
+        "data_end",
+        "bar_count",
+        "provider",
+        "feed",
+        "freshness",
+        "latest_timestamp",
+        "retrieved_at",
+        "quality",
+        "warnings",
+    ]
+    if not tickers:
+        return pd.DataFrame(columns=columns)
+    frame = market_context_results_to_frame(market_context_service.build_contexts(tickers, price_df=price_df))
+    return frame if not frame.empty else pd.DataFrame(columns=columns)
+
+
 def build_dashboard_state(
     focus_ticker: str,
     compare_tickers: list[str] | None,
@@ -1216,7 +1282,8 @@ def build_dashboard_state(
     news_df = enrich_news_with_catalysts(news_df, catalyst_df)
     event_df = build_event_frame(news_df, price_df)
     daily_summary_df = build_grouped_daily_summary(event_df)
-    compare_df = build_compare_frame(news_df, price_df, event_df, snapshot_map, quote_meta_map, signal_meta_map, catalyst_df)
+    market_context_df = build_market_context_frame(selected, price_df)
+    compare_df = build_compare_frame(news_df, price_df, event_df, snapshot_map, quote_meta_map, signal_meta_map, catalyst_df, market_context_df)
     sector_df = build_sector_frame(compare_df)
 
     focus_symbol = _symbol_from_value(focus_ticker)
@@ -1254,6 +1321,7 @@ def build_dashboard_state(
         compare_df=compare_df,
         sector_df=sector_df,
         catalyst_df=catalyst_df,
+        market_context_df=market_context_df,
         snapshot_map=snapshot_map,
         quote_meta_map=quote_meta_map,
         signal_meta_map=signal_meta_map,
@@ -1367,6 +1435,7 @@ def build_compare_frame(
     quote_meta_map: dict[str, dict[str, object]] | None = None,
     signal_meta_map: dict[str, dict[str, object]] | None = None,
     catalyst_df: pd.DataFrame | None = None,
+    market_context_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     tickers = sorted(
         set(news_df.get("ticker", pd.Series(dtype=str)).dropna().tolist())
@@ -1381,6 +1450,11 @@ def build_compare_frame(
         ticker_prices = price_df[price_df["ticker"] == ticker]
         ticker_events = event_df[event_df["ticker"] == ticker] if not event_df.empty else pd.DataFrame()
         ticker_catalysts = catalyst_df[catalyst_df["primary_symbol"] == ticker] if catalyst_df is not None and not catalyst_df.empty else pd.DataFrame()
+        market_context_row = (
+            market_context_df[market_context_df["symbol"] == ticker].iloc[0].to_dict()
+            if market_context_df is not None and not market_context_df.empty and not market_context_df[market_context_df["symbol"] == ticker].empty
+            else {}
+        )
         snapshot = (snapshot_map or {}).get(ticker)
         quote_meta = (quote_meta_map or {}).get(ticker, {})
         signal_meta = (signal_meta_map or {}).get(ticker, {})
@@ -1460,6 +1534,22 @@ def build_compare_frame(
                 "top_catalyst_direction": top_catalyst.get("direction", "UNKNOWN"),
                 "top_catalyst_impact": top_catalyst.get("impact", "n/a"),
                 "top_catalyst_title": top_catalyst.get("title", ""),
+                "benchmark_symbol": market_context_row.get("benchmark_symbol"),
+                "sector_benchmark_symbol": market_context_row.get("sector_benchmark_symbol"),
+                "market_relative_return": market_context_row.get("market_relative_return"),
+                "sector_relative_return": market_context_row.get("sector_relative_return"),
+                "relative_strength_label": market_context_row.get("relative_strength_label", "UNKNOWN"),
+                "stock_volatility": market_context_row.get("stock_volatility"),
+                "benchmark_volatility": market_context_row.get("benchmark_volatility"),
+                "volatility_ratio": market_context_row.get("volatility_ratio"),
+                "volatility_label": market_context_row.get("volatility_label", "UNKNOWN"),
+                "correlation_to_market": market_context_row.get("correlation_to_market"),
+                "correlation_to_sector": market_context_row.get("correlation_to_sector"),
+                "beta_to_market": market_context_row.get("beta_to_market"),
+                "market_regime": market_context_row.get("market_regime", "UNKNOWN"),
+                "stock_move_context": market_context_row.get("stock_move_context", "UNKNOWN"),
+                "market_context_quality": market_context_row.get("quality", "UNAVAILABLE"),
+                "market_context_freshness": market_context_row.get("freshness", "UNAVAILABLE"),
             }
         )
     return pd.DataFrame(rows, columns=COMPARE_COLUMNS)
@@ -1960,11 +2050,222 @@ def build_empty_figure(title: str, message: str) -> go.Figure:
     return fig
 
 
+def build_market_context_panel(market_context_df: pd.DataFrame, focus_ticker: str) -> list[html.Div]:
+    row = _market_context_row(market_context_df, focus_ticker)
+    if not row:
+        return [
+            html.Div(
+                "Benchmark context is not available for the current symbol or market.",
+                className="explanation-line",
+            )
+        ]
+    return build_summary_list(
+        [
+            (focus_ticker, _format_pct(row.get("stock_return"))),
+            (str(row.get("benchmark_symbol") or "SPY"), _format_pct(row.get("benchmark_return"))),
+            ("vs Market", _format_pct(row.get("market_relative_return"))),
+            (str(row.get("sector_benchmark_symbol") or "Sector"), _format_pct(row.get("sector_return"))),
+            ("vs Sector", _format_pct(row.get("sector_relative_return"))),
+            ("Relative Strength", _label(row.get("relative_strength_label"))),
+            ("Market Regime", _label(row.get("market_regime"))),
+            ("Volatility", _label(row.get("volatility_label"))),
+            ("Correlation", _format_float(row.get("correlation_to_market"), 2)),
+            ("Beta", _format_float(row.get("beta_to_market"), 2)),
+            ("Quality", _label(row.get("quality"))),
+            ("Freshness", str(row.get("freshness") or "n/a")),
+        ]
+    )
+
+
+def build_overview_market_context(market_context_df: pd.DataFrame, compare_df: pd.DataFrame) -> list[html.Div]:
+    if market_context_df.empty:
+        return [html.Div("Market context is unavailable for the current workspace.", className="explanation-line")]
+    regime = _first_nonempty(market_context_df.get("market_regime"), "UNKNOWN")
+    freshness = _first_nonempty(market_context_df.get("freshness"), "UNAVAILABLE")
+    spy_return = _first_nonempty_numeric(market_context_df.get("benchmark_return"))
+    qqq_return = _first_nonempty_numeric(market_context_df.get("qqq_return"))
+    items = [
+        html.Div(
+            [
+                html.Div("Broad Market", className="summary-label"),
+                html.Div(f"SPY {_format_pct(spy_return)} | QQQ {_format_pct(qqq_return)}", className="summary-value"),
+                html.Div(f"Regime {_label(regime)} | {freshness}", className="metric-note"),
+            ],
+            className="summary-item",
+        )
+    ]
+    if not compare_df.empty:
+        for _, row in compare_df.sort_values("market_relative_return", ascending=False, na_position="last").head(6).iterrows():
+            items.append(
+                html.Div(
+                    [
+                        html.Div(str(row.get("ticker") or ""), className="summary-label"),
+                        html.Div(
+                            f'vs SPY {_format_pct(row.get("market_relative_return"))} | vs {row.get("sector_benchmark_symbol") or "Sector"} {_format_pct(row.get("sector_relative_return"))}',
+                            className="summary-value",
+                        ),
+                        html.Div(_label(row.get("stock_move_context")), className="metric-note"),
+                    ],
+                    className="summary-item",
+                )
+            )
+    return items
+
+
+def build_market_context_explanation(focus_ticker: str, market_context_df: pd.DataFrame, catalyst_df: pd.DataFrame | None = None) -> list[str]:
+    row = _market_context_row(market_context_df, focus_ticker)
+    if not row:
+        return [f"Market benchmark context is not configured or unavailable for {focus_ticker}."]
+    lines = [
+        (
+            f"{focus_ticker} is {_label(row.get('relative_strength_label')).lower()} with "
+            f"vs SPY {_format_pct(row.get('market_relative_return'))} and "
+            f"vs {row.get('sector_benchmark_symbol') or 'sector'} {_format_pct(row.get('sector_relative_return'))}."
+        ),
+        (
+            f"The current move is consistent with {_label(row.get('stock_move_context')).lower()}, "
+            f"while the broad-market regime reads {_label(row.get('market_regime')).lower()}."
+        ),
+    ]
+    if catalyst_df is not None and not catalyst_df.empty:
+        top = catalyst_df[catalyst_df["primary_symbol"] == focus_ticker].sort_values("catalyst_priority", ascending=False).head(1)
+        if not top.empty:
+            catalyst = top.iloc[0]
+            direction = str(catalyst.get("catalyst_direction") or "UNKNOWN").lower()
+            if row.get("market_relative_return") is not None and float(row.get("market_relative_return")) > 0:
+                lines.append(f"The top {direction} catalyst coincides with positive market-relative price strength.")
+            elif row.get("market_relative_return") is not None:
+                lines.append(f"The top {direction} catalyst is not currently accompanied by market-relative strength.")
+    lines.append("Market context is explanatory only and does not change Signal V1 or Signal V2.")
+    return lines
+
+
+def build_relative_performance_chart(focus_ticker: str, price_df: pd.DataFrame, market_context_df: pd.DataFrame) -> go.Figure:
+    row = _market_context_row(market_context_df, focus_ticker)
+    frames: list[tuple[str, pd.DataFrame]] = []
+    stock_prices = price_df[price_df["ticker"] == focus_ticker] if not price_df.empty and "ticker" in price_df.columns else pd.DataFrame()
+    if not stock_prices.empty:
+        frames.append((focus_ticker, stock_prices))
+    if row:
+        for ticker in ["SPY", str(row.get("sector_benchmark_symbol") or ""), "QQQ" if str(row.get("sector_benchmark_symbol") or "") == "XLK" else ""]:
+            if ticker and ticker not in {label for label, _frame in frames}:
+                frame = market_context_service.cached_bars(ticker)
+                if not frame.empty:
+                    frames.append((ticker, frame))
+    if len(frames) < 2:
+        return build_empty_figure("Relative Performance", "Benchmark bars are unavailable for a normalized relative chart.")
+
+    fig = go.Figure()
+    for label, frame in frames:
+        normalized = normalize_bars(frame)
+        if normalized.empty:
+            continue
+        start_close = float(normalized["close"].iloc[0])
+        if not start_close:
+            continue
+        fig.add_trace(
+            go.Scatter(
+                x=normalized["timestamp"],
+                y=(normalized["close"] / start_close) * 100.0,
+                mode="lines",
+                name=label,
+                line={"width": 3 if label == focus_ticker else 2},
+            )
+        )
+    fig.update_layout(
+        title="Normalized Relative Performance",
+        paper_bgcolor=PALETTE["paper"],
+        plot_bgcolor=PALETTE["paper"],
+        font={"color": PALETTE["ink"]},
+        margin={"l": 32, "r": 24, "t": 56, "b": 28},
+        legend={"orientation": "h", "y": 1.12},
+        xaxis={"title": "", "gridcolor": PALETTE["grid"]},
+        yaxis={"title": "Indexed Close (100 = start)", "gridcolor": PALETTE["grid"]},
+    )
+    return fig
+
+
+def build_compare_relative_chart(compare_df: pd.DataFrame) -> go.Figure:
+    if compare_df.empty or "market_relative_return" not in compare_df.columns:
+        return build_empty_figure("Relative Strength", "Market-relative comparison is unavailable.")
+    ordered = compare_df.sort_values("market_relative_return", ascending=False, na_position="last")
+    market_values = pd.to_numeric(ordered.get("market_relative_return"), errors="coerce") * 100.0
+    sector_values = pd.to_numeric(ordered.get("sector_relative_return"), errors="coerce") * 100.0
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=ordered["ticker"], y=market_values, name="vs SPY", marker_color=PALETTE["line"]))
+    fig.add_trace(go.Bar(x=ordered["ticker"], y=sector_values, name="vs Sector", marker_color=PALETTE["accent_2"]))
+    fig.update_layout(
+        title="Relative Strength Ranking",
+        barmode="group",
+        paper_bgcolor=PALETTE["paper"],
+        plot_bgcolor=PALETTE["paper"],
+        font={"color": PALETTE["ink"]},
+        margin={"l": 32, "r": 24, "t": 56, "b": 28},
+        legend={"orientation": "h", "y": 1.12},
+        xaxis={"title": "", "gridcolor": PALETTE["grid"]},
+        yaxis={"title": "Relative Return % pts", "gridcolor": PALETTE["grid"], "zerolinecolor": PALETTE["grid"]},
+    )
+    return fig
+
+
 def build_summary_list(items: list[tuple[str, str]]) -> list[html.Div]:
     return [
         html.Div([html.Div(label, className="summary-label"), html.Div(value, className="summary-value")], className="summary-item")
         for label, value in items
     ]
+
+
+def _market_context_row(market_context_df: pd.DataFrame, focus_ticker: str) -> dict[str, object]:
+    if market_context_df.empty or "symbol" not in market_context_df.columns:
+        return {}
+    rows = market_context_df[market_context_df["symbol"] == focus_ticker]
+    if rows.empty:
+        return {}
+    return rows.iloc[0].to_dict()
+
+
+def _format_pct(value: object) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "n/a"
+    if not pd.notna(number):
+        return "n/a"
+    return f"{number * 100.0:+.2f}%"
+
+
+def _format_float(value: object, digits: int = 2) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "n/a"
+    if not pd.notna(number):
+        return "n/a"
+    return f"{number:.{digits}f}"
+
+
+def _label(value: object) -> str:
+    text = str(value or "UNKNOWN")
+    if text.lower() == "nan":
+        text = "UNKNOWN"
+    return text.replace("_", " ").title()
+
+
+def _first_nonempty(series: pd.Series | None, default: str) -> str:
+    if series is None:
+        return default
+    for value in series.dropna().tolist():
+        text = str(value).strip()
+        if text:
+            return text
+    return default
+
+
+def _first_nonempty_numeric(series: pd.Series | None) -> float | None:
+    if series is None:
+        return None
+    values = pd.to_numeric(series, errors="coerce").dropna()
+    return float(values.iloc[0]) if not values.empty else None
 
 
 def get_catalyst_type_options() -> list[dict[str, str]]:
@@ -2062,6 +2363,37 @@ def build_compare_catalyst_table(compare_df: pd.DataFrame) -> list[html.Div]:
                         className="summary-value",
                     ),
                     html.Div(f'{int(row.get("catalyst_count") or 0)} event group(s). {row.get("top_catalyst_title", "")}', className="metric-note"),
+                ],
+                className="summary-item",
+            )
+        )
+    return items
+
+
+def build_compare_market_context_table(compare_df: pd.DataFrame) -> list[html.Div]:
+    if compare_df.empty or "market_relative_return" not in compare_df.columns:
+        return [html.Div("Market-relative comparison is unavailable for the selected symbols.", className="explanation-line")]
+    items: list[html.Div] = []
+    ordered = compare_df.sort_values("market_relative_return", ascending=False, na_position="last")
+    for _, row in ordered.iterrows():
+        items.append(
+            html.Div(
+                [
+                    html.Div(str(row.get("ticker") or ""), className="summary-label"),
+                    html.Div(
+                        f'vs SPY {_format_pct(row.get("market_relative_return"))} | vs {row.get("sector_benchmark_symbol") or "Sector"} {_format_pct(row.get("sector_relative_return"))}',
+                        className="summary-value",
+                    ),
+                    html.Div(
+                        (
+                            f'{_label(row.get("relative_strength_label"))} | '
+                            f'vol {_label(row.get("volatility_label"))} | '
+                            f'corr {_format_float(row.get("correlation_to_market"), 2)} | '
+                            f'beta {_format_float(row.get("beta_to_market"), 2)} | '
+                            f'quality {_label(row.get("market_context_quality"))}'
+                        ),
+                        className="metric-note",
+                    ),
                 ],
                 className="summary-item",
             )

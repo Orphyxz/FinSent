@@ -61,14 +61,22 @@ def layout() -> html.Div:
                     html.Div(
                         [
                             html.Div("Signal Snapshot", className="section-kicker"),
-                            html.H3("V1/V2 Signal and News Coverage", className="section-title"),
+                            html.H3("Market and Sector Relative Return", className="section-title"),
                             html.P(
-                                "Use this to compare current sentiment, live Signal V2 score, and article volume without mixing incompatible price scales.",
+                                "Use this to compare each symbol's return against SPY and its mapped sector ETF.",
                                 className="section-helper",
                             ),
                             dcc.Graph(id="compare-secondary-chart"),
                         ],
                         className="chart-card compact-chart-card mb-4",
+                    ),
+                    html.Div(
+                        [
+                            html.Div("Market Context", className="section-kicker"),
+                            html.H3("Relative Context", className="section-title"),
+                            html.Div(id="compare-market-context-table", className="summary-stack"),
+                        ],
+                        className="section-shell mb-4",
                     ),
                     html.Div(
                         [
