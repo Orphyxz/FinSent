@@ -289,27 +289,40 @@ class QuoteSnapshotRepository:
 
     def upsert_quote_snapshot(self, symbol: SymbolRecord, snapshot: QuoteSnapshot) -> QuoteSnapshotEntity:
         instrument = InstrumentRepository(self.session).get_or_create_from_symbol(symbol)
-        entity = QuoteSnapshotEntity(
-            instrument_id=instrument.id,
-            ticker=symbol.ticker,
-            exchange=symbol.exchange,
-            provider_symbol=snapshot.provider_symbol,
-            current_price=snapshot.current_price,
-            currency=snapshot.currency,
-            bid=snapshot.bid,
-            ask=snapshot.ask,
-            spread_absolute=snapshot.spread_absolute,
-            spread_percentage=snapshot.spread_percentage,
-            volume=snapshot.volume,
-            market_timestamp=snapshot.market_timestamp,
-            ingested_at=snapshot.ingested_at,
-            provider=snapshot.provider,
-            leaf_provider=snapshot.provider,
-            freshness_seconds=snapshot.freshness_seconds,
-            quality_status=snapshot.quality_status,
-            note=snapshot.note,
-        )
-        self.session.add(entity)
+        entity = None
+        if snapshot.market_timestamp is not None:
+            entity = self.session.execute(
+                select(QuoteSnapshotEntity)
+                .where(
+                    QuoteSnapshotEntity.ticker == symbol.ticker,
+                    QuoteSnapshotEntity.exchange == symbol.exchange,
+                    QuoteSnapshotEntity.provider == snapshot.provider,
+                    QuoteSnapshotEntity.market_timestamp == snapshot.market_timestamp,
+                )
+                .limit(1)
+            ).scalar_one_or_none()
+        if entity is None:
+            entity = QuoteSnapshotEntity(
+                ticker=symbol.ticker,
+                exchange=symbol.exchange,
+                provider=snapshot.provider,
+                market_timestamp=snapshot.market_timestamp,
+            )
+            self.session.add(entity)
+        entity.instrument_id = instrument.id
+        entity.provider_symbol = snapshot.provider_symbol
+        entity.current_price = snapshot.current_price
+        entity.currency = snapshot.currency
+        entity.bid = snapshot.bid
+        entity.ask = snapshot.ask
+        entity.spread_absolute = snapshot.spread_absolute
+        entity.spread_percentage = snapshot.spread_percentage
+        entity.volume = snapshot.volume
+        entity.ingested_at = snapshot.ingested_at
+        entity.leaf_provider = snapshot.provider
+        entity.freshness_seconds = snapshot.freshness_seconds
+        entity.quality_status = snapshot.quality_status
+        entity.note = snapshot.note
         self.session.flush()
         return entity
 

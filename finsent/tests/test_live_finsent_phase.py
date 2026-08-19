@@ -7,6 +7,9 @@ import pandas as pd
 from finsent.app.config.settings import settings
 from finsent.app.dashboard.app import create_app
 from finsent.app.dashboard.view_model import build_compare_frame
+from finsent.app.dashboard.view_model import _parse_provider_note
+from finsent.app.database.base import SessionLocal
+from finsent.app.database.repository import QuoteSnapshotRepository
 from finsent.app.services.intelligence_service import IntelligenceService
 from finsent.app.services.llm_analyzers import ArticleAnalysis
 from finsent.app.services.market_providers import AlpacaMarketDataProvider, QuoteSnapshot, classify_us_market_status
@@ -72,6 +75,13 @@ def test_alpaca_snapshot_normalization_uses_iex_feed(monkeypatch) -> None:
     assert snapshot.previous_close == 200.0
     assert snapshot.absolute_change == 10.5
     assert round(snapshot.percent_change or 0.0, 4) == 0.0525
+
+
+def test_provider_note_parser_extracts_alpaca_feed_and_market_status() -> None:
+    parsed = _parse_provider_note("Alpaca snapshot feed=iex; LIVE; market_status=MARKET OPEN")
+
+    assert parsed["feed"] == "iex"
+    assert parsed["market_status"] == "MARKET OPEN"
 
 
 def test_missing_alpaca_credentials_are_reported_without_secrets(monkeypatch) -> None:
@@ -195,6 +205,27 @@ def test_compare_callback_renders_aapl_nvda_tsla_without_shape_error() -> None:
     assert body["compare-content"]["style"] == {"display": "block"}
     assert len(body["compare-main-chart"]["figure"]["data"]) >= 1
     assert len(body["compare-secondary-chart"]["figure"]["data"]) >= 1
+
+
+def test_quote_snapshot_upsert_reuses_duplicate_provider_timestamp() -> None:
+    symbol = registry.get("US", "AAPL")
+    timestamp = datetime(2099, 1, 2, 15, 30)
+    first = _quote(symbol.ticker)
+    first.market_timestamp = timestamp
+    first.current_price = 101.0
+    second = _quote(symbol.ticker)
+    second.market_timestamp = timestamp
+    second.current_price = 102.0
+
+    with SessionLocal() as session:
+        repo = QuoteSnapshotRepository(session)
+        first_row = repo.upsert_quote_snapshot(symbol, first)
+        first_id = first_row.id
+        second_row = repo.upsert_quote_snapshot(symbol, second)
+
+        assert second_row.id == first_id
+        assert second_row.current_price == 102.0
+        session.rollback()
 
 
 def _article(ticker: str) -> NormalizedNewsArticle:

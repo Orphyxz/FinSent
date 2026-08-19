@@ -791,6 +791,8 @@ def _coerce_datetime(value: object) -> datetime | None:
         parsed = pd.Timestamp(str(value))
     except (TypeError, ValueError):
         return None
+    if parsed.nanosecond:
+        parsed = parsed.floor("us")
     if parsed.tzinfo is not None:
         parsed = parsed.tz_convert("UTC").tz_localize(None)
     return parsed.to_pydatetime()

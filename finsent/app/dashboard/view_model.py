@@ -898,10 +898,14 @@ def _merge_latest_sentiment_runs(session, news_df: pd.DataFrame) -> pd.DataFrame
 def _parse_provider_note(note: str | None) -> dict[str, str]:
     result: dict[str, str] = {}
     for part in str(note or "").split(";"):
-        if "=" not in part:
-            continue
-        key, value = part.split("=", maxsplit=1)
-        result[key.strip().lower()] = value.strip()
+        text = part.strip()
+        if "feed=" in text:
+            result["feed"] = text.split("feed=", maxsplit=1)[1].split()[0].strip()
+        if "market_status=" in text:
+            result["market_status"] = text.split("market_status=", maxsplit=1)[1].strip()
+        elif "=" in text:
+            key, value = text.split("=", maxsplit=1)
+            result[key.strip().lower()] = value.strip()
     return result
 
 
@@ -921,22 +925,24 @@ def _latest_research_signal_meta(session, symbol: SymbolRecord) -> dict[str, obj
     ).scalars().all()
     if not rows:
         return {}
+    live_meta: dict[str, object] = {}
     live_rows = [row for row in rows if _signal_provider_metadata(row).get("run_type") == "APPLICATION_LIVE_RUN"]
     if live_rows:
         latest_v2 = live_rows[0]
-        components = _parse_signal_components(latest_v2)
-        return {
+        live_components = _parse_signal_components(latest_v2)
+        live_meta = {
             "live_v2": _signal_row_payload(latest_v2),
-            "v2_components": components,
-            "v2_component_lines": _v2_component_lines(components),
+            "live_v2_components": live_components,
+            "v2_component_lines": _v2_component_lines(live_components),
             "explanation_bullets": [
                 f"LIVE SIGNAL V2: label {(latest_v2.label or 'neutral').upper()}, score {float(latest_v2.final_score or 0.0):+.3f}, confidence {float(latest_v2.confidence or 0.0):.3f}.",
                 latest_v2.explanation or "Live Signal V2 was computed from current news, market momentum, volume, reliability, and freshness where available.",
-                *_v2_component_lines(components),
+                *_v2_component_lines(live_components),
             ],
         }
     by_version: dict[str, SignalRun] = {}
-    for row in rows:
+    research_rows = [row for row in rows if _signal_provider_metadata(row).get("run_type") != "APPLICATION_LIVE_RUN"]
+    for row in research_rows:
         version = str(row.engine_version or row.engine_name or "").lower()
         if version == "1.0" or "v1" in str(row.engine_name or "").lower():
             by_version.setdefault("v1", row)
@@ -944,8 +950,12 @@ def _latest_research_signal_meta(session, symbol: SymbolRecord) -> dict[str, obj
             by_version.setdefault("v2_1", row)
         elif "2.0" in version or "composite" in str(row.engine_name or "").lower():
             by_version.setdefault("v2", row)
-    active = by_version.get("v1") or rows[0]
+    if not by_version:
+        return live_meta
+    active = by_version.get("v1") or research_rows[0]
     components = _parse_signal_components(by_version.get("v2"))
+    research_lines = _research_signal_lines(active, by_version.get("v2"), by_version.get("v2_1"), components)
+    live_lines = [str(line) for line in live_meta.get("explanation_bullets", []) if line]
     return {
         "composite_score": active.final_score,
         "composite_label": active.label,
@@ -956,7 +966,7 @@ def _latest_research_signal_meta(session, symbol: SymbolRecord) -> dict[str, obj
         "action_bias": active.label,
         "net_short_term_view": "Historical research signal, not a live recommendation.",
         "final_reason": active.explanation or "Stored historical Signal V1 research row.",
-        "explanation_bullets": _research_signal_lines(active, by_version.get("v2"), by_version.get("v2_1"), components),
+        "explanation_bullets": [*live_lines, *research_lines],
         "analysis_provider": "stored_research_db",
         "quote_provider": "historical_research",
         "ingested_at": active.generated_at,
@@ -966,6 +976,7 @@ def _latest_research_signal_meta(session, symbol: SymbolRecord) -> dict[str, obj
             if value is not None
         },
         "v2_components": components,
+        **{key: value for key, value in live_meta.items() if key != "explanation_bullets"},
     }
 
 
