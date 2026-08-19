@@ -40,6 +40,7 @@ def build_app_layout(default_ticker: str, default_compare_tickers: list[str] | N
                 id="top-controls-container",
             ),
             html.Div(id="page-container"),
+            html.Div(id="system-status-panel"),
             build_footer(),
         ],
         className="dashboard-shell",

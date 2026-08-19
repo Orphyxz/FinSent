@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+from threading import RLock
+from time import perf_counter
 from typing import TYPE_CHECKING
 
 import dash_bootstrap_components as dbc
@@ -42,6 +45,7 @@ from finsent.app.services.market_context import (
     normalize_bars,
     sector_etf_for_symbol,
 )
+from finsent.app.services.runtime_diagnostics import CacheStats, runtime_diagnostics
 from finsent.app.services.symbol_registry import SymbolRecord, registry
 from finsent.app.utils.logging import safe_log_message
 
@@ -188,6 +192,75 @@ class DashboardState:
     local_summary: dict[str, object] | None = None
     catalyst_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     market_context_df: pd.DataFrame = field(default_factory=pd.DataFrame)
+
+
+@dataclass(slots=True)
+class _DashboardStateCacheEntry:
+    key: tuple[object, ...]
+    state: DashboardState
+    stored_at: datetime
+
+
+class _DashboardStateCache:
+    def __init__(self) -> None:
+        self._lock = RLock()
+        self._entry: _DashboardStateCacheEntry | None = None
+        self._hits = 0
+        self._misses = 0
+        self._expired = 0
+
+    def get(self, key: tuple[object, ...]) -> DashboardState | None:
+        with self._lock:
+            entry = self._entry
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            if entry is None or entry.key != key:
+                self._misses += 1
+                self._publish()
+                return None
+            age = (now - entry.stored_at).total_seconds()
+            if age > settings.dashboard_state_cache_ttl_seconds:
+                self._misses += 1
+                self._expired += 1
+                self._publish()
+                return None
+            self._hits += 1
+            self._publish()
+            runtime_diagnostics.record_refresh(
+                key=str(key),
+                started_at=now,
+                completed_at=now,
+                duration_ms=0,
+                cache_status="HIT",
+                symbols=[str(part) for part in key[0] if isinstance(key[0], tuple)],
+            )
+            return entry.state
+
+    def set(self, key: tuple[object, ...], state: DashboardState) -> None:
+        with self._lock:
+            self._entry = _DashboardStateCacheEntry(
+                key=key,
+                state=state,
+                stored_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+            self._publish()
+
+    def stats(self) -> CacheStats:
+        with self._lock:
+            return CacheStats(
+                name="dashboard_state",
+                hits=self._hits,
+                misses=self._misses,
+                expired=self._expired,
+                entries=1 if self._entry is not None else 0,
+            )
+
+    def _publish(self) -> None:
+        runtime_diagnostics.record_cache_stats(self.stats())
+
+
+_dashboard_state_cache = _DashboardStateCache()
+_live_refresh_lock = RLock()
+_live_refresh_inflight: set[str] = set()
 
 
 def get_pipeline() -> FinSentPipeline:
@@ -616,6 +689,93 @@ def build_focus_status_banner(focus_ticker: str, state: DashboardState) -> html.
     )
 
 
+def build_runtime_status_panel() -> html.Div:
+    snapshot = runtime_diagnostics.snapshot(app_mode=detect_data_mode())
+    cache_total_hits = sum(row.hits for row in snapshot.cache_stats)
+    cache_total_lookups = sum(row.total_lookups for row in snapshot.cache_stats)
+    cache_hit_rate = f"{(cache_total_hits / cache_total_lookups) * 100.0:.0f}%" if cache_total_lookups else "N/A"
+    last_refresh = snapshot.last_refresh
+    last_refresh_age = format_age_from_timestamp(last_refresh.completed_at) if last_refresh else "N/A"
+    refresh_time = f"{last_refresh.duration_ms} ms" if last_refresh else "N/A"
+    market_provider = snapshot.active_market_provider or _provider_from_health(snapshot.provider_health, "market_quote") or "unknown"
+    news_provider = snapshot.active_news_provider or _provider_from_health(snapshot.provider_health, "news") or "unknown"
+    db = snapshot.db_health
+    health_items = [
+        ("Market Data", _provider_state(snapshot.provider_health, "market_quote", market_provider)),
+        ("News", _provider_state(snapshot.provider_health, "news", news_provider)),
+        ("FinBERT", snapshot.finbert_state),
+        ("Database", f"{db.state} | {db.schema_version}"),
+        ("Cache Hit Rate", cache_hit_rate),
+        ("Last Refresh", last_refresh_age),
+        ("Refresh Time", refresh_time),
+    ]
+    details = [
+        ("Mode", snapshot.app_mode),
+        ("Market Provider", market_provider),
+        ("News Provider", news_provider),
+        ("DB Size", _format_bytes(db.size_bytes)),
+        ("Latest Error", snapshot.latest_runtime_error or "none"),
+    ]
+    return html.Details(
+        [
+            html.Summary("System Status", className="system-status-summary"),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Div(label, className="summary-label"),
+                            html.Div(value, className="summary-value"),
+                        ],
+                        className="summary-item",
+                    )
+                    for label, value in health_items
+                ],
+                className="system-status-grid",
+            ),
+            html.Div(
+                [
+                    html.Div(f"{label}: {value}", className="metric-note")
+                    for label, value in details
+                ],
+                className="system-status-details",
+            ),
+        ],
+        className="system-status-panel",
+    )
+
+
+def _provider_from_health(records: tuple[dict[str, object], ...], service: str) -> str | None:
+    configured = [row for row in records if row.get("service") == service and row.get("configured")]
+    if configured:
+        return str(configured[0].get("provider") or "unknown")
+    rows = [row for row in records if row.get("service") == service]
+    return str(rows[0].get("provider")) if rows else None
+
+
+def _provider_state(records: tuple[dict[str, object], ...], service: str, provider: str) -> str:
+    rows = [row for row in records if row.get("service") == service and row.get("provider") == provider]
+    if not rows:
+        return f"{provider} | UNKNOWN"
+    row = rows[0]
+    if not row.get("configured"):
+        return f"{provider} | UNCONFIGURED"
+    state = str(row.get("state") or "UNKNOWN")
+    latency = row.get("last_latency_ms")
+    latency_text = f" | {int(latency)} ms" if isinstance(latency, int) else ""
+    return f"{provider} | {state}{latency_text}"
+
+
+def _format_bytes(value: int | None) -> str:
+    if value is None:
+        return "N/A"
+    size = float(value)
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size < 1024 or unit == "GB":
+            return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
+        size /= 1024
+    return f"{size:.1f} GB"
+
+
 def normalize_tickers(raw_tickers: list[str | None]) -> list[str]:
     values: list[str] = []
     for ticker in raw_tickers:
@@ -777,10 +937,18 @@ def ensure_live_data(
         symbol = _symbol_from_value(ticker)
         if symbol is None:
             continue
-        if not force and not needs_live_refresh(symbol.provider_symbol):
-            continue
+        with _live_refresh_lock:
+            if symbol.provider_symbol in _live_refresh_inflight:
+                continue
+            _live_refresh_inflight.add(symbol.provider_symbol)
         try:
-            intelligence_service.run(symbol, news_limit=limit)
+            if not force and not needs_live_refresh(symbol.provider_symbol):
+                continue
+            snapshot = intelligence_service.run(symbol, news_limit=limit)
+            runtime_diagnostics.record_active_providers(
+                market_provider=snapshot.quote.provider,
+                news_provider=next((article.provider for article in snapshot.articles if article.provider), None),
+            )
         except Exception as exc:
             logger.warning(
                 "Live data refresh failed for %s (%s): %s",
@@ -789,6 +957,9 @@ def ensure_live_data(
                 safe_log_message(exc),
             )
             continue
+        finally:
+            with _live_refresh_lock:
+                _live_refresh_inflight.discard(symbol.provider_symbol)
 
 
 def load_live_data(
@@ -1262,6 +1433,49 @@ def build_market_context_frame(tickers: list[str], price_df: pd.DataFrame) -> pd
 
 
 def build_dashboard_state(
+    focus_ticker: str,
+    compare_tickers: list[str] | None,
+    horizon: str,
+    start_date: str | None,
+    end_date: str | None,
+) -> DashboardState:
+    selected = tuple(normalize_tickers([focus_ticker, *(compare_tickers or [])]))
+    key = (selected, str(horizon or ""), str(start_date or ""), str(end_date or ""), detect_data_mode())
+    cached = _dashboard_state_cache.get(key)
+    if cached is not None:
+        return cached
+
+    started = datetime.now(timezone.utc).replace(tzinfo=None)
+    timer = perf_counter()
+    try:
+        state = _build_dashboard_state_uncached(focus_ticker, compare_tickers, horizon, start_date, end_date)
+    except Exception as exc:
+        completed = datetime.now(timezone.utc).replace(tzinfo=None)
+        runtime_diagnostics.record_refresh(
+            key=str(key),
+            started_at=started,
+            completed_at=completed,
+            duration_ms=int((perf_counter() - timer) * 1000),
+            cache_status="ERROR",
+            symbols=list(selected),
+            error=exc,
+        )
+        raise
+
+    _dashboard_state_cache.set(key, state)
+    completed = datetime.now(timezone.utc).replace(tzinfo=None)
+    runtime_diagnostics.record_refresh(
+        key=str(key),
+        started_at=started,
+        completed_at=completed,
+        duration_ms=int((perf_counter() - timer) * 1000),
+        cache_status="MISS",
+        symbols=list(selected),
+    )
+    return state
+
+
+def _build_dashboard_state_uncached(
     focus_ticker: str,
     compare_tickers: list[str] | None,
     horizon: str,

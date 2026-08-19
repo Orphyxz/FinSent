@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from time import perf_counter
+from threading import RLock
 from typing import Any, Protocol
 from hashlib import sha256
 
@@ -11,6 +12,7 @@ from finsent.app.config.settings import settings
 from finsent.app.services.gemini_client import GeminiClient
 from finsent.app.services.news_providers import NormalizedNewsArticle
 from finsent.app.services.provider_contracts import classify_exception
+from finsent.app.services.runtime_diagnostics import runtime_diagnostics
 from finsent.app.services.symbol_registry import SymbolRecord
 from finsent.app.utils.logging import safe_log_message
 
@@ -66,6 +68,13 @@ class ModelExecutionStatus(str, Enum):
     FALLBACK_USED = "FALLBACK_USED"
     UNAVAILABLE = "UNAVAILABLE"
     FAILED = "FAILED"
+
+
+class ModelLoadState(str, Enum):
+    UNINITIALIZED = "UNINITIALIZED"
+    LOADING = "LOADING"
+    READY = "READY"
+    ERROR = "ERROR"
 
 
 @dataclass(frozen=True, slots=True)
@@ -509,6 +518,10 @@ class FinBERTSentimentAnalyzer:
     analyzer_name = "finbert"
     model_family = "finbert"
     analysis_method = "classifier"
+    _shared_lock = RLock()
+    _shared_assets: dict[str, tuple[object, object, object]] = {}
+    _shared_errors: dict[str, str] = {}
+    _shared_state: dict[str, ModelLoadState] = {}
 
     def __init__(self, model_name: str | None = None, *, model: object | None = None, tokenizer: object | None = None, torch_module: object | None = None, device: str | None = None) -> None:
         self.model_name = model_name or settings.model_name
@@ -518,9 +531,34 @@ class FinBERTSentimentAnalyzer:
         self._tokenizer = tokenizer
         self._torch = torch_module
         self._load_error: str | None = None
+        if model is not None and tokenizer is not None and torch_module is not None:
+            self.__class__._shared_state[self.model_name] = ModelLoadState.READY
+            runtime_diagnostics.record_finbert_state(ModelLoadState.READY.value)
+        else:
+            self.__class__._shared_state.setdefault(self.model_name, ModelLoadState.UNINITIALIZED)
+            runtime_diagnostics.record_finbert_state(self.state.value, self._load_error)
 
     @property
     def configured(self) -> bool:
+        return True
+
+    @property
+    def state(self) -> ModelLoadState:
+        if self._model is not None and self._tokenizer is not None and self._torch is not None:
+            return ModelLoadState.READY
+        return self.__class__._shared_state.get(self.model_name, ModelLoadState.UNINITIALIZED)
+
+    @property
+    def load_error(self) -> str | None:
+        return self._load_error or self.__class__._shared_errors.get(self.model_name)
+
+    def warmup(self) -> bool:
+        try:
+            self._ensure_model_loaded()
+        except Exception as exc:
+            self._load_error = safe_log_message(exc)
+            runtime_diagnostics.record_finbert_state(ModelLoadState.ERROR.value, self._load_error)
+            return False
         return True
 
     def analyze(self, analysis_input: SentimentAnalysisInput) -> SentimentAnalysisResult:
@@ -536,16 +574,7 @@ class FinBERTSentimentAnalyzer:
         return self._result(started, probabilities, metadata=metadata)
 
     def _predict_probabilities(self, text: str) -> tuple[dict[str, float], dict[str, Any]]:
-        if self._model is None or self._tokenizer is None or self._torch is None:
-            try:
-                import torch
-                from transformers import AutoModelForSequenceClassification, AutoTokenizer
-            except ImportError as exc:
-                raise ImportError("FinBERT requires: pip install -r requirements-research.txt") from exc
-            self._torch = torch
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self._model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
-            self._model.eval()
+        self._ensure_model_loaded()
         encoded = self._tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
         with self._torch.no_grad():
             logits = self._model(**encoded).logits
@@ -563,6 +592,45 @@ class FinBERTSentimentAnalyzer:
         else:
             probabilities = {key: max(value, 0.0) / total for key, value in probabilities.items()}
         return probabilities, {"probabilities": probabilities, "labels": labels, "device": self.device}
+
+    def _ensure_model_loaded(self) -> None:
+        if self._model is not None and self._tokenizer is not None and self._torch is not None:
+            runtime_diagnostics.record_finbert_state(ModelLoadState.READY.value)
+            return
+        with self.__class__._shared_lock:
+            shared = self.__class__._shared_assets.get(self.model_name)
+            if shared is not None:
+                self._model, self._tokenizer, self._torch = shared
+                runtime_diagnostics.record_finbert_state(ModelLoadState.READY.value)
+                return
+            self.__class__._shared_state[self.model_name] = ModelLoadState.LOADING
+            runtime_diagnostics.record_finbert_state(ModelLoadState.LOADING.value)
+            try:
+                import torch
+                from transformers import AutoModelForSequenceClassification, AutoTokenizer
+            except ImportError as exc:
+                message = "FinBERT requires: pip install -r requirements-research.txt"
+                self.__class__._shared_state[self.model_name] = ModelLoadState.ERROR
+                self.__class__._shared_errors[self.model_name] = message
+                runtime_diagnostics.record_finbert_state(ModelLoadState.ERROR.value, message)
+                raise ImportError(message) from exc
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+                model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+                model.eval()
+            except Exception as exc:
+                message = safe_log_message(exc)
+                self.__class__._shared_state[self.model_name] = ModelLoadState.ERROR
+                self.__class__._shared_errors[self.model_name] = message
+                runtime_diagnostics.record_finbert_state(ModelLoadState.ERROR.value, message)
+                raise
+            self._torch = torch
+            self._tokenizer = tokenizer
+            self._model = model
+            self.__class__._shared_assets[self.model_name] = (model, tokenizer, torch)
+            self.__class__._shared_errors.pop(self.model_name, None)
+            self.__class__._shared_state[self.model_name] = ModelLoadState.READY
+            runtime_diagnostics.record_finbert_state(ModelLoadState.READY.value)
 
     def _result(self, started: float, probabilities: dict[str, float], *, metadata: dict[str, Any] | None = None) -> SentimentAnalysisResult:
         score = finbert_score(probabilities)
@@ -698,4 +766,3 @@ def _symbol_from_input(analysis_input: SentimentAnalysisInput) -> SymbolRecord:
         ui_label=analysis_input.symbol,
         sector="Unknown",
     )
-

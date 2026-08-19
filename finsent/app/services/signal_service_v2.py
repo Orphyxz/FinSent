@@ -5,9 +5,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from finsent.app.database.entities import SignalRun
 from finsent.app.database.research_repository import InstrumentRepository, ResearchResultRepository
+from finsent.app.database.research_repository import json_loads
 from finsent.app.services.llm_analyzers import ArticleAnalysis
 from finsent.app.services.market_providers import QuoteSnapshot
 from finsent.app.services.news_providers import NormalizedNewsArticle
@@ -79,6 +82,13 @@ class SignalEngineV2Service:
         if self.session is None:
             raise ValueError("A SQLAlchemy session is required to persist Signal V2 runs.")
         instrument = InstrumentRepository(self.session).get_or_create_from_symbol(signal_input.instrument)
+        reusable = self._latest_equivalent_live_run(
+            instrument_id=instrument.id,
+            provider_metadata=signal_input.provider_metadata,
+            experiment_id=experiment_id,
+        )
+        if reusable is not None:
+            return reusable.id
         metadata = result_metadata(result)
         row = ResearchResultRepository(self.session).store_signal_run(
             instrument_id=instrument.id,
@@ -98,6 +108,30 @@ class SignalEngineV2Service:
             explanation=result.explanation,
         )
         return row.id
+
+    def _latest_equivalent_live_run(
+        self,
+        *,
+        instrument_id: int,
+        provider_metadata: dict[str, Any],
+        experiment_id: int | None,
+    ) -> SignalRun | None:
+        if provider_metadata.get("run_type") != "APPLICATION_LIVE_RUN":
+            return None
+        fingerprint = provider_metadata.get("input_fingerprint")
+        if not fingerprint:
+            return None
+        stmt = select(SignalRun).where(
+            SignalRun.instrument_id == instrument_id,
+            SignalRun.engine_name == ENGINE_NAME_V2,
+            SignalRun.engine_version == ENGINE_VERSION_V2,
+        )
+        stmt = stmt.where(SignalRun.experiment_id.is_(None)) if experiment_id is None else stmt.where(SignalRun.experiment_id == experiment_id)
+        row = self.session.execute(stmt.order_by(SignalRun.generated_at.desc(), SignalRun.id.desc()).limit(1)).scalar_one_or_none()
+        if row is None:
+            return None
+        existing = json_loads(row.provider_metadata_json, {})
+        return row if existing.get("input_fingerprint") == fingerprint else None
 
 
 def _component_value(result: SignalResultV2, name: str) -> float | None:

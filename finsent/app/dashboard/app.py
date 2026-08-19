@@ -32,6 +32,7 @@ from finsent.app.dashboard.view_model import (
     build_overlay_chart,
     build_overview_market_context,
     build_recent_price_histogram,
+    build_runtime_status_panel,
     build_price_timeline,
     build_relative_performance_chart,
     build_buy_readout,
@@ -347,6 +348,14 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         refresh_label = "Local research mode" if state.data_mode == DATA_MODE_LOCAL else "Auto-refresh on"
         data_label = f"{mode_label} | {refresh_label}"
         return home_style, nav_links, f'{selection["focus_ticker"]} | {company_name} | {data_label}'
+
+    @app.callback(
+        Output("system-status-panel", "children"),
+        Input("selection-store", "data"),
+        Input("live-refresh-store", "data"),
+    )
+    def refresh_system_status(_selection_data: dict | None, _refresh_data: dict | None):
+        return build_runtime_status_panel()
 
     @app.callback(
         Output("summary-page-title", "children"),

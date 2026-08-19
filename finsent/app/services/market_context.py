@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
+from threading import RLock
 from typing import Callable, Iterable
 
 import numpy as np
@@ -11,6 +12,7 @@ import pandas as pd
 from finsent.app.config.settings import settings
 from finsent.app.services.market_providers import classify_us_market_status
 from finsent.app.services.provider_routers import MarketDataRouter
+from finsent.app.services.runtime_diagnostics import CacheStats, runtime_diagnostics
 from finsent.app.services.symbol_registry import SymbolRecord, registry
 
 
@@ -239,6 +241,39 @@ def window_return(frame: pd.DataFrame | None) -> float | None:
     return (last - first) / first
 
 
+def align_bars_to_common_window(
+    left: pd.DataFrame | None,
+    right: pd.DataFrame | None,
+    *,
+    minimum_bars: int = 2,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    left_work = normalize_bars(left)
+    right_work = normalize_bars(right)
+    if left_work.empty or right_work.empty:
+        return pd.DataFrame(columns=["timestamp", "close"]), pd.DataFrame(columns=["timestamp", "close"])
+    left_indexed = left_work.set_index("timestamp")
+    right_indexed = right_work.set_index("timestamp")
+    common_index = left_indexed.index.intersection(right_indexed.index).sort_values()
+    if len(common_index) < minimum_bars:
+        return pd.DataFrame(columns=["timestamp", "close"]), pd.DataFrame(columns=["timestamp", "close"])
+    return (
+        left_indexed.loc[common_index].reset_index(),
+        right_indexed.loc[common_index].reset_index(),
+    )
+
+
+def aligned_window_returns(
+    left: pd.DataFrame | None,
+    right: pd.DataFrame | None,
+    *,
+    minimum_bars: int = 2,
+) -> tuple[float | None, float | None, int]:
+    left_aligned, right_aligned = align_bars_to_common_window(left, right, minimum_bars=minimum_bars)
+    if left_aligned.empty or right_aligned.empty:
+        return None, None, 0
+    return window_return(left_aligned), window_return(right_aligned), int(len(left_aligned))
+
+
 def bar_returns(frame: pd.DataFrame | None) -> pd.Series:
     work = normalize_bars(frame)
     if len(work) < 2:
@@ -255,8 +290,9 @@ def realized_volatility(frame: pd.DataFrame | None) -> float | None:
 
 
 def aligned_returns(left: pd.DataFrame | None, right: pd.DataFrame | None) -> pd.DataFrame:
-    left_returns = bar_returns(left).rename("left")
-    right_returns = bar_returns(right).rename("right")
+    left_frame, right_frame = align_bars_to_common_window(left, right, minimum_bars=2)
+    left_returns = bar_returns(left_frame).rename("left")
+    right_returns = bar_returns(right_frame).rename("right")
     if left_returns.empty or right_returns.empty:
         return pd.DataFrame(columns=["left", "right"])
     joined = pd.concat([left_returns, right_returns], axis=1, join="inner").dropna()
@@ -438,6 +474,10 @@ class MarketContextService:
         self.clock = clock or utc_now
         self.ttl_seconds = ttl_seconds
         self._bars_cache: dict[tuple[str, str, str, str], _BarsEntry] = {}
+        self._lock = RLock()
+        self._cache_hits = 0
+        self._cache_misses = 0
+        self._expired = 0
         self.fetch_counts: dict[str, int] = {}
 
     def build_contexts(
@@ -508,23 +548,26 @@ class MarketContextService:
         benchmark_frame = benchmark_entry.frame if benchmark_entry is not None else pd.DataFrame()
         qqq_frame = qqq_entry.frame if qqq_entry is not None else pd.DataFrame()
         sector_frame = sector_entry.frame if sector_entry is not None else pd.DataFrame()
-        stock_return = window_return(stock_frame)
-        benchmark_return = window_return(benchmark_frame)
-        sector_return = window_return(sector_frame)
-        qqq_return = window_return(qqq_frame)
+        stock_benchmark_frame, aligned_benchmark_frame = align_bars_to_common_window(stock_frame, benchmark_frame)
+        stock_sector_frame, aligned_sector_frame = align_bars_to_common_window(stock_frame, sector_frame)
+        aligned_spy_for_regime, aligned_qqq_frame = align_bars_to_common_window(benchmark_frame, qqq_frame)
+        stock_return, benchmark_return, market_overlap = aligned_window_returns(stock_frame, benchmark_frame)
+        _stock_sector_return, sector_return, sector_overlap = aligned_window_returns(stock_frame, sector_frame)
+        spy_regime_return = window_return(aligned_spy_for_regime) if not aligned_spy_for_regime.empty else benchmark_return
+        qqq_return = window_return(aligned_qqq_frame) if not aligned_qqq_frame.empty else None
         market_relative = relative_return(stock_return, benchmark_return)
-        sector_relative = relative_return(stock_return, sector_return)
-        stock_vol = realized_volatility(stock_frame)
-        benchmark_vol = realized_volatility(benchmark_frame)
-        sector_vol = realized_volatility(sector_frame)
+        sector_relative = relative_return(_stock_sector_return, sector_return)
+        stock_vol = realized_volatility(stock_benchmark_frame)
+        benchmark_vol = realized_volatility(aligned_benchmark_frame)
+        sector_vol = realized_volatility(aligned_sector_frame)
         vol_label, vol_ratio = classify_volatility(stock_vol, benchmark_vol)
-        corr_market = return_correlation(stock_frame, benchmark_frame)
-        corr_sector = return_correlation(stock_frame, sector_frame)
-        beta = historical_beta(stock_frame, benchmark_frame)
-        market_regime = classify_market_regime(benchmark_return, qqq_return, benchmark_vol)
+        corr_market = return_correlation(stock_benchmark_frame, aligned_benchmark_frame)
+        corr_sector = return_correlation(stock_sector_frame, aligned_sector_frame)
+        beta = historical_beta(stock_benchmark_frame, aligned_benchmark_frame)
+        market_regime = classify_market_regime(spy_regime_return, qqq_return, benchmark_vol)
         sector_regime = classify_market_regime(sector_return, qqq_return, sector_vol) if sector_return is not None else MarketRegime.UNKNOWN
-        quality, warnings = _quality_and_warnings(stock_return, benchmark_return, sector_return, corr_market)
-        normalized = normalize_bars(stock_frame)
+        quality, warnings = _quality_and_warnings(stock_return, benchmark_return, sector_return, corr_market, market_overlap=market_overlap, sector_overlap=sector_overlap)
+        normalized = stock_benchmark_frame if not stock_benchmark_frame.empty else normalize_bars(stock_frame)
         latest = _latest_timestamp(normalized)
         return MarketContextResult(
             symbol=symbol.provider_symbol,
@@ -600,11 +643,18 @@ class MarketContextService:
 
     def _fetch_bars(self, symbol: SymbolRecord, *, start: datetime, end: datetime, interval: str) -> _BarsEntry:
         cache_key = (symbol.provider_symbol, start.strftime("%Y%m%d"), end.strftime("%Y%m%d%H%M")[:11], interval)
-        cached = self._bars_cache.get(cache_key)
         now = self.clock()
-        if cached is not None and (now - cached.retrieved_at).total_seconds() <= self.ttl_seconds:
-            return cached
-        self.fetch_counts[symbol.provider_symbol] = self.fetch_counts.get(symbol.provider_symbol, 0) + 1
+        with self._lock:
+            cached = self._bars_cache.get(cache_key)
+            if cached is not None and (now - cached.retrieved_at).total_seconds() <= self.ttl_seconds:
+                self._cache_hits += 1
+                self._publish_cache_stats()
+                return cached
+            if cached is not None:
+                self._expired += 1
+            self._cache_misses += 1
+            self.fetch_counts[symbol.provider_symbol] = self.fetch_counts.get(symbol.provider_symbol, 0) + 1
+            self._publish_cache_stats()
         result = self.router.fetch_price_bars(symbol, start=start, end=end, interval=interval)
         frame = normalize_bars(result.data)
         latest = _latest_timestamp(frame)
@@ -616,7 +666,9 @@ class MarketContextService:
             latest_timestamp=latest,
             retrieved_at=now,
         )
-        self._bars_cache[cache_key] = entry
+        with self._lock:
+            self._bars_cache[cache_key] = entry
+            self._publish_cache_stats()
         return entry
 
     def _stock_frame_from_price_df(self, ticker: str, price_df: pd.DataFrame | None) -> pd.DataFrame:
@@ -627,14 +679,28 @@ class MarketContextService:
 
     def cached_bars(self, ticker: str) -> pd.DataFrame:
         normalized = ticker.upper().strip()
-        matches = [
-            entry
-            for key, entry in self._bars_cache.items()
-            if key[0] == normalized
-        ]
+        with self._lock:
+            matches = [
+                entry
+                for key, entry in self._bars_cache.items()
+                if key[0] == normalized
+            ]
         if not matches:
             return pd.DataFrame(columns=["timestamp", "close"])
         return max(matches, key=lambda entry: entry.retrieved_at).frame.copy()
+
+    def cache_stats(self) -> CacheStats:
+        with self._lock:
+            return CacheStats(
+                name="market_context_bars",
+                hits=self._cache_hits,
+                misses=self._cache_misses,
+                expired=self._expired,
+                entries=len(self._bars_cache),
+            )
+
+    def _publish_cache_stats(self) -> None:
+        runtime_diagnostics.record_cache_stats(self.cache_stats())
 
 
 def _quality_and_warnings(
@@ -642,16 +708,23 @@ def _quality_and_warnings(
     benchmark_return: float | None,
     sector_return: float | None,
     correlation_to_market: float | None,
+    *,
+    market_overlap: int | None = None,
+    sector_overlap: int | None = None,
 ) -> tuple[MarketContextQuality, list[str]]:
     warnings: list[str] = []
     if stock_return is None:
-        warnings.append("Stock bars unavailable or insufficient.")
+        warnings.append("Stock/benchmark overlap unavailable or insufficient.")
     if benchmark_return is None:
         warnings.append("Market benchmark unavailable.")
     if sector_return is None:
         warnings.append("Sector benchmark unavailable.")
     if correlation_to_market is None:
         warnings.append("Insufficient aligned returns for correlation/beta.")
+    if market_overlap is not None and 0 < market_overlap < 4:
+        warnings.append("Market-relative window has limited overlap.")
+    if sector_overlap is not None and 0 < sector_overlap < 4:
+        warnings.append("Sector-relative window has limited overlap.")
     if stock_return is not None and benchmark_return is not None and sector_return is not None:
         return (MarketContextQuality.GOOD if correlation_to_market is not None else MarketContextQuality.INSUFFICIENT), warnings
     if stock_return is not None and benchmark_return is not None:

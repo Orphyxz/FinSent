@@ -70,6 +70,11 @@ def _duration_ms(started_at: float) -> int:
     return int((perf_counter() - started_at) * 1000)
 
 
+def _status_code(exc: Exception) -> int | None:
+    value = getattr(getattr(exc, "response", None), "status_code", None)
+    return int(value) if isinstance(value, int) else None
+
+
 def _quote_timestamp(quote: QuoteSnapshot | None) -> datetime | None:
     return quote.market_timestamp if quote is not None else None
 
@@ -99,7 +104,7 @@ class MarketDataRouter:
         if self.candidates is None:
             self.candidates = default_market_candidates()
         if self.cache is None:
-            self.cache = ProviderTTLCache(clock=self.clock)
+            self.cache = ProviderTTLCache(clock=self.clock, name="market_provider")
         if self.health is None:
             self.health = ProviderHealthRegistry(clock=self.clock)
 
@@ -149,9 +154,10 @@ class MarketDataRouter:
                 )
             except Exception as exc:
                 category = classify_exception(exc)
+                latency = _duration_ms(started_at)
                 status = status_from_category(candidate.provider, MARKET_DATA_SERVICE, category, f"Quote request failed: {safe_log_message(exc)}")
-                attempts.append(attempt_from_status(status, category=category, duration_ms=_duration_ms(started_at)))
-                self.health.record(provider=candidate.provider, service=MARKET_DATA_SERVICE, configured=True, status=status.status, failure_category=category)
+                attempts.append(attempt_from_status(status, category=category, duration_ms=latency))
+                self.health.record(provider=candidate.provider, service=MARKET_DATA_SERVICE, configured=True, status=status.status, failure_category=category, latency_ms=latency, status_code=_status_code(exc))
                 continue
 
             status = quote.provider_status or ProviderStatus.unavailable(candidate.provider, MARKET_DATA_SERVICE, quote.note)
@@ -172,7 +178,7 @@ class MarketDataRouter:
                     checked_at=status.checked_at,
                 )
                 attempts.append(attempt_from_status(selected_status, selected=True, duration_ms=_duration_ms(started_at)))
-                self.health.record(provider=candidate.provider, service=MARKET_DATA_SERVICE, configured=True, status=selected_status.status, fallback_used=bool(attempts[:-1]))
+                self.health.record(provider=candidate.provider, service=MARKET_DATA_SERVICE, configured=True, status=selected_status.status, fallback_used=bool(attempts[:-1]), latency_ms=_duration_ms(started_at))
                 if self.cache is not None:
                     self.cache.set(
                         cache_key,
@@ -206,12 +212,12 @@ class MarketDataRouter:
             message = "; ".join(validation_reasons) if validation_reasons else status.message
             failed_status = status_from_category(candidate.provider, MARKET_DATA_SERVICE, category, message)
             attempts.append(attempt_from_status(failed_status, category=category, duration_ms=_duration_ms(started_at)))
-            self.health.record(provider=candidate.provider, service=MARKET_DATA_SERVICE, configured=True, status=failed_status.status, failure_category=category)
+            self.health.record(provider=candidate.provider, service=MARKET_DATA_SERVICE, configured=True, status=failed_status.status, failure_category=category, latency_ms=_duration_ms(started_at))
 
         stale = self.cache.get_stale(cache_key) if self.cache is not None else None
         if stale is not None:
             quote = stale.data
-            mode = DataMode.CACHED
+            mode = DataMode.STALE_CACHE
             quality = assess_quote_quality(quote, provider=stale.provider, mode=mode, fetched_at=_now())  # type: ignore[arg-type]
             status = ProviderStatus.stale_status(stale.provider, MARKET_DATA_SERVICE, "Live quote failed; stale cached quote returned.", source_timestamp=stale.source_timestamp)
             attempts.append(attempt_from_status(status, category=ProviderFailureCategory.STALE_DATA, selected=True))
@@ -305,9 +311,10 @@ class MarketDataRouter:
                 )
             except Exception as exc:
                 category = classify_exception(exc)
+                latency = _duration_ms(started_at)
                 status = status_from_category(candidate.provider, HISTORICAL_DATA_SERVICE, category, f"Historical bars request failed: {safe_log_message(exc)}")
-                attempts.append(attempt_from_status(status, category=category, duration_ms=_duration_ms(started_at)))
-                self.health.record(provider=candidate.provider, service=HISTORICAL_DATA_SERVICE, configured=True, status=status.status, failure_category=category)
+                attempts.append(attempt_from_status(status, category=category, duration_ms=latency))
+                self.health.record(provider=candidate.provider, service=HISTORICAL_DATA_SERVICE, configured=True, status=status.status, failure_category=category, latency_ms=latency, status_code=_status_code(exc))
                 continue
 
             validation_reasons = validate_bars_frame(frame)
@@ -322,7 +329,7 @@ class MarketDataRouter:
                     source_timestamp=source_timestamp,
                 )
                 attempts.append(attempt_from_status(status, selected=True, duration_ms=_duration_ms(started_at)))
-                self.health.record(provider=candidate.provider, service=HISTORICAL_DATA_SERVICE, configured=True, status=status.status, fallback_used=bool(attempts[:-1]))
+                self.health.record(provider=candidate.provider, service=HISTORICAL_DATA_SERVICE, configured=True, status=status.status, fallback_used=bool(attempts[:-1]), latency_ms=_duration_ms(started_at))
                 if self.cache is not None:
                     self.cache.set(
                         cache_key,
@@ -354,12 +361,12 @@ class MarketDataRouter:
 
             status = status_from_category(candidate.provider, HISTORICAL_DATA_SERVICE, ProviderFailureCategory.NO_DATA, "; ".join(validation_reasons) if validation_reasons else "Provider returned no historical bars.")
             attempts.append(attempt_from_status(status, category=ProviderFailureCategory.NO_DATA, duration_ms=_duration_ms(started_at)))
-            self.health.record(provider=candidate.provider, service=HISTORICAL_DATA_SERVICE, configured=True, status=status.status, failure_category=ProviderFailureCategory.NO_DATA)
+            self.health.record(provider=candidate.provider, service=HISTORICAL_DATA_SERVICE, configured=True, status=status.status, failure_category=ProviderFailureCategory.NO_DATA, latency_ms=_duration_ms(started_at))
 
         stale = self.cache.get_stale(cache_key) if self.cache is not None else None
         if stale is not None:
             frame = stale.data
-            quality = assess_bars_quality(frame, provider=stale.provider, mode=DataMode.CACHED, source_timestamp=stale.source_timestamp, fetched_at=_now())  # type: ignore[arg-type]
+            quality = assess_bars_quality(frame, provider=stale.provider, mode=DataMode.STALE_CACHE, source_timestamp=stale.source_timestamp, fetched_at=_now())  # type: ignore[arg-type]
             status = ProviderStatus.stale_status(stale.provider, HISTORICAL_DATA_SERVICE, "Live bars failed; stale cached bars returned.", source_timestamp=stale.source_timestamp)
             attempts.append(attempt_from_status(status, category=ProviderFailureCategory.STALE_DATA, selected=True))
             return ProviderResult(
@@ -374,7 +381,7 @@ class MarketDataRouter:
                 attempts=attempts,
                 message=status.message,
                 leaf_provider=stale.leaf_provider,
-                data_mode=DataMode.CACHED,
+                data_mode=DataMode.STALE_CACHE,
                 freshness=quality.freshness,
                 quality=quality,
             )
@@ -409,7 +416,7 @@ class NewsProviderRouter:
         if self.candidates is None:
             self.candidates = default_news_candidates()
         if self.cache is None:
-            self.cache = ProviderTTLCache(clock=self.clock)
+            self.cache = ProviderTTLCache(clock=self.clock, name="news_provider")
         if self.health is None:
             self.health = ProviderHealthRegistry(clock=self.clock)
 
@@ -459,10 +466,11 @@ class NewsProviderRouter:
             except Exception as exc:
                 category = classify_exception(exc)
                 retry_after = retry_after_seconds(exc)
+                latency = _duration_ms(started_at)
                 extra = f" Retry-After={retry_after}s." if retry_after is not None else ""
                 status = status_from_category(candidate.provider, NEWS_SERVICE, category, f"News request failed: {safe_log_message(exc)}.{extra}")
-                attempts.append(attempt_from_status(status, category=category, duration_ms=_duration_ms(started_at)))
-                self.health.record(provider=candidate.provider, service=NEWS_SERVICE, configured=True, status=status.status, failure_category=category)
+                attempts.append(attempt_from_status(status, category=category, duration_ms=latency))
+                self.health.record(provider=candidate.provider, service=NEWS_SERVICE, configured=True, status=status.status, failure_category=category, latency_ms=latency, status_code=_status_code(exc))
                 continue
 
             valid_articles, validation_reasons = validate_news_articles(articles)
@@ -481,7 +489,7 @@ class NewsProviderRouter:
                     source_timestamp=source_timestamp,
                 )
                 attempts.append(attempt_from_status(status, selected=True, duration_ms=_duration_ms(started_at)))
-                self.health.record(provider=candidate.provider, service=NEWS_SERVICE, configured=True, status=status.status, fallback_used=bool(attempts[:-1]))
+                self.health.record(provider=candidate.provider, service=NEWS_SERVICE, configured=True, status=status.status, fallback_used=bool(attempts[:-1]), latency_ms=_duration_ms(started_at))
                 if self.cache is not None:
                     self.cache.set(
                         cache_key,
@@ -513,12 +521,12 @@ class NewsProviderRouter:
 
             status = status_from_category(candidate.provider, NEWS_SERVICE, ProviderFailureCategory.NO_DATA, "; ".join(validation_reasons) if validation_reasons else "Provider returned no usable news articles.")
             attempts.append(attempt_from_status(status, category=ProviderFailureCategory.NO_DATA, duration_ms=_duration_ms(started_at)))
-            self.health.record(provider=candidate.provider, service=NEWS_SERVICE, configured=True, status=status.status, failure_category=ProviderFailureCategory.NO_DATA)
+            self.health.record(provider=candidate.provider, service=NEWS_SERVICE, configured=True, status=status.status, failure_category=ProviderFailureCategory.NO_DATA, latency_ms=_duration_ms(started_at))
 
         stale = self.cache.get_stale(cache_key) if self.cache is not None else None
         if stale is not None:
             articles = stale.data
-            quality = assess_news_quality(articles, provider=stale.provider, mode=DataMode.CACHED, source_timestamp=stale.source_timestamp, fallback_used=True, fetched_at=_now())  # type: ignore[arg-type]
+            quality = assess_news_quality(articles, provider=stale.provider, mode=DataMode.STALE_CACHE, source_timestamp=stale.source_timestamp, fallback_used=True, fetched_at=_now())  # type: ignore[arg-type]
             status = ProviderStatus.stale_status(stale.provider, NEWS_SERVICE, "Live news failed; stale cached news returned.", source_timestamp=stale.source_timestamp)
             attempts.append(attempt_from_status(status, category=ProviderFailureCategory.STALE_DATA, selected=True))
             self.health.record(provider=stale.provider, service=NEWS_SERVICE, configured=True, status=status.status, failure_category=ProviderFailureCategory.STALE_DATA, fallback_used=True)
@@ -534,7 +542,7 @@ class NewsProviderRouter:
                 attempts=attempts,
                 message=status.message,
                 leaf_provider=stale.leaf_provider,
-                data_mode=DataMode.CACHED,
+                data_mode=DataMode.STALE_CACHE,
                 freshness=quality.freshness,
                 quality=quality,
             )

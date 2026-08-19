@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 import math
 import time
+from threading import RLock
 from typing import Generic, TypeVar
 
 import pandas as pd
@@ -16,6 +17,7 @@ from finsent.app.services.market_providers import QuoteSnapshot, is_usable_quote
 from finsent.app.services.news_providers import NormalizedNewsArticle
 from finsent.app.services.provider_contracts import ProviderFailureCategory, classify_exception
 from finsent.app.services.provider_status import DataSourceState, ProviderStatus
+from finsent.app.services.runtime_diagnostics import CacheStats, runtime_diagnostics
 
 
 T = TypeVar("T")
@@ -25,6 +27,7 @@ class DataMode(str, Enum):
     LIVE = "LIVE"
     DELAYED = "DELAYED"
     CACHED = "CACHED"
+    STALE_CACHE = "STALE_CACHE"
     HISTORICAL = "HISTORICAL"
     PREVIOUS_CLOSE = "PREVIOUS_CLOSE"
     SCRAPED = "SCRAPED"
@@ -70,27 +73,77 @@ class CacheEntry(Generic[T]):
 
 
 class ProviderTTLCache:
-    def __init__(self, clock: Callable[[], datetime] | None = None) -> None:
+    def __init__(self, clock: Callable[[], datetime] | None = None, *, name: str = "provider_ttl_cache") -> None:
         self._clock = clock or utc_now
+        self.name = name
+        self._lock = RLock()
         self._entries: dict[tuple[object, ...], CacheEntry[object]] = {}
+        self._hits = 0
+        self._misses = 0
+        self._stale_hits = 0
+        self._expired = 0
+        self._evictions = 0
 
     def get(self, key: tuple[object, ...], ttl_seconds: int) -> CacheEntry[object] | None:
-        entry = self._entries.get(key)
-        if entry is None:
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is None:
+                self._misses += 1
+                self._publish_stats()
+                return None
+            age = (self._clock() - entry.fetched_at).total_seconds()
+            if age <= ttl_seconds:
+                self._hits += 1
+                self._publish_stats()
+                return entry
+            self._expired += 1
+            self._misses += 1
+            self._publish_stats()
             return None
-        age = (self._clock() - entry.fetched_at).total_seconds()
-        if age <= ttl_seconds:
-            return entry
-        return None
 
     def get_stale(self, key: tuple[object, ...]) -> CacheEntry[object] | None:
-        return self._entries.get(key)
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is not None:
+                self._stale_hits += 1
+            self._publish_stats()
+            return entry
 
     def set(self, key: tuple[object, ...], entry: CacheEntry[object]) -> None:
-        self._entries[key] = entry
+        with self._lock:
+            self._entries[key] = entry
+            self._publish_stats()
 
     def clear(self) -> None:
-        self._entries.clear()
+        with self._lock:
+            self._evictions += len(self._entries)
+            self._entries.clear()
+            self._publish_stats()
+
+    def stats(self) -> CacheStats:
+        with self._lock:
+            return CacheStats(
+                name=self.name,
+                hits=self._hits,
+                misses=self._misses,
+                stale_hits=self._stale_hits,
+                expired=self._expired,
+                evictions=self._evictions,
+                entries=len(self._entries),
+            )
+
+    def _publish_stats(self) -> None:
+        runtime_diagnostics.record_cache_stats(
+            CacheStats(
+                name=self.name,
+                hits=self._hits,
+                misses=self._misses,
+                stale_hits=self._stale_hits,
+                expired=self._expired,
+                evictions=self._evictions,
+                entries=len(self._entries),
+            )
+        )
 
 
 @dataclass(slots=True)
@@ -100,8 +153,16 @@ class ProviderHealthRecord:
     configured: bool
     last_status: DataSourceState
     last_successful_fetch: datetime | None = None
+    last_failure: datetime | None = None
     last_failure_category: ProviderFailureCategory | None = None
     last_checked: datetime | None = None
+    last_latency_ms: int | None = None
+    success_count: int = 0
+    failure_count: int = 0
+    consecutive_failures: int = 0
+    rate_limited: bool = False
+    last_status_code: int | None = None
+    circuit_state: str | None = None
     recent_fallback_used: bool = False
 
 
@@ -119,23 +180,44 @@ class ProviderHealthRegistry:
         status: DataSourceState,
         failure_category: ProviderFailureCategory | None = None,
         fallback_used: bool = False,
+        latency_ms: int | None = None,
+        status_code: int | None = None,
     ) -> None:
         key = (provider, service)
         now = self._clock()
         previous = self._records.get(key)
         last_success = previous.last_successful_fetch if previous is not None else None
+        success_count = previous.success_count if previous is not None else 0
+        failure_count = previous.failure_count if previous is not None else 0
+        consecutive_failures = previous.consecutive_failures if previous is not None else 0
+        last_failure = previous.last_failure if previous is not None else None
         if status == DataSourceState.AVAILABLE:
             last_success = now
+            success_count += 1
+            consecutive_failures = 0
+        elif status != DataSourceState.UNCONFIGURED:
+            failure_count += 1
+            consecutive_failures += 1
+            last_failure = now
         self._records[key] = ProviderHealthRecord(
             provider=provider,
             service=service,
             configured=configured,
             last_status=status,
             last_successful_fetch=last_success,
+            last_failure=last_failure,
             last_failure_category=failure_category,
             last_checked=now,
+            last_latency_ms=latency_ms,
+            success_count=success_count,
+            failure_count=failure_count,
+            consecutive_failures=consecutive_failures,
+            rate_limited=failure_category == ProviderFailureCategory.RATE_LIMIT,
+            last_status_code=status_code,
+            circuit_state=None,
             recent_fallback_used=fallback_used,
         )
+        runtime_diagnostics.record_provider_health(self.snapshot())
 
     def snapshot(self) -> list[ProviderHealthRecord]:
         return sorted(self._records.values(), key=lambda row: (row.provider, row.service))
@@ -275,6 +357,8 @@ def assess_freshness(
             return FreshnessLabel.FRESH
         if age <= settings.quote_aging_seconds:
             return FreshnessLabel.AGING
+        return FreshnessLabel.STALE
+    if mode == DataMode.STALE_CACHE:
         return FreshnessLabel.STALE
     if mode in {DataMode.SCRAPED, DataMode.SEARCH_DERIVED}:
         if age <= settings.news_fresh_minutes * 60:

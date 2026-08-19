@@ -171,6 +171,8 @@ class FinBERTNewsAnalyzer:
 
     def __init__(self, analyzer: FinBERTSentimentAnalyzer | None = None) -> None:
         self.analyzer = analyzer or FinBERTSentimentAnalyzer()
+        if settings.finbert_warmup and hasattr(self.analyzer, "warmup"):
+            self.analyzer.warmup()
 
     def analyze_article(self, symbol: SymbolRecord, article: NormalizedNewsArticle) -> ArticleAnalysis:
         result = self.analyzer.analyze(normalize_article_input(symbol, article))

@@ -387,27 +387,40 @@ class SignalSnapshotRepository:
         signal: CompositeSignal,
     ) -> SignalSnapshotEntity:
         instrument = InstrumentRepository(self.session).get_or_create_from_symbol(symbol)
-        entity = SignalSnapshotEntity(
-            instrument_id=instrument.id,
-            ticker=symbol.ticker,
-            exchange=symbol.exchange,
-            ingested_at=quote.ingested_at,
-            quote_provider=quote.provider,
-            analysis_provider=aggregate.provider,
-            engine_name="Signal Engine",
-            engine_version="V1",
-            composite_score=signal.composite_score,
-            composite_label=signal.composite_label,
-            signal_confidence=signal.signal_confidence,
-            mode=signal.mode,
-            overall_sentiment=aggregate.overall_sentiment,
-            overall_confidence=aggregate.overall_confidence,
-            action_bias=aggregate.action_bias,
-            net_short_term_view=aggregate.net_short_term_view,
-            final_reason=aggregate.final_reason,
-            explanation_bullets="\n".join(signal.explanation_bullets),
-        )
-        self.session.add(entity)
+        entity = self.session.execute(
+            select(SignalSnapshotEntity)
+            .where(
+                SignalSnapshotEntity.instrument_id == instrument.id,
+                SignalSnapshotEntity.ticker == symbol.ticker,
+                SignalSnapshotEntity.exchange == symbol.exchange,
+                SignalSnapshotEntity.ingested_at == quote.ingested_at,
+                SignalSnapshotEntity.engine_name == "Signal Engine",
+                SignalSnapshotEntity.engine_version == "V1",
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+        if entity is None:
+            entity = SignalSnapshotEntity(
+                instrument_id=instrument.id,
+                ticker=symbol.ticker,
+                exchange=symbol.exchange,
+                ingested_at=quote.ingested_at,
+                engine_name="Signal Engine",
+                engine_version="V1",
+            )
+            self.session.add(entity)
+        entity.quote_provider = quote.provider
+        entity.analysis_provider = aggregate.provider
+        entity.composite_score = signal.composite_score
+        entity.composite_label = signal.composite_label
+        entity.signal_confidence = signal.signal_confidence
+        entity.mode = signal.mode
+        entity.overall_sentiment = aggregate.overall_sentiment
+        entity.overall_confidence = aggregate.overall_confidence
+        entity.action_bias = aggregate.action_bias
+        entity.net_short_term_view = aggregate.net_short_term_view
+        entity.final_reason = aggregate.final_reason
+        entity.explanation_bullets = "\n".join(signal.explanation_bullets)
         self.session.flush()
         return entity
 
