@@ -69,10 +69,45 @@ def layout() -> html.Div:
                                     ],
                                     className="section-shell explanation-shell",
                                 ),
+                                html.Div(
+                                    [
+                                        html.Div("Catalyst Intelligence", className="section-kicker"),
+                                        html.H3("Catalyst Summary", className="section-title"),
+                                        html.Div(id="stock-catalyst-summary", className="summary-stack"),
+                                    ],
+                                    className="section-shell mt-3",
+                                ),
                             ],
                             className="stack-shell",
                         ),
                         lg=4,
+                    ),
+                ],
+                className="g-3 mb-4",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Div(
+                            [
+                                html.Div("Catalyst Intelligence", className="section-kicker"),
+                                html.H3("Key Catalysts", className="section-title"),
+                                html.Div(id="stock-key-catalysts", className="summary-stack"),
+                            ],
+                            className="section-shell",
+                        ),
+                        lg=5,
+                    ),
+                    dbc.Col(
+                        html.Div(
+                            [
+                                html.Div("Event Timeline", className="section-kicker"),
+                                html.H3("Recent Catalyst Events", className="section-title"),
+                                html.Div(id="stock-catalyst-timeline", className="summary-stack"),
+                            ],
+                            className="section-shell",
+                        ),
+                        lg=7,
                     ),
                 ],
                 className="g-3 mb-4",

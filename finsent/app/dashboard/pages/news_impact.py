@@ -19,6 +19,32 @@ def layout() -> html.Div:
                 className="section-shell page-header-shell compact-page-header mb-2",
             ),
             html.Div(id="news-impact-status-banner", className="mb-2"),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Div("Symbol", className="control-label"),
+                            dcc.Dropdown(id="news-symbol-filter", multi=True, className="finsent-dropdown workspace-dropdown"),
+                        ],
+                        className="control-card workspace-filter-card",
+                    ),
+                    html.Div(
+                        [
+                            html.Div("Catalyst Type", className="control-label"),
+                            dcc.Dropdown(id="news-catalyst-filter", multi=True, className="finsent-dropdown workspace-dropdown"),
+                        ],
+                        className="control-card workspace-filter-card",
+                    ),
+                    html.Div(
+                        [
+                            html.Div("Direction", className="control-label"),
+                            dcc.Dropdown(id="news-direction-filter", multi=True, className="finsent-dropdown workspace-dropdown"),
+                        ],
+                        className="control-card workspace-filter-card",
+                    ),
+                ],
+                className="workspace-filter-grid mb-3",
+            ),
             dbc.Row(
                 [
                     dbc.Col(

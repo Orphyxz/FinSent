@@ -21,6 +21,14 @@ def layout() -> html.Div:
             ),
             html.Div(id="summary-status-banner", className="mb-2"),
             dbc.Row(id="summary-metric-row", className="g-2 mb-2"),
+            html.Div(
+                [
+                    html.Div("Catalyst Intelligence", className="section-kicker"),
+                    html.H3("Active Catalysts", className="section-title"),
+                    html.Div(id="summary-active-catalysts", className="summary-stack"),
+                ],
+                className="section-shell mb-3",
+            ),
             dbc.Row(
                 [
                     dbc.Col(

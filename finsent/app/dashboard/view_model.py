@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import os
 from pathlib import Path
@@ -27,6 +27,13 @@ from finsent.app.database.repository import (
 )
 from finsent.app.models.schemas import MarketSignalSnapshot
 from finsent.app.services.intelligence_service import intelligence_service
+from finsent.app.services.catalyst_intelligence import (
+    CatalystDirection,
+    CatalystType,
+    build_catalyst_inputs_from_news_frame,
+    catalyst_intelligence_service,
+    catalyst_results_to_records,
+)
 from finsent.app.services.symbol_registry import SymbolRecord, registry
 from finsent.app.utils.logging import safe_log_message
 
@@ -132,6 +139,11 @@ COMPARE_COLUMNS = [
     "v2_label",
     "v2_confidence",
     "final_reason",
+    "catalyst_count",
+    "top_catalyst",
+    "top_catalyst_direction",
+    "top_catalyst_impact",
+    "top_catalyst_title",
 ]
 
 
@@ -150,6 +162,7 @@ class DashboardState:
     data_status: str
     data_mode: str = DATA_MODE_UNAVAILABLE
     local_summary: dict[str, object] | None = None
+    catalyst_df: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 def get_pipeline() -> FinSentPipeline:
@@ -1100,6 +1113,88 @@ def build_snapshot_map(
     return snapshots
 
 
+def build_catalyst_frame(news_df: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "article_id",
+        "url",
+        "source",
+        "published_at",
+        "primary_symbol",
+        "affected_symbols",
+        "catalyst_type",
+        "primary_catalyst",
+        "secondary_catalysts",
+        "event_title",
+        "event_summary",
+        "catalyst_direction",
+        "catalyst_impact_score",
+        "catalyst_impact_label",
+        "catalyst_confidence",
+        "catalyst_time_horizon",
+        "novelty_score",
+        "novelty_label",
+        "recency_score",
+        "freshness_label",
+        "event_group_id",
+        "classifier",
+        "classifier_version",
+        "evidence_tags",
+        "created_at",
+        "catalyst_priority",
+        "related_article_count",
+        "related_sources",
+    ]
+    if news_df.empty:
+        return pd.DataFrame(columns=columns)
+    inputs = build_catalyst_inputs_from_news_frame(news_df)
+    records = catalyst_results_to_records(catalyst_intelligence_service.analyze(inputs))
+    frame = pd.DataFrame(records, columns=columns)
+    if not frame.empty:
+        frame["published_at"] = pd.to_datetime(frame["published_at"], errors="coerce")
+        frame["created_at"] = pd.to_datetime(frame["created_at"], errors="coerce")
+    return frame
+
+
+def enrich_news_with_catalysts(news_df: pd.DataFrame, catalyst_df: pd.DataFrame) -> pd.DataFrame:
+    if news_df.empty or catalyst_df.empty:
+        return news_df.copy()
+    work = news_df.copy()
+    work["_article_id"] = work["id"].astype(str) if "id" in work.columns else work.get("dedupe_hash", pd.Series("", index=work.index)).astype(str)
+    catalyst_cols = [
+        "article_id",
+        "primary_symbol",
+        "catalyst_type",
+        "primary_catalyst",
+        "secondary_catalysts",
+        "event_title",
+        "event_summary",
+        "catalyst_direction",
+        "catalyst_impact_score",
+        "catalyst_impact_label",
+        "catalyst_confidence",
+        "catalyst_time_horizon",
+        "novelty_score",
+        "novelty_label",
+        "recency_score",
+        "freshness_label",
+        "event_group_id",
+        "classifier",
+        "classifier_version",
+        "evidence_tags",
+        "catalyst_priority",
+        "related_article_count",
+        "related_sources",
+    ]
+    enriched = work.merge(
+        catalyst_df[catalyst_cols].drop_duplicates(subset=["article_id"]),
+        left_on="_article_id",
+        right_on="article_id",
+        how="left",
+        suffixes=("", "_catalyst"),
+    )
+    return enriched.drop(columns=["_article_id"])
+
+
 def build_dashboard_state(
     focus_ticker: str,
     compare_tickers: list[str] | None,
@@ -1117,9 +1212,11 @@ def build_dashboard_state(
     widened_news_df = expand_sparse_news_window(all_news_df, fresh_news_df, selected, horizon)
     snapshot_map = build_snapshot_map(selected, quote_meta_map, signal_meta_map)
     news_df, price_df = filter_to_window(widened_news_df, price_df, horizon, start_date, end_date)
+    catalyst_df = build_catalyst_frame(news_df)
+    news_df = enrich_news_with_catalysts(news_df, catalyst_df)
     event_df = build_event_frame(news_df, price_df)
     daily_summary_df = build_grouped_daily_summary(event_df)
-    compare_df = build_compare_frame(news_df, price_df, event_df, snapshot_map, quote_meta_map, signal_meta_map)
+    compare_df = build_compare_frame(news_df, price_df, event_df, snapshot_map, quote_meta_map, signal_meta_map, catalyst_df)
     sector_df = build_sector_frame(compare_df)
 
     focus_symbol = _symbol_from_value(focus_ticker)
@@ -1156,6 +1253,7 @@ def build_dashboard_state(
         daily_summary_df=daily_summary_df,
         compare_df=compare_df,
         sector_df=sector_df,
+        catalyst_df=catalyst_df,
         snapshot_map=snapshot_map,
         quote_meta_map=quote_meta_map,
         signal_meta_map=signal_meta_map,
@@ -1268,6 +1366,7 @@ def build_compare_frame(
     snapshot_map: dict[str, MarketSignalSnapshot] | None = None,
     quote_meta_map: dict[str, dict[str, object]] | None = None,
     signal_meta_map: dict[str, dict[str, object]] | None = None,
+    catalyst_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     tickers = sorted(
         set(news_df.get("ticker", pd.Series(dtype=str)).dropna().tolist())
@@ -1281,6 +1380,7 @@ def build_compare_frame(
         ticker_news = news_df[news_df["ticker"] == ticker]
         ticker_prices = price_df[price_df["ticker"] == ticker]
         ticker_events = event_df[event_df["ticker"] == ticker] if not event_df.empty else pd.DataFrame()
+        ticker_catalysts = catalyst_df[catalyst_df["primary_symbol"] == ticker] if catalyst_df is not None and not catalyst_df.empty else pd.DataFrame()
         snapshot = (snapshot_map or {}).get(ticker)
         quote_meta = (quote_meta_map or {}).get(ticker, {})
         signal_meta = (signal_meta_map or {}).get(ticker, {})
@@ -1310,6 +1410,17 @@ def build_compare_frame(
             raw_conf = signal_meta.get("signal_confidence")
             avg_confidence = float(raw_conf) * 100.0 if raw_conf is not None else np.nan
             news_volume = 0
+
+        top_catalyst = {}
+        if not ticker_catalysts.empty:
+            top_row = ticker_catalysts.sort_values("catalyst_priority", ascending=False).iloc[0]
+            top_catalyst = {
+                "count": int(ticker_catalysts["event_group_id"].nunique()) if "event_group_id" in ticker_catalysts.columns else int(len(ticker_catalysts)),
+                "type": str(top_row.get("catalyst_type") or "UNKNOWN"),
+                "direction": str(top_row.get("catalyst_direction") or "UNKNOWN"),
+                "impact": str(top_row.get("catalyst_impact_label") or "LOW"),
+                "title": str(top_row.get("event_title") or top_row.get("title") or ""),
+            }
 
         rows.append(
             {
@@ -1344,6 +1455,11 @@ def build_compare_frame(
                 "v2_label": live_v2.get("label") if live_v2 else "unavailable",
                 "v2_confidence": live_v2.get("confidence") if live_v2 else np.nan,
                 "final_reason": signal_meta.get("final_reason") or "",
+                "catalyst_count": top_catalyst.get("count", 0),
+                "top_catalyst": top_catalyst.get("type", "UNKNOWN"),
+                "top_catalyst_direction": top_catalyst.get("direction", "UNKNOWN"),
+                "top_catalyst_impact": top_catalyst.get("impact", "n/a"),
+                "top_catalyst_title": top_catalyst.get("title", ""),
             }
         )
     return pd.DataFrame(rows, columns=COMPARE_COLUMNS)
@@ -1395,11 +1511,15 @@ def build_ai_explanation(focus_ticker: str, news_df: pd.DataFrame, compare_df: p
     avg_buy_sell = float(buy_sell_ratio_series(ticker_news).mean())
     avg_volume_ratio = float(volume_ratio_series(ticker_news).mean())
     latest = ticker_news.iloc[0]
+    catalyst_type = str(latest.get("catalyst_type") or latest.get("catalyst_tag") or "UNKNOWN").replace("_", " ").title()
+    catalyst_direction = str(latest.get("catalyst_direction") or "UNKNOWN").title()
+    catalyst_impact = str(latest.get("catalyst_impact_label") or "n/a").replace("_", " ").title()
 
     lines = [
         f"{get_company_name(focus_ticker)} currently reads as a {direction} short-term signal.",
         f"Stored analyzed headlines average {avg_confidence:.0f}% model confidence; quote-quality proxies show spread-derived liquidity near {avg_buy_sell:.2f}x and stored volume context around {avg_volume_ratio:.2f}x.",
         f"Latest driver: {latest['title']}",
+        f"Catalyst lens: {catalyst_type} event, {catalyst_direction.lower()} direction, {catalyst_impact.lower()} materiality.",
     ]
     if pd.notna(latest.get("short_reason")) and str(latest.get("short_reason")).strip():
         lines.append(f"Why it matters: {latest['short_reason']}")
@@ -1847,6 +1967,128 @@ def build_summary_list(items: list[tuple[str, str]]) -> list[html.Div]:
     ]
 
 
+def get_catalyst_type_options() -> list[dict[str, str]]:
+    return [{"label": item.value.replace("_", " ").title(), "value": item.value} for item in CatalystType]
+
+
+def get_catalyst_direction_options() -> list[dict[str, str]]:
+    return [{"label": item.value.title(), "value": item.value} for item in CatalystDirection]
+
+
+def build_active_catalysts(catalyst_df: pd.DataFrame, limit: int = 6) -> list[html.Div]:
+    if catalyst_df.empty:
+        return [
+            html.Div(
+                "No classified catalysts are available for the current workspace. This usually means there are no recent headlines in the selected window.",
+                className="explanation-line",
+            )
+        ]
+    rows = catalyst_df.sort_values("catalyst_priority", ascending=False).head(limit)
+    return [_catalyst_row(row, include_symbol=True) for _, row in rows.iterrows()]
+
+
+def build_key_catalysts(catalyst_df: pd.DataFrame, focus_ticker: str, limit: int = 3) -> list[html.Div]:
+    ticker_rows = catalyst_df[catalyst_df["primary_symbol"] == focus_ticker] if not catalyst_df.empty else pd.DataFrame()
+    if ticker_rows.empty:
+        return [
+            html.Div(
+                f"No specific catalyst was classified for {focus_ticker} in the current news window.",
+                className="explanation-line",
+            )
+        ]
+    return [_catalyst_row(row, include_symbol=False) for _, row in ticker_rows.sort_values("catalyst_priority", ascending=False).head(limit).iterrows()]
+
+
+def build_catalyst_summary(catalyst_df: pd.DataFrame, focus_ticker: str) -> list[html.Div]:
+    ticker_rows = catalyst_df[catalyst_df["primary_symbol"] == focus_ticker] if not catalyst_df.empty else pd.DataFrame()
+    if ticker_rows.empty:
+        return build_summary_list(
+            [
+                ("Catalysts", "0"),
+                ("Top Type", "n/a"),
+                ("Direction", "UNKNOWN"),
+                ("Impact", "n/a"),
+            ]
+        )
+    top = ticker_rows.sort_values("catalyst_priority", ascending=False).iloc[0]
+    unique_events = int(ticker_rows["event_group_id"].nunique()) if "event_group_id" in ticker_rows.columns else int(len(ticker_rows))
+    return build_summary_list(
+        [
+            ("Catalysts", str(unique_events)),
+            ("Top Type", str(top.get("catalyst_type") or "UNKNOWN").replace("_", " ").title()),
+            ("Direction", str(top.get("catalyst_direction") or "UNKNOWN").title()),
+            ("Impact", str(top.get("catalyst_impact_label") or "n/a").replace("_", " ").title()),
+        ]
+    )
+
+
+def build_catalyst_timeline(catalyst_df: pd.DataFrame, focus_ticker: str, limit: int = 8) -> list[html.Div]:
+    ticker_rows = catalyst_df[catalyst_df["primary_symbol"] == focus_ticker] if not catalyst_df.empty else pd.DataFrame()
+    if ticker_rows.empty:
+        return [html.Div("Catalyst timeline will appear once classified headlines are available.", className="explanation-line")]
+    rows = ticker_rows.sort_values("published_at", ascending=False).head(limit)
+    items: list[html.Div] = []
+    for _, row in rows.iterrows():
+        ts = pd.to_datetime(row.get("published_at"), errors="coerce")
+        time_label = ts.strftime("%Y-%m-%d %H:%M") if pd.notna(ts) else "Time unavailable"
+        items.append(
+            html.Div(
+                [
+                    html.Div(time_label, className="summary-label"),
+                    html.Div(str(row.get("event_title") or ""), className="summary-value"),
+                    html.Div(
+                        f'{str(row.get("catalyst_type") or "UNKNOWN").replace("_", " ").title()} | {row.get("catalyst_direction", "UNKNOWN")} | {row.get("catalyst_impact_label", "n/a")} | {row.get("novelty_label", "NEW")}',
+                        className="metric-note",
+                    ),
+                ],
+                className="summary-item",
+            )
+        )
+    return items
+
+
+def build_compare_catalyst_table(compare_df: pd.DataFrame) -> list[html.Div]:
+    if compare_df.empty or "top_catalyst" not in compare_df.columns:
+        return [html.Div("Catalyst comparison will appear once peer headlines are available.", className="explanation-line")]
+    rows = compare_df.sort_values(["catalyst_count", "avg_confidence"], ascending=False)
+    items: list[html.Div] = []
+    for _, row in rows.iterrows():
+        items.append(
+            html.Div(
+                [
+                    html.Div(str(row.get("ticker") or ""), className="summary-label"),
+                    html.Div(
+                        f'{str(row.get("top_catalyst") or "UNKNOWN").replace("_", " ").title()} | {row.get("top_catalyst_direction", "UNKNOWN")} | {row.get("top_catalyst_impact", "n/a")}',
+                        className="summary-value",
+                    ),
+                    html.Div(f'{int(row.get("catalyst_count") or 0)} event group(s). {row.get("top_catalyst_title", "")}', className="metric-note"),
+                ],
+                className="summary-item",
+            )
+        )
+    return items
+
+
+def _catalyst_row(row: pd.Series, *, include_symbol: bool) -> html.Div:
+    symbol = f'{row.get("primary_symbol", "")} | ' if include_symbol else ""
+    title = str(row.get("event_title") or "Untitled catalyst")
+    detail = (
+        f'{symbol}{str(row.get("catalyst_type") or "UNKNOWN").replace("_", " ").title()} | '
+        f'{row.get("catalyst_direction", "UNKNOWN")} | '
+        f'{row.get("catalyst_impact_label", "n/a")} | '
+        f'{row.get("catalyst_time_horizon", "UNKNOWN")} | '
+        f'{row.get("novelty_label", "NEW")}'
+    )
+    return html.Div(
+        [
+            html.Div(detail, className="summary-label"),
+            html.Div(title, className="summary-value"),
+            html.Div(f'Priority {float(row.get("catalyst_priority") or 0.0):.3f} | Group {row.get("event_group_id", "")}', className="metric-note"),
+        ],
+        className="summary-item",
+    )
+
+
 def build_buy_readout(focus_ticker: str, compare_df: pd.DataFrame) -> html.Div:
     focus_row = compare_df[compare_df["ticker"] == focus_ticker]
     if focus_row.empty:
@@ -1915,6 +2157,11 @@ def build_news_table(event_df: pd.DataFrame, news_df: pd.DataFrame) -> pd.DataFr
                 "Confidence %",
                 "Impact %",
                 "Catalyst",
+                "Catalyst Direction",
+                "Catalyst Impact",
+                "Catalyst Horizon",
+                "Novelty",
+                "Event Group",
                 "Analysis",
                 "Parse Status",
                 "Explanation",
@@ -1951,7 +2198,14 @@ def build_news_table(event_df: pd.DataFrame, news_df: pd.DataFrame) -> pd.DataFr
         table_df.loc[impact_series.isna(), "Impact %"] = "n/a"
     else:
         table_df["Impact %"] = "n/a"
-    table_df["Catalyst"] = table_df.get("catalyst_tag", "other").fillna("other")
+    table_df["Catalyst"] = _table_series(table_df, "catalyst_tag", "other")
+    if "catalyst_type" in table_df.columns:
+        table_df["Catalyst"] = table_df["catalyst_type"].fillna(table_df["Catalyst"])
+    table_df["Catalyst Direction"] = _table_series(table_df, "catalyst_direction", "UNKNOWN")
+    table_df["Catalyst Impact"] = _table_series(table_df, "catalyst_impact_label", "n/a")
+    table_df["Catalyst Horizon"] = _table_series(table_df, "catalyst_time_horizon", "UNKNOWN")
+    table_df["Novelty"] = _table_series(table_df, "novelty_label", "NEW")
+    table_df["Event Group"] = _table_series(table_df, "event_group_id", "")
     table_df["Analysis"] = table_df.get("analysis_provider", "Unknown")
     table_df["Parse Status"] = table_df.get("parse_status", "n/a").fillna("n/a")
     table_df["Explanation"] = table_df.get("short_reason", "").fillna("Awaiting price linkage for this headline.")
@@ -1967,11 +2221,22 @@ def build_news_table(event_df: pd.DataFrame, news_df: pd.DataFrame) -> pd.DataFr
             "Confidence %",
             "Impact %",
             "Catalyst",
+            "Catalyst Direction",
+            "Catalyst Impact",
+            "Catalyst Horizon",
+            "Novelty",
+            "Event Group",
             "Analysis",
             "Parse Status",
             "Explanation",
         ]
     ]
+
+
+def _table_series(table_df: pd.DataFrame, column: str, default: str) -> pd.Series:
+    if column in table_df.columns:
+        return table_df[column].fillna(default)
+    return pd.Series(default, index=table_df.index)
 
 
 def build_alert_panel(alerts: list[dict[str, str]], demo_mode: bool) -> list[dbc.ListGroupItem]:

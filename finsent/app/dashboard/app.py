@@ -14,6 +14,9 @@ from finsent.app.dashboard.view_model import (
     build_ai_explanation,
     build_alert_panel,
     build_alerts,
+    build_active_catalysts,
+    build_catalyst_summary,
+    build_compare_catalyst_table,
     build_compare_chart,
     build_dashboard_state,
     build_empty_figure,
@@ -21,6 +24,7 @@ from finsent.app.dashboard.view_model import (
     build_impact_scatter,
     build_metric_grid,
     build_news_table,
+    build_key_catalysts,
     build_overlay_chart,
     build_recent_price_histogram,
     build_price_timeline,
@@ -28,6 +32,7 @@ from finsent.app.dashboard.view_model import (
     build_sector_heatmap,
     build_sentiment_timeline_with_title,
     build_summary_list,
+    build_catalyst_timeline,
     DATA_MODE_LOCAL,
     confidence_series,
     ensure_live_data,
@@ -39,6 +44,8 @@ from finsent.app.dashboard.view_model import (
     latest_recent_close,
     get_price_status_note,
     get_ticker_options,
+    get_catalyst_direction_options,
+    get_catalyst_type_options,
     label_for_signal,
     spread_pct_series,
     volume_ratio_series,
@@ -340,6 +347,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Output("summary-badge-row", "children"),
         Output("summary-status-banner", "children"),
         Output("summary-metric-row", "children"),
+        Output("summary-active-catalysts", "children"),
         Output("summary-price-chart", "figure"),
         Output("summary-ai-explanation", "children"),
         Input("selection-store", "data"),
@@ -421,6 +429,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             badges,
             build_focus_status_banner(focus_ticker, state),
             metrics,
+            build_active_catalysts(state.catalyst_df),
             figure,
             [html.Div(line, className="explanation-line") for line in explanation_lines],
         )
@@ -432,6 +441,9 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Output("stock-main-chart", "figure"),
         Output("stock-ai-explanation", "children"),
         Output("stock-summary-panel", "children"),
+        Output("stock-catalyst-summary", "children"),
+        Output("stock-key-catalysts", "children"),
+        Output("stock-catalyst-timeline", "children"),
         Input("stock-chart-mode", "value"),
         Input("selection-store", "data"),
         Input("live-refresh-store", "data"),
@@ -541,6 +553,9 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             main_chart,
             [html.Div(line, className="explanation-line") for line in signal_lines],
             summary,
+            build_catalyst_summary(state.catalyst_df, focus_ticker),
+            build_key_catalysts(state.catalyst_df, focus_ticker),
+            build_catalyst_timeline(state.catalyst_df, focus_ticker),
         )
 
     @app.callback(
@@ -549,10 +564,22 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Output("news-impact-summary", "children"),
         Output("news-impact-table", "data"),
         Output("news-impact-table", "columns"),
+        Output("news-symbol-filter", "options"),
+        Output("news-catalyst-filter", "options"),
+        Output("news-direction-filter", "options"),
+        Input("news-symbol-filter", "value"),
+        Input("news-catalyst-filter", "value"),
+        Input("news-direction-filter", "value"),
         Input("selection-store", "data"),
         Input("live-refresh-store", "data"),
     )
-    def refresh_news_impact(selection_data: dict | None, _refresh_data: dict | None):
+    def refresh_news_impact(
+        symbol_filter: list[str] | None,
+        catalyst_filter: list[str] | None,
+        direction_filter: list[str] | None,
+        selection_data: dict | None,
+        _refresh_data: dict | None,
+    ):
         selection = _selection(selection_data)
         focus_ticker = selection["focus_ticker"]
         if not selection["analysis_ready"] or not focus_ticker:
@@ -565,34 +592,41 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             start_date,
             end_date,
         )
-        ticker_news = state.news_df[state.news_df["ticker"] == focus_ticker]
-        ticker_events = state.event_df[state.event_df["ticker"] == focus_ticker] if not state.event_df.empty else pd.DataFrame()
-        table_df = build_news_table(ticker_events, ticker_news)
-        impact_source = ticker_events if not ticker_events.empty else ticker_news
+        filtered_news = state.news_df.copy()
+        selected_symbols = symbol_filter or [focus_ticker]
+        if selected_symbols:
+            filtered_news = filtered_news[filtered_news["ticker"].isin(selected_symbols)]
+        if catalyst_filter and "catalyst_type" in filtered_news.columns:
+            filtered_news = filtered_news[filtered_news["catalyst_type"].isin(catalyst_filter)]
+        if direction_filter and "catalyst_direction" in filtered_news.columns:
+            filtered_news = filtered_news[filtered_news["catalyst_direction"].isin(direction_filter)]
+        filtered_events = state.event_df[state.event_df["ticker"].isin(selected_symbols)] if not state.event_df.empty and selected_symbols else state.event_df
+        table_df = build_news_table(filtered_events, filtered_news)
+        impact_source = filtered_events if not filtered_events.empty else filtered_news
         average_impact = (
-            float(ticker_events["impact_pct"].mean())
-            if not ticker_events.empty
-            else float(pd.to_numeric(ticker_news.get("impact_strength"), errors="coerce").fillna(0.0).mean() * 100.0)
-            if not ticker_news.empty
+            float(filtered_events["impact_pct"].mean())
+            if not filtered_events.empty
+            else float(pd.to_numeric(filtered_news.get("impact_strength"), errors="coerce").fillna(0.0).mean() * 100.0)
+            if not filtered_news.empty
             else None
         )
         highest_positive = (
-            float(ticker_events["impact_pct"].max())
-            if not ticker_events.empty
-            else float((pd.to_numeric(ticker_news.get("impact_strength"), errors="coerce").fillna(0.0) * 100.0).max())
-            if not ticker_news.empty
+            float(filtered_events["impact_pct"].max())
+            if not filtered_events.empty
+            else float((pd.to_numeric(filtered_news.get("impact_strength"), errors="coerce").fillna(0.0) * 100.0).max())
+            if not filtered_news.empty
             else None
         )
         highest_negative = (
-            float(ticker_events["impact_pct"].min())
-            if not ticker_events.empty
+            float(filtered_events["impact_pct"].min())
+            if not filtered_events.empty
             else None
         )
         average_confidence = (
-            float(ticker_events["confidence_pct"].mean())
-            if not ticker_events.empty
-            else float(confidence_series(ticker_news).mean() * 100.0)
-            if not ticker_news.empty
+            float(filtered_events["confidence_pct"].mean())
+            if not filtered_events.empty
+            else float(confidence_series(filtered_news).mean() * 100.0)
+            if not filtered_news.empty
             else None
         )
         summary = build_summary_list(
@@ -606,7 +640,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         )
         return (
             build_focus_status_banner(focus_ticker, state),
-            build_impact_scatter(ticker_events, ticker_news)
+            build_impact_scatter(filtered_events, filtered_news)
             if not impact_source.empty
             else build_empty_figure(
                 "Sentiment vs Estimated Impact",
@@ -615,6 +649,9 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             summary,
             table_df.to_dict("records"),
             [{"name": col, "id": col} for col in table_df.columns],
+            [{"label": symbol, "value": symbol} for symbol in sorted(state.news_df.get("ticker", pd.Series(dtype=str)).dropna().unique().tolist())],
+            get_catalyst_type_options(),
+            get_catalyst_direction_options(),
         )
 
     @app.callback(
@@ -626,6 +663,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Output("compare-main-chart", "figure"),
         Output("compare-secondary-chart", "figure"),
         Output("compare-ai-summary", "children"),
+        Output("compare-catalyst-table", "children"),
         Input("selection-store", "data"),
         Input("live-refresh-store", "data"),
     )
@@ -671,6 +709,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
                 build_empty_figure("Peer Comparison", "Peer comparison will appear after you select additional tickers."),
                 build_empty_figure("Relative Price Performance", "Choose peer tickers to unlock the secondary comparison view."),
                 [html.Div("Comparison insights will appear here once at least two tickers are loaded.", className="explanation-line")],
+                [],
             )
 
         metrics = build_metric_grid(
@@ -693,6 +732,15 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
                 html.Div(f'{leader["ticker"]} has the strongest sentiment signal with an average score of {leader["avg_sentiment"]:.2f}.', className="explanation-line"),
                 html.Div(f'{reliable["ticker"]} has the highest average model confidence at {reliable["avg_confidence"]:.0f}%, while {laggard["ticker"]} is the weakest price mover.', className="explanation-line"),
             ]
+            catalyst_rows = compare_df[compare_df["catalyst_count"] > 0] if "catalyst_count" in compare_df.columns else pd.DataFrame()
+            if not catalyst_rows.empty:
+                top = catalyst_rows.sort_values("catalyst_count", ascending=False).iloc[0]
+                summary_lines.append(
+                    html.Div(
+                        f'{top["ticker"]} has the broadest recent catalyst coverage: {int(top["catalyst_count"])} event group(s), led by {str(top["top_catalyst"]).replace("_", " ").title()}.',
+                        className="explanation-line",
+                    )
+                )
         return (
             selection_summary,
             [],
@@ -702,6 +750,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             build_price_timeline(state.price_df, title="Indexed Price Performance", normalize=True),
             build_compare_chart(compare_df),
             summary_lines,
+            build_compare_catalyst_table(compare_df),
         )
 
     @app.callback(

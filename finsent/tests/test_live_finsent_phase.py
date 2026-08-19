@@ -177,6 +177,7 @@ def test_compare_callback_renders_aapl_nvda_tsla_without_shape_error() -> None:
             {"id": "compare-main-chart", "property": "figure"},
             {"id": "compare-secondary-chart", "property": "figure"},
             {"id": "compare-ai-summary", "property": "children"},
+            {"id": "compare-catalyst-table", "property": "children"},
         ],
         "inputs": [
             {

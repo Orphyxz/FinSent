@@ -70,6 +70,14 @@ def layout() -> html.Div:
                         ],
                         className="chart-card compact-chart-card mb-4",
                     ),
+                    html.Div(
+                        [
+                            html.Div("Catalyst Intelligence", className="section-kicker"),
+                            html.H3("Strongest Recent Catalysts", className="section-title"),
+                            html.Div(id="compare-catalyst-table", className="summary-stack"),
+                        ],
+                        className="section-shell mb-4",
+                    ),
                 ],
                 id="compare-content",
             ),
