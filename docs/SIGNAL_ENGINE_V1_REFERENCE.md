@@ -4,9 +4,9 @@ Phase 2 freezes the current `CompositeSignalEngine` behavior before any Signal E
 
 ## Inputs
 
-- Quote snapshot from Polygon/Kite/unavailable provider.
+- Quote snapshot from Alpaca/Polygon/Kite/unavailable provider.
 - Normalized article plus article analysis pairs.
-- Aggregate analysis from Gemini analyzer or heuristic fallback.
+- Aggregate analysis from the configured live analyzer, normally FinBERT, or a safe fallback.
 
 ## Usable Market Quote Criteria
 

@@ -25,29 +25,31 @@ This document freezes the current active behavior boundary. It does not claim fu
 | ACTIVE | `finsent/app/dashboard/view_model.py` | Loads DB data, triggers refreshes, builds data frames/figures. |
 | ACTIVE | `finsent/app/dashboard/assets/dashboard.css` | Current visual styling. |
 
-Phase 17 maps `/` to the functional Overview dashboard and adds `/research` as a read-only final-results page. The Research page reads locked Phase 16 artifacts and must not rerun FinBERT, Signal V1/V2/V2.1 evaluation, Event Study V2, or final-holdout experiments.
+Phase 21 maps `/` to the functional Overview dashboard and keeps `/research` as a read-only final-results page. The Research page reads locked Phase 16 artifacts and must not rerun FinBERT, Signal V1/V2/V2.1 evaluation, Event Study V2, or final-holdout experiments.
 
 ## Active Market Data Path
 
 | Classification | Component | Notes |
 |---|---|---|
-| ACTIVE | `finsent/app/services/market_providers.py` | Normalized quote model plus Polygon/Kite provider implementations. |
+| ACTIVE | `finsent/app/services/market_providers.py` | Normalized quote model plus Alpaca/Polygon/Kite provider implementations. |
 | ACTIVE | `finsent/app/services/provider_status.py` | Small structured status model for active provider diagnostics. |
 | ACTIVE | `finsent/app/services/provider_contracts.py` | Provider contracts, result wrapper, attempt trace, and failure categories. |
 | ACTIVE | `finsent/app/services/provider_routers.py` | Canonical active routing path for market quotes, bars, and news. |
 | ACTIVE | `finsent/app/services/provider_reliability.py` | Timeout/retry support, cache, freshness, validation, data quality, and provider health. |
-| ACTIVE | `PolygonMarketDataProvider` | US quote and bar provider when keyed. |
+| ACTIVE | `AlpacaMarketDataProvider` | Primary US quote and bar provider when keyed; normally IEX feed. |
+| ACTIVE | `PolygonMarketDataProvider` | Optional US quote and bar fallback when keyed. |
 | ACTIVE | `KiteMarketDataProvider` | NSE/BSE quote and bar provider when keyed. |
 | ACTIVE | `UnavailableMarketProvider` | Graceful unavailable state for unsupported/missing providers. |
-| LEGACY | `finsent/app/services/market_data.py` | Deprecated yfinance/Alpaca market service. Do not delete yet. |
+| LEGACY | `finsent/app/services/market_data.py` | Deprecated yfinance/older market service. Do not delete yet. |
 
 ## Active News Path
 
 | Classification | Component | Notes |
 |---|---|---|
 | ACTIVE | `finsent/app/services/news_providers.py` | Normalized article model plus Polygon/Marketaux/fallback provider implementations. |
-| ACTIVE | `PolygonNewsProvider` | US provider-grade news when keyed. |
-| ACTIVE | `MarketauxNewsProvider` | NSE/BSE provider-grade news when keyed. |
+| ACTIVE | `AlpacaNewsProvider` | Primary US current news when keyed; uses Alpaca/Benzinga news. |
+| ACTIVE | `PolygonNewsProvider` | Optional US provider-grade news fallback when keyed. |
+| ACTIVE | `MarketauxNewsProvider` | Optional US/NSE/BSE provider-grade news fallback when keyed. |
 | ACTIVE | `CuratedWebNewsProvider` | Fallback path through `YahooFinanceScraper`. |
 | ACTIVE | `finsent/app/scrapers/yahoo_finance.py` | Fallback Gemini search, Alpaca news, yfinance news, Yahoo HTML scraping. |
 
@@ -67,13 +69,13 @@ Phase 4 adds leaf-provider provenance, data modes, freshness labels, data-qualit
 
 Current coverage:
 
-- Polygon/Kite quote snapshots carry structured market status.
+- Alpaca/Polygon/Kite quote snapshots carry structured market status.
 - News routing records configured/unconfigured/fallback status.
-- Gemini/OpenAI analyzer selection records configured/unconfigured sentiment status.
+- FinBERT/Gemini/OpenAI analyzer selection records model status without exposing secrets.
 - `IntelligenceSnapshot.provider_statuses` carries service-level diagnostics for the active refresh.
 - `IntelligenceSnapshot.provider_attempts` carries the lightweight routed attempt trace.
 
-Raw response auditing, dashboard-wide provider panels, and persistent provider-run tables remain future work.
+Raw response archiving is intentionally not implemented. The dashboard exposes compact System Status diagnostics; provider audit rows record real provider attempts.
 
 ## Active Sentiment Path
 
@@ -84,11 +86,12 @@ Raw response auditing, dashboard-wide provider panels, and persistent provider-r
 | ACTIVE | `finsent/app/services/sentiment_intelligence.py` | Research execution service for analyzer selection, fallback, batch runs, and optional model-run persistence. |
 | ACTIVE / RESEARCH | `finsent/app/services/model_comparison.py` | Phase 9 controlled Gemini-vs-FinBERT selection, paired execution, metrics, reuse, dry-run, and export framework. |
 | ACTIVE | `finsent/app/prompts/financial_sentiment.py` | Versioned Gemini prompt/schema: `financial_sentiment_v2_1`. |
-| ACTIVE | `GeminiNewsAnalyzer` | Active default wrapper; now uses Gemini Sentiment V2 internally and returns `ArticleAnalysis` compatibility output. |
-| ACTIVE | `heuristic_article_analysis` / `HeuristicSentimentAnalyzer` | Active safe fallback for missing Gemini, quota, request failure, parse failure, or budget limits. |
-| RESEARCH / OPTIONAL | `FinBERTSentimentAnalyzer` | Sentiment V2 analyzer using optional `requirements-research.txt`; not active in dashboard Signal V1 path. |
+| ACTIVE | `FinBERTNewsAnalyzer` | Current default live article analyzer when `SENTIMENT_PROVIDER=finbert`. |
+| OPTIONAL | `GeminiNewsAnalyzer` | Compatibility wrapper using Gemini Sentiment V2 when explicitly selected and configured. |
+| ACTIVE FALLBACK | `heuristic_article_analysis` / `HeuristicSentimentAnalyzer` | Safe fallback for missing model dependencies, unconfigured providers, request failure, parse failure, or budget limits. |
+| ACTIVE / OPTIONAL | `FinBERTSentimentAnalyzer` | Sentiment V2 analyzer using optional `requirements-research.txt`; active live default when installed. |
 | STUB / DEFERRED | `OpenAIAnalyzerStub` / `OpenAIAnalyzerStubV2` | Explicit unavailable stub; no OpenAI support implemented in Phase 6. |
-| RESEARCH / KEEP FOR NOW | `finsent/app/services/sentiment.py` | Legacy FinBERT/Gemini sentiment service for future comparison. |
+| RESEARCH / KEEP FOR NOW | `finsent/app/services/sentiment.py` | Legacy FinBERT/Gemini sentiment service for older experiments. |
 | RESEARCH / KEEP FOR NOW | `FinBERTSentimentService` | Preserved, not active in dashboard runtime. |
 
 Phase 6 adds the safe CLI `python -m finsent.scripts.run_sentiment_analysis` for small explicit sentiment research runs over stored articles.
@@ -106,7 +109,7 @@ Phase 9 adds the safe CLI `python -m finsent.scripts.run_model_comparison` for c
 | ACTIVE | `finsent/app/services/dataset_registry.py` | Explicit CSV/reference dataset metadata scanner. |
 | ACTIVE | `data/finsent.db` | Local runtime database, ignored. |
 
-Phase 5 adds schema version `2`, canonical instruments, article-instrument links, immutable model-run storage, signal-run storage, event-study result storage, experiment runs, persistent provider audits, data-quality assessment storage, and dataset metadata. Signal V2 now uses the signal-run storage added in Phase 5, and Event Study V2 now uses the event-study storage. FinBERT comparisons, backtesting, and confidence calibration remain future work.
+Phase 5 adds schema version `2`, canonical instruments, article-instrument links, immutable model-run storage, signal-run storage, event-study result storage, experiment runs, persistent provider audits, data-quality assessment storage, and dataset metadata. Signal V2 uses the signal-run storage added in Phase 5, and Event Study V2 uses the event-study storage.
 
 ## Active Signal Path
 
@@ -114,8 +117,8 @@ Phase 5 adds schema version `2`, canonical instruments, article-instrument links
 |---|---|---|
 | ACTIVE | `finsent/app/services/signal_engine.py` | Current deterministic signal formula. |
 | ACTIVE | `CompositeSignalEngine.compute` | Behavior is characterized and frozen for Phase 2 before V2 changes. |
-| RESEARCH / EXPLICIT | `finsent/app/services/signal_engine_v2.py` | Phase 7 explainable component signal engine; deterministic and separately callable. |
-| RESEARCH / EXPLICIT | `finsent/app/services/signal_service_v2.py` | Builds V2 inputs from stored data and can persist V2 signal runs. |
+| ACTIVE / RESEARCH | `finsent/app/services/signal_engine_v2.py` | Explainable component signal engine; deterministic and separately callable. |
+| ACTIVE / RESEARCH | `finsent/app/services/signal_service_v2.py` | Builds V2 inputs from stored/live data and can persist idempotent V2 signal runs. |
 | RESEARCH / EXPLICIT | `python -m finsent.scripts.run_signal_v2` | Safe local CLI for explicit V2 evaluation and optional persistence. |
 | RESEARCH / EXPLICIT | `finsent/app/services/research_dataset.py` | Phase 10 historical article import, cohort construction, coverage, and fingerprints. |
 | RESEARCH / EXPLICIT | `finsent/app/services/historical_signal_evaluation.py` | Phase 10 Signal V1/V2 historical evaluation and exports. |
@@ -131,7 +134,7 @@ Phase 2 mode labels:
 
 Usable quotes require a positive current price, market timestamp, acceptable quality, and non-unavailable provider status. Signal V1 does not calculate true momentum, volume momentum, RSI/MACD, or order flow.
 
-Phase 7 adds Signal Engine V2 as an explicit research path only. It combines news, price momentum, and volume confirmation, then attenuates score magnitude and confidence with liquidity, freshness, and data quality. V2 stores component explanations in the existing Phase 5 `signal_runs.future_component_json` field. The default dashboard and pipeline path remains Signal V1 unless a later phase deliberately promotes V2.
+Signal Engine V2 combines news, price momentum, and volume confirmation, then attenuates score magnitude and confidence with liquidity, freshness, and data quality. V2 stores component explanations in the existing Phase 5 `signal_runs.future_component_json` field. The dashboard shows both live V1 and live V2 context, while Phase 16 research conclusions remain locked.
 
 Phase 10 adds a research-only evaluator that compares frozen Signal V1 and Signal V2 on stored historical articles. It does not promote V2 to the dashboard and does not change either signal formula.
 
@@ -153,7 +156,7 @@ Phase 10 uses Event Study V2 as the realized outcome layer for historical signal
 
 | Component | Reason |
 |---|---|
-| `finsent/app/services/sentiment.py` | FinBERT and old Gemini code support future Gemini-vs-FinBERT research. |
+| `finsent/app/services/sentiment.py` | FinBERT and old Gemini code support older comparison/research paths. |
 | `requirements-research.txt` | Keeps heavy transformer dependencies explicit but optional. |
 | `archive/v1` | Historical NSE prices for future backtesting/import work. |
 | `finsent/app/services/kaggle_data.py` | Offline historical import path. |

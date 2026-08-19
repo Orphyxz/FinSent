@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
+import subprocess
 from threading import RLock
 from typing import Any
 
@@ -62,6 +64,7 @@ class DatabaseHealth:
 @dataclass(frozen=True, slots=True)
 class RuntimeSnapshot:
     app_mode: str
+    build_ref: str
     provider_health: tuple[dict[str, Any], ...]
     cache_stats: tuple[CacheStats, ...]
     finbert_state: str
@@ -160,6 +163,7 @@ class RuntimeDiagnosticsService:
         with self._lock:
             return RuntimeSnapshot(
                 app_mode=app_mode,
+                build_ref=build_reference(),
                 provider_health=self._provider_health,
                 cache_stats=tuple(sorted(self._cache_stats.values(), key=lambda row: row.name)),
                 finbert_state=self._finbert_state,
@@ -170,6 +174,21 @@ class RuntimeDiagnosticsService:
                 active_market_provider=self._active_market_provider,
                 active_news_provider=self._active_news_provider,
             )
+
+
+def build_reference() -> str:
+    try:
+        root = Path(__file__).resolve().parents[3]
+        value = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=root,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        ).strip()
+    except Exception:
+        return "unknown/local"
+    return value or "unknown/local"
 
 
 def database_health() -> DatabaseHealth:

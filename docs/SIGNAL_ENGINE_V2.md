@@ -1,6 +1,6 @@
 # Signal Engine V2
 
-Phase 7 adds a new deterministic, explainable signal engine. Signal Engine V1 remains available and remains the dashboard default.
+Phase 7 added a deterministic, explainable signal engine. The current dashboard surfaces live Signal V1 and live Signal V2 context, while the locked Phase 16 research conclusions remain unchanged.
 
 ## Purpose
 
@@ -17,7 +17,7 @@ Reliability evidence then attenuates confidence and score magnitude:
 - data quality
 - component agreement
 
-V2 does not provide investment advice, trading execution, calibrated probabilities, or optimized weights.
+V2 does not provide investment advice, trading execution, calibrated probabilities, optimized weights, or evidence of profitability.
 
 ## Architecture
 
@@ -133,7 +133,7 @@ V2 degrades gracefully:
 
 ## V1 vs V2
 
-V1 is a compact deterministic compatibility engine. V2 is componentized, explainable, and separates direction from reliability. V2 is explicitly selectable for research and local testing; it is not promoted to default dashboard behavior in Phase 7.
+V1 is a compact deterministic compatibility engine. V2 is componentized, explainable, and separates direction from reliability. The live dashboard can show V2, but Phase 16 did not justify presenting V2.0 as superior to V1.
 
 ## Persistence
 
@@ -143,7 +143,7 @@ V2 uses existing Phase 5 `signal_runs`. Component breakdown is stored as structu
 
 - Weights are not backtest-optimized.
 - Confidence is not calibrated.
-- Event-study defects are still unresolved.
-- No sector-relative or macro-regime context.
+- Event-study results are research measurements, not trading simulation.
+- Market Context Intelligence exists as a separate explanatory layer and is not folded into the V2 score.
 - No RSI/MACD/Bollinger indicator stack.
 - No trading instruction semantics.

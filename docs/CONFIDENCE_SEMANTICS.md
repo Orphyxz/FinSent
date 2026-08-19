@@ -4,7 +4,7 @@ Phase 2 freezes what current confidence values mean. These values are not calibr
 
 ## Article Model Confidence
 
-- Source: `ArticleAnalysis.confidence` from the active `GeminiNewsAnalyzer` compatibility wrapper or heuristic fallback. Phase 6's canonical `SentimentAnalysisResult.confidence` stores analyzer-specific confidence for research runs.
+- Source: `ArticleAnalysis.confidence` from the configured live analyzer, normally `FinBERTNewsAnalyzer`, or a heuristic fallback. Phase 6's canonical `SentimentAnalysisResult.confidence` stores analyzer-specific confidence for research runs.
 - Stored as: `news_articles.model_confidence`.
 - Range: `0.0` to `1.0`.
 - Interpretation: analyzer self-assessed confidence in the per-article sentiment/impact classification.
@@ -28,7 +28,7 @@ These values are not calibrated against each other in Phase 6.
 
 ## Aggregate Confidence
 
-- Source: `GeminiNewsAnalyzer.aggregate`.
+- Source: the configured live analyzer's `aggregate` method, normally `FinBERTNewsAnalyzer.aggregate`.
 - Stored as: `signal_snapshots.overall_confidence`.
 - Range: `0.0` to `1.0`.
 - Current behavior: average article confidence across analyzed article pairs.
@@ -45,7 +45,7 @@ These values are not calibrated against each other in Phase 6.
 ## Signal V2 Confidence
 
 - Source: `SignalEngineV2.evaluate`.
-- Stored as: `signal_runs.confidence` for explicit V2 research executions.
+- Stored as: `signal_runs.confidence` for live and explicit V2 executions.
 - Range: `0.0` to `1.0`.
 - Current behavior: engineering reliability score derived from final score magnitude, component reliability, component agreement, and directional component availability.
 - Not: a calibrated probability, a backtested hit rate, or a trading recommendation confidence.
@@ -66,8 +66,8 @@ V2 confidence is intentionally separate from article model confidence. It can de
 
 ## Future Calibration Work
 
-- Build an experiment table for model outputs and realized future returns.
-- Evaluate confidence calibration by horizon and exchange.
+- Continue using experiment tables for model outputs and realized future returns.
+- Evaluate any future confidence calibration by horizon and exchange without touching locked final holdout data.
 - Separate article classification confidence from signal reliability.
 - Display calibrated probabilities only after backtested calibration exists.
 - Use `sentiment_analysis_runs` to compare model confidence behavior only in a later dedicated calibration phase.

@@ -711,6 +711,7 @@ def build_runtime_status_panel() -> html.Div:
     ]
     details = [
         ("Mode", snapshot.app_mode),
+        ("Build", snapshot.build_ref),
         ("Market Provider", market_provider),
         ("News Provider", news_provider),
         ("DB Size", _format_bytes(db.size_bytes)),

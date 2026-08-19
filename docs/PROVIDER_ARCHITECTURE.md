@@ -1,6 +1,6 @@
 # FinSent Provider Architecture
 
-Phase 3 consolidated the active provider path. Phase 4 adds reliability and data-quality metadata without changing Signal Engine V1, event-study behavior, or the database schema.
+Phase 3 consolidated the active provider path. Later phases made Alpaca the primary US live demo provider and added reliability/data-quality metadata without changing locked research artifacts.
 
 ## Goals
 
@@ -45,7 +45,10 @@ Market routing lives in `MarketDataRouter`.
 ```mermaid
 flowchart TD
     Symbol[SymbolRecord] --> Exchange{Exchange}
-    Exchange -->|US| Polygon[PolygonMarketDataProvider]
+    Exchange -->|US| Alpaca[AlpacaMarketDataProvider]
+    Alpaca --> AConfigured{Configured?}
+    AConfigured -->|Yes| AFetch[Fetch quote/bars]
+    AConfigured -->|No/failure| Polygon[PolygonMarketDataProvider]
     Exchange -->|NSE/BSE| Kite[KiteMarketDataProvider]
     Exchange -->|Unsupported| Unavailable[Structured unavailable result]
     Polygon --> PConfigured{Configured?}
@@ -54,6 +57,7 @@ flowchart TD
     KConfigured -->|No| KUnconfigured[UNCONFIGURED attempt]
     PConfigured -->|Yes| PFetch[Fetch quote/bars]
     KConfigured -->|Yes| KFetch[Fetch quote/bars]
+    AFetch --> Valid{Usable data?}
     PFetch --> Valid{Usable data?}
     KFetch --> Valid
     Valid -->|Yes| Result[ProviderResult selected]
@@ -64,12 +68,13 @@ flowchart TD
 
 Current market-data chains:
 
-- US quote/bars: Polygon -> structured unavailable.
+- US quote/bars: Alpaca -> Polygon -> structured unavailable.
 - NSE/BSE quote/bars: Kite -> structured unavailable.
+- Alpaca normally uses `ALPACA_FEED=iex`; this is not consolidated SIP.
 - Polygon has internal quote fallbacks: snapshot -> last trade -> previous close.
 - Kite can resolve instruments through its instrument cache for bars.
 
-Alpaca and yfinance market logic remains in deprecated `market_data.py`; it is not active in the dashboard/provider router.
+Older yfinance market logic remains in deprecated modules; it is not the active provider-router path.
 
 ## News Routing
 
@@ -78,7 +83,10 @@ News routing lives in `NewsProviderRouter`.
 ```mermaid
 flowchart TD
     Symbol[SymbolRecord] --> Exchange{Exchange}
-    Exchange -->|US| PolygonNews[PolygonNewsProvider]
+    Exchange -->|US| AlpacaNews[AlpacaNewsProvider]
+    AlpacaNews --> ANewsConfigured{Configured?}
+    ANewsConfigured -->|Yes| ANewsFetch[Fetch news]
+    ANewsConfigured -->|No/failure| PolygonNews[PolygonNewsProvider]
     Exchange -->|NSE/BSE| Marketaux[MarketauxNewsProvider]
     Exchange -->|US/NSE/BSE fallback| FallbackWeb[CuratedWebNewsProvider]
     PolygonNews --> PConfigured{Configured?}
@@ -87,6 +95,7 @@ flowchart TD
     MConfigured -->|No| FallbackWeb
     PConfigured -->|Yes| PFetch[Fetch news]
     MConfigured -->|Yes| MFetch[Fetch news]
+    ANewsFetch --> Articles{Usable articles?}
     PFetch --> Articles{Usable articles?}
     MFetch --> Articles
     Articles -->|Yes| Result[ProviderResult selected]
@@ -98,7 +107,7 @@ flowchart TD
 
 Current news chains:
 
-- US: Polygon news -> fallback web -> unavailable.
+- US: Alpaca/Benzinga news -> Polygon news -> Marketaux -> fallback web -> unavailable.
 - NSE/BSE: Marketaux -> fallback web -> unavailable.
 - Fallback web currently delegates to `YahooFinanceScraper`.
 - `YahooFinanceScraper` internally attempts Gemini search, Alpaca news, yfinance news, then Yahoo HTML scraping.
@@ -109,7 +118,7 @@ Gemini sentiment analysis is separate from news acquisition and is not part of t
 
 Active live historical bars:
 
-- US: Polygon aggregate bars.
+- US: Alpaca bars first, then Polygon aggregate bars if configured.
 - NSE/BSE: Kite historical candles.
 
 Offline/local historical import remains separate:
@@ -229,25 +238,24 @@ The app does not persist full raw API responses or secret-bearing request URLs.
 
 | Provider | Service | Exchanges | Configuration | Active path |
 |---|---|---|---|---|
-| Polygon | quotes/bars/news | US | `POLYGON_API_KEY` | Router primary for US market/news |
+| Alpaca | quotes/bars/news | US | `ALPACA_API_KEY`, `ALPACA_API_SECRET` | Router primary for US live demo |
+| Polygon | quotes/bars/news | US | `POLYGON_API_KEY` | Optional fallback for US market/news |
 | Kite | quotes/bars | NSE/BSE | `KITE_API_KEY`, `KITE_ACCESS_TOKEN` | Router primary for India market |
-| Marketaux | news | NSE/BSE | `MARKETAUX_API_TOKEN` | Router primary for India news |
+| Marketaux | news | US/NSE/BSE | `MARKETAUX_API_TOKEN` | Optional news fallback |
 | Fallback web | news | US/NSE/BSE | optional nested configs | Router fallback for news |
 
 ## Legacy Providers
 
 | Component | Status | Notes |
 |---|---|---|
-| `finsent/app/services/market_data.py` | LEGACY | Alpaca/yfinance market logic. Not active in provider router. |
+| `finsent/app/services/market_data.py` | LEGACY | Older market logic. Not active in provider router. |
 | `finsent/app/services/sentiment.py` | RESEARCH / KEEP FOR NOW | FinBERT and old sentiment services for future comparison. |
-| Alpaca news inside `YahooFinanceScraper` | fallback implementation detail | Only active when fallback web is selected and configured. |
 | yfinance/Yahoo inside `YahooFinanceScraper` | fallback implementation detail | Active only beneath fallback web. |
 
 ## Known Limitations
 
-- No persistent provider-run table yet.
-- No full raw response audit yet.
+- Provider audit rows exist for real provider attempts, but raw API payload archiving is intentionally not implemented.
 - Router-level cache is in-memory only; it is not persisted across application restarts.
-- Market fallback does not activate legacy yfinance/Alpaca market code in Phase 4.
-- Provider health is current-session only; no persistent provider-run table exists yet.
-- Provider status, quote mode, and data-quality labels are surfaced compactly, but there is not yet a full provider observability dashboard.
+- Market fallback does not activate legacy yfinance market code.
+- Provider health is current-session in the dashboard; provider audit rows store real provider attempts separately.
+- Provider status, quote mode, and data-quality labels are surfaced compactly in System Status rather than a separate full observability product.

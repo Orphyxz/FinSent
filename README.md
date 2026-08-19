@@ -1,283 +1,240 @@
 # FinSent
 
-FinSent is a local financial-news intelligence, signal-research, and short-term market-impact dashboard built with Python, Dash, Plotly, Pandas, SQLAlchemy, and SQLite.
+Financial News Sentiment & Short-Term Market Intelligence Platform
 
-The current application has a professional Dash research-terminal UI, provider routing, Gemini-based live article analysis with heuristic fallback, deterministic active Signal V1 scoring, local persistence, and locked historical research results. It is not a trading system and does not claim profitability.
+FinSent is a local Dash application for financial news sentiment, catalyst explanation, live/latest market context, and short-term signal research. It is designed for academic demonstration and research reproducibility, not for automated trading or investment advice.
 
-## Current Active Architecture
+## What FinSent Does
 
-The canonical dashboard entry point is:
-
-```powershell
-python -m finsent.scripts.run_dashboard
-```
-
-The active runtime path is:
+Live application path:
 
 ```text
-Dash UI
-  -> dashboard callbacks
-  -> dashboard presentation components
-  -> dashboard view_model.ensure_live_data
-  -> SymbolRegistry
-  -> IntelligenceService
-  -> provider_routers
-  -> market_providers / news_providers
-  -> Sentiment Intelligence V2
-  -> GeminiNewsAnalyzer compatibility output or heuristic fallback
-  -> CompositeSignalEngine
-  -> SQLAlchemy repositories
-  -> SQLite database schema v2
-  -> Plotly/Dash views
+ticker
+  -> live/latest market data
+  -> live/current news
+  -> FinBERT sentiment
+  -> Catalyst Intelligence
+  -> Market Context Intelligence
+  -> Signal V1 and Signal V2
+  -> SQLite persistence
+  -> Dash dashboard
 ```
 
-Dashboard routes:
-
-- `/` and `/summary`: Overview
-- `/stock-detail`: Stock Research
-- `/news-impact`: News Intelligence
-- `/compare`: Compare
-- `/research`: locked final-holdout research results
-- `/alerts`: Alerts
-
-## Active Providers
-
-Market data:
-
-- US symbols: Polygon through `MarketDataRouter`, when `POLYGON_API_KEY` is configured.
-- NSE/BSE symbols: Kite through `MarketDataRouter`, when `KITE_API_KEY` and `KITE_ACCESS_TOKEN` are configured.
-- Missing credentials produce explicit `UNCONFIGURED` diagnostics and degrade to unavailable quote/bars rather than making every integration mandatory.
-
-News:
-
-- US symbols: Polygon News through `NewsProviderRouter`, then fallback web.
-- NSE/BSE symbols: Marketaux through `NewsProviderRouter`, then fallback web.
-- Fallback web path: Gemini search if configured, then Alpaca news if configured, then yfinance/Yahoo Finance scraping.
-
-Sentiment / AI:
-
-- Active article analysis uses Gemini through the Sentiment Intelligence V2-backed `GeminiNewsAnalyzer` when `GEMINI_API_KEY` is configured.
-- If Gemini is unavailable, malformed, quota-limited, or over the per-refresh budget, the app uses local heuristic analysis.
-- Sentiment Intelligence V2 provides canonical Gemini, heuristic, and optional FinBERT analyzer contracts.
-- FinBERT is available for explicit research execution when `requirements-research.txt` is installed, but it is not active in the current dashboard Signal V1 path.
-- Gemini-vs-FinBERT comparison is available as an explicit controlled research framework with dry-run safety and small default limits.
-- Historical Signal V1/V2 evaluation is available as an explicit Phase 10 research framework with deterministic cohorts, no-lookahead input construction, Event Study V2 outcomes, and exportable reports.
-- Phase 11 adds a bounded real FNSPID historical-news cohort, yfinance daily research prices, a controlled FinBERT run, and a PRELIMINARY 1D signal evaluation.
-
-Signal engine:
-
-- The current signal is deterministic app logic in `CompositeSignalEngine`.
-- It combines article sentiment, confidence, impact strength, recency, quote freshness, quote quality, and spread penalty.
-- Current modes are `News + Quote Quality`, `Quote-quality fallback`, `News-only signal`, and `Unavailable`.
-- Signal Engine V2 exists as an explicit research engine in `finsent/app/services/signal_engine_v2.py` and `python -m finsent.scripts.run_signal_v2`.
-- V2 combines news, price momentum, volume confirmation, liquidity, freshness, and data quality, but it is not the dashboard default.
-- Confidence values are not calibrated price probabilities.
-
-Event study:
-
-- Event Study V2 exists as an explicit research engine in `finsent/app/analysis/event_study_v2.py`.
-- It uses exchange-session-aware effective event times, strict first-bar-at-or-after matching, explicit 1H/4H/1D horizons, and auditable status metadata.
-- The dashboard still keeps the legacy event frame path for compatibility; V2 is available through service/CLI for research execution.
-
-## Project Structure
+Historical research path:
 
 ```text
-finsent/
-  app/
-    analysis/       # current market-impact/event-study functions
-    config/         # environment-backed settings
-    dashboard/      # Dash app, pages, callbacks, CSS assets
-    database/       # SQLAlchemy models, migrations, runtime and research repositories
-    models/         # shared dataclasses
-    prompts/        # versioned model prompts
-    scrapers/       # fallback Yahoo/yfinance/Gemini/Alpaca news scraping
-    services/       # providers, intelligence pipeline, signal logic, importers
-    utils/          # text/time/logging helpers
-  scripts/          # canonical run/import entry points
-  tests/            # pytest test suite
-archive/v1/         # large NSE historical CSV archive for offline import
-docs/               # audit and development documentation
-scripts/            # presentation/report tooling
+bounded FNSPID/Yahoo research data
+  -> no-lookahead article cohorts
+  -> Event Study V2 outcomes
+  -> Signal V1/V2 experiments
+  -> locked Phase 16 final evaluation
+  -> read-only Research dashboard
 ```
 
-## Windows PowerShell Setup
+The two paths are intentionally separate. The live app explains current market/news conditions. The research path preserves a locked historical evaluation and should not be rerun or tuned against the final holdout.
 
-From the project directory:
+## Current Capabilities
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
-Copy-Item .env.example .env
+- Live Alpaca IEX US quotes, snapshots, intraday bars, and current Alpaca/Benzinga news when Alpaca credentials are configured.
+- Optional Polygon, Kite, and Marketaux provider fallbacks where credentials exist.
+- FinBERT live news sentiment through the optional research dependency set.
+- Deterministic Catalyst Intelligence: catalyst type, direction, impact, horizon, novelty, recency, event grouping, and priority.
+- Signal V1 live scoring and Signal V2 live component scoring.
+- Market Context Intelligence for US demo symbols: SPY/QQQ context, sector ETF comparison, market-relative and sector-relative returns, volatility, correlation, beta, and market regime.
+- Compare view for multi-symbol relative sentiment, price movement, catalysts, and market context.
+- Research dashboard for locked Phase 16 evaluation artifacts.
+- Runtime diagnostics for provider health, cache state, DB health, FinBERT state, refresh timing, and build commit.
+- Offline/local research mode using the local SQLite DB and bundled research artifacts when live credentials or internet are unavailable.
+
+## Important Limitations
+
+- Alpaca Basic uses IEX coverage by default. It is not a consolidated SIP market feed.
+- US live market context is the main supported live demo path; NSE/BSE support is provider-dependent and not benchmark-complete.
+- FinBERT's first unseen inference can be synchronous unless the optional warm-up command is used.
+- SQLite, provider caches, and diagnostics are local process resources, not a production distributed architecture.
+- The Dash server is a local demo/development server.
+- The supported symbol universe is curated in code, not a full-market screener.
+- Signal confidence is an engineering reliability score, not a probability of price movement.
+- The locked Phase 16 final cohort showed V2.0 underperformed V1 on strict and balanced accuracy. Do not present V2 as proven better.
+- Application signals are explanatory research outputs and are not investment advice.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    User[User] --> Dash[Dash UI]
+    Dash --> ViewModel[Dashboard View Model]
+    ViewModel --> MDR[MarketDataRouter]
+    MDR --> Alpaca[Alpaca IEX]
+    MDR --> Polygon[Polygon optional fallback]
+    MDR --> Kite[Kite optional India provider]
+
+    ViewModel --> NPR[NewsProviderRouter]
+    NPR --> AlpacaNews[Alpaca/Benzinga]
+    NPR --> PolygonNews[Polygon News fallback]
+    NPR --> Marketaux[Marketaux fallback]
+    NPR --> WebFallback[Web/Yahoo fallback]
+
+    NPR --> News[News]
+    News --> FinBERT[FinBERT Sentiment]
+    News --> Catalyst[Catalyst Intelligence]
+    MDR --> Bars[Market Bars]
+    Bars --> MarketContext[Market Context Intelligence]
+
+    FinBERT --> SignalV1[Signal V1]
+    FinBERT --> SignalV2[Signal V2]
+    MDR --> SignalV1
+    Bars --> SignalV2
+    MarketContext --> DashboardResults[Dashboard Results]
+    Catalyst --> DashboardResults
+    SignalV1 --> SQLite[(SQLite)]
+    SignalV2 --> SQLite
+    DashboardResults --> SQLite
+    SQLite --> Dash
+
+    FNSPID[Historical FNSPID/Yahoo] --> EventStudy[Event Study V2]
+    EventStudy --> Experiments[Experiments]
+    Experiments --> Phase16[Locked Phase 16]
+    Phase16 --> ResearchDash[Research Dashboard]
 ```
 
-Edit `.env` with any provider credentials you actually have. Leave unknown credentials blank.
+## Provider Matrix
 
-Run tests:
+| Area | Provider | Market | Role | Credential |
+|---|---|---|---|---|
+| Market data | Alpaca | US | Primary live demo quotes/bars | `ALPACA_API_KEY`, `ALPACA_API_SECRET` |
+| Market data | Polygon | US | Optional fallback | `POLYGON_API_KEY` |
+| Market data | Kite | NSE/BSE | Optional India provider | `KITE_API_KEY`, `KITE_ACCESS_TOKEN` |
+| News | Alpaca/Benzinga | US | Primary current news | `ALPACA_API_KEY`, `ALPACA_API_SECRET` |
+| News | Polygon | US | Optional fallback | `POLYGON_API_KEY` |
+| News | Marketaux | US/NSE/BSE | Optional fallback | `MARKETAUX_API_TOKEN` |
+| News | Web/Yahoo | US/NSE/BSE | Last fallback/local web path | Optional Gemini/Yahoo/yfinance path |
 
-```powershell
-python -m pytest finsent\tests -q
+## Setup
+
+- Windows: [docs/SETUP_WINDOWS.md](docs/SETUP_WINDOWS.md)
+- macOS: [docs/SETUP_MACOS.md](docs/SETUP_MACOS.md)
+- Alpaca credentials: [docs/ALPACA_SETUP.md](docs/ALPACA_SETUP.md)
+- Configuration variables: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+- Data bundle: [docs/DATA_BUNDLE.md](docs/DATA_BUNDLE.md)
+
+Minimum live demo requirements:
+
+1. Python environment with `requirements.txt`.
+2. `requirements-research.txt` for FinBERT.
+3. Root `.env` with Alpaca key pair.
+4. Writable local SQLite path, normally `data/finsent.db`.
+5. Internet access for live Alpaca calls.
+
+Minimum research demo requirements:
+
+1. Python environment.
+2. Tracked Phase 16 artifacts under `output/research/phase16`.
+3. Optional data bundle for the fuller local DB/research-source state.
+
+Full demo requirements:
+
+1. Code checkout.
+2. Python dependencies.
+3. Alpaca `.env`.
+4. Data bundle extracted directly into the repository root.
+
+## Commands
+
+Run demo preflight:
+
+```bash
+python -m finsent.scripts.demo_preflight
 ```
 
-Start the dashboard:
+Optionally warm FinBERT and the demo workspace:
 
-```powershell
+```bash
+python -m finsent.scripts.demo_preflight --warm
+```
+
+Start dashboard:
+
+```bash
 python -m finsent.scripts.run_dashboard
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:8050
+http://127.0.0.1:8050/
 ```
 
-Pipeline smoke:
+Run pipeline smoke:
 
-```powershell
+```bash
 python -m finsent.scripts.run_pipeline --ticker AAPL --limit 15
 ```
 
-## Dependency Files
+Run tests:
 
-- `requirements.txt`: active runtime dashboard/application dependencies.
-- `requirements-dev.txt`: runtime dependencies plus test tooling.
-- `requirements-research.txt`: dev dependencies plus heavy FinBERT/transformer dependencies.
-- `requirements-presentation.txt`: dependencies for presentation tooling.
-
-The heavy `torch` and `transformers` packages are intentionally separated because FinBERT is preserved for research but is not active in the current dashboard path.
-
-## Configuration
-
-Use `.env.example` as the safe template. Real `.env` files are ignored and should not be shared.
-
-Important groups:
-
-- Core runtime and SQLite database path.
-- Provider selection.
-- Gemini.
-- Polygon.
-- Kite.
-- Marketaux.
-- Optional legacy providers such as Alpaca.
-- Optional research settings such as FinBERT model name.
-
-Logging uses the standard library and defaults to `INFO`. Set `FINSENT_LOG_LEVEL=WARNING` or `DEBUG` locally if needed.
-
-## Local Data
-
-The app initializes SQLite at:
-
-```text
-data/finsent.db
+```bash
+pytest -q
 ```
 
-This is local runtime state and is ignored.
+Compile check:
 
-`archive/v1` contains a large NSE historical CSV archive for offline imports. It is not required for dashboard startup.
+```bash
+python -m compileall -q finsent
+```
 
-`SnP_daily_update.csv` is currently a Git LFS pointer in this local copy, not the actual US price dataset. The US importer now detects that condition and stops with a clear diagnostic instead of reading the pointer text as market data.
+## Dashboard Routes
 
-Database and dataset references:
+| Route | Page |
+|---|---|
+| `/` | Overview, same functional page as `/summary` |
+| `/summary` | Overview |
+| `/stock-detail` | Stock Research |
+| `/news-impact` | News Intelligence |
+| `/compare` | Compare |
+| `/research` | Locked Research Dashboard |
+| `/alerts` | Operational Watchlist |
 
-- `docs/DATABASE_V1_REFERENCE.md`: pre-Phase-5 schema reference.
-- `docs/DATABASE_V2.md`: current schema version, entities, migration, indexes, and compatibility notes.
-- `docs/RESEARCH_STORAGE.md`: experiment/model/signal/event/provider-audit storage design.
-- `docs/DATASET_REGISTRY.md`: CSV/reference dataset roles and scanner behavior.
+Alerts are contextual dashboard signals derived from the current workspace. FinSent does not implement email alerts, push notifications, or persistent alert subscriptions.
 
-Sentiment references:
+## Research Results
 
-- `docs/SENTIMENT_INTELLIGENCE_V2.md`: canonical sentiment input/result, analyzers, taxonomies, fallback, and persistence.
-- `docs/GEMINI_ANALYZER.md`: Gemini prompt/schema version and validation behavior.
-- `docs/FINBERT_ANALYZER.md`: FinBERT capabilities, normalization, dependencies, and limits.
-- `docs/SENTIMENT_RESEARCH_EXECUTION.md`: safe explicit sentiment model-run execution.
+The locked Phase 16 1D final cohort has `N=111` technical-eligible observations from AMZN, NVDA, and TSLA using bounded FNSPID/Yahoo research data.
 
-Signal references:
+| Metric | Signal V1 | Signal V2.0 |
+|---|---:|---:|
+| Strict accuracy | 32.4% | 22.5% |
+| Balanced accuracy | 51.9% | 39.2% |
+| Directional accuracy | 50.0% | 54.3% |
 
-- `docs/SIGNAL_ENGINE_V1_REFERENCE.md`: frozen active Signal V1 behavior.
-- `docs/SIGNAL_ENGINE_V2.md`: Phase 7 explainable Signal V2 architecture, score formula, labels, and limitations.
-- `docs/SIGNAL_COMPONENTS_V2.md`: V2 component formulas and missing-data behavior.
+Baselines:
 
-Event-study references:
+| Baseline | Strict accuracy |
+|---|---:|
+| Majority class | 55.0% |
+| Always neutral | 6.3% |
+| News direction | 31.5% |
 
-- `docs/EVENT_STUDY_V1_REFERENCE.md`: preserved loose legacy matcher behavior.
-- `docs/EVENT_STUDY_V2.md`: strict V2 methodology, horizons, tolerances, statuses, and storage.
-- `docs/MARKET_SESSION_POLICY.md`: US/NSE/BSE session and timezone rules.
-- `docs/EVALUATION_HARNESS.md`: small safe evaluation runner and CLI behavior.
+Interpretation: V2.0 produced slightly higher directional accuracy on fewer directional predictions, but it performed worse than V1 on strict accuracy and balanced accuracy. The majority baseline is high because the final realized classes are imbalanced. These results are not a profitability test and do not establish market-beating performance.
 
-Model-comparison references:
+Do not rerun or tune against Phase 16 final holdout artifacts.
 
-- `docs/GEMINI_FINBERT_EXPERIMENT.md`: paired experiment design and eligibility rules.
-- `docs/MODEL_EVALUATION_METRICS.md`: agreement, accuracy, F1, balanced accuracy, confidence buckets, and limitations.
-- `docs/RESEARCH_REPRODUCIBILITY.md`: configuration, reuse fingerprints, exports, and no-lookahead policy.
+## Documentation
 
-Historical signal evaluation references:
+- [Active Architecture](docs/ACTIVE_ARCHITECTURE.md)
+- [Provider Architecture](docs/PROVIDER_ARCHITECTURE.md)
+- [Catalyst Intelligence](docs/CATALYST_INTELLIGENCE.md)
+- [Market Context Intelligence](docs/MARKET_CONTEXT_INTELLIGENCE.md)
+- [Runtime Reliability](docs/RUNTIME_RELIABILITY.md)
+- [Research Dashboard](docs/RESEARCH_DASHBOARD.md)
+- [Phase 16 Final Evaluation](docs/PHASE16_FINAL_EVALUATION.md)
+- [Final Holdout Results](docs/FINAL_HOLDOUT_RESULTS.md)
+- [Demo Runbook](docs/DEMO_RUNBOOK.md)
+- [Presentation Checklist](docs/PRESENTATION_CHECKLIST.md)
+- [Project Summary](docs/PROJECT_SUMMARY.md)
+- [Known Limitations](docs/KNOWN_LIMITATIONS.md)
+- [Development Guide](docs/DEVELOPMENT.md)
 
-- `docs/RESEARCH_DATA_AVAILABILITY.md`: local source audit and usable/unusable data.
-- `docs/RESEARCH_DATASET.md`: CSV article import and cohort construction.
-- `docs/HISTORICAL_SIGNAL_EVALUATION.md`: Signal V1/V2 historical evaluation framework.
-- `docs/LOOKAHEAD_PREVENTION.md`: `T0` input boundary and outcome separation.
-- `docs/RESEARCH_COHORT_POLICY.md`: eligibility, exclusions, splits, and sampling.
-- `docs/HISTORICAL_NEWS_SOURCE_EVALUATION.md`: Phase 11 source audit and decision.
-- `docs/RESEARCH_DATA_INGESTION.md`: bounded FNSPID/yfinance ingestion path.
-- `docs/INITIAL_RESEARCH_COHORT.md`: first real cohort and preliminary results.
-- `docs/EXTERNAL_DATA_PROVENANCE.md`: manifests, checksums, and local external-data paths.
-- `docs/PHASE12_V2_DIAGNOSTIC.md`: investigation of the Phase 11 V2 0% preliminary result.
-- `docs/PHASE12_COHORT_PREREGISTRATION.md`: locked multi-symbol cohort rules before Phase 12 evaluation.
-- `docs/LOCKED_COHORT_EVALUATION.md`: Phase 12 development/holdout baseline metrics and limits.
-- `docs/SIGNAL_TUNING_POLICY.md`: development-only tuning contract for future Signal V2 work.
+## Security And Data Policy
 
-## Known Limitations
-
-- The active symbol universe is hard-coded and small.
-- Provider credentials are optional, so the dashboard may run in degraded or unconfigured modes.
-- Provider status and persistent provider audit metadata are modeled for the active pipeline, but raw response auditing and provider observability UI are future work.
-- Provider routing is consolidated in `finsent/app/services/provider_routers.py`; see `docs/PROVIDER_ARCHITECTURE.md`.
-- Provider reliability and data quality are documented in `docs/PROVIDER_RELIABILITY.md`, `docs/DATA_QUALITY.md`, and `docs/PROVIDER_FALLBACK_DECISIONS.md`.
-- Event Study V2 provides strict outcome measurement, and historical signal evaluation now exists as an explicit research harness; benchmark-adjusted research and larger imported cohorts remain future work.
-- The first real imported cohort was small and AAPL-only; Phase 12 adds a locked multi-symbol baseline, but it remains small, daily-only, and title-text limited.
-- The dashboard still uses Signal V1 by default; Signal V2 is explicit research functionality.
-- Broad live FinBERT/Gemini benchmarking, backtesting, Signal V2 calibration, catalyst analytics, and confidence calibration are future work.
-- Sentiment model-run storage exists, but comparative accuracy/agreement results are not yet produced.
-- The UI has been redesigned into a professional research dashboard, but visual screenshots are not stored in the repository.
-
-## V2 Direction
-
-The long-term V2 goal is a defensible research-oriented market/news intelligence platform with strict event studies, model comparisons, backtesting, confidence calibration, provider observability, and a professional analytics UI.
-
-Those features are not claimed as implemented yet.
-
-### Phase 13 research artifacts
-
-Phase 13 freezes a development-only Signal V2.1 research candidate under `output/research/phase13/phase13_development_tuning_v1/` and locks a new future-period final holdout as unevaluated. The dashboard default remains unchanged.
-
-### Phase 14 research artifacts
-
-Phase 14 adds development-only confidence calibration artifacts and final-holdout adequacy metadata under `output/research/phase14/`. Directional signal logic remains frozen.
-
-### Phase 15 research artifacts
-
-Phase 15 adds robust source-layout-aware final holdout acquisition artifacts under `output/research/phase15/`. Final performance evaluation is reserved for Phase 16.
-
-## Phase 16 Final Evaluation
-
-The locked final holdout has been evaluated once under the preregistered protocol. Artifacts are under `output/research/phase16/`; the cohort is not available for future tuning.
-
-## Research Dashboard
-
-The `/research` page reads the locked Phase 16 summary and result manifest without recomputing experiments. It verifies the final-holdout fingerprint and summary hash before displaying metrics.
-
-Key displayed final-holdout results:
-
-- Final evaluated N: 111.
-- Signal V1 strict accuracy: 32.4%; balanced accuracy: 51.9%; macro F1: 31.5%.
-- Signal V2.0 strict accuracy: 22.5%; balanced accuracy: 39.2%; macro F1: 19.5%.
-- Signal V2.1 remains an unpromoted research candidate.
-- Results describe only the locked FNSPID/Yahoo daily 1D cohort.
-
-UI and research-dashboard documentation:
-
-- `docs/UI_V1_AUDIT.md`
-- `docs/UI_DESIGN_SYSTEM.md`
-- `docs/UI_V2_ARCHITECTURE.md`
-- `docs/RESEARCH_DASHBOARD.md`
+Never commit `.env`, API keys, SQLite databases, local datasets, model caches, or generated research-cache artifacts. The full FNSPID source archive is intentionally not stored in Git. Use the separate data bundle for local research-state handoff.

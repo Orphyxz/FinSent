@@ -120,7 +120,7 @@ def layout() -> html.Div:
             ),
             html.Div(
                 [
-                    html.Div([html.Div("Class Distribution", className="section-kicker"), html.H3("Prediction and Outcome Mix", className="section-title"), dcc.Graph(figure=distribution_figure(summary["class_distributions"]))], className="chart-card"),
+                    html.Div([html.Div("Class Distribution", className="section-kicker"), html.H3("Signal and Outcome Mix", className="section-title"), dcc.Graph(figure=distribution_figure(summary["class_distributions"]))], className="chart-card"),
                     html.Div([html.Div("Paired Result", className="section-kicker"), html.H3("Identical Observations", className="section-title"), dcc.Graph(figure=paired_figure(summary["paired_analysis"])), html.Div("McNemar not run: discordant N=19 was insufficient for meaningful inference.", className="research-note")], className="chart-card"),
                 ],
                 className="research-two-column",

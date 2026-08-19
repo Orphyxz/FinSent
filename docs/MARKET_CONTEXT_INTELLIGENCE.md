@@ -64,6 +64,8 @@ sector_relative_return = stock_return - sector_return
 
 The UI shows these as percentage-point differences. It does not call them alpha.
 
+Phase 20 corrected the live application logic so stock, benchmark, and sector returns are calculated on aligned overlapping timestamps. If there is no usable overlap, the result becomes partial/insufficient instead of comparing unrelated first and last bars.
+
 ## Relative Strength
 
 Application thresholds:

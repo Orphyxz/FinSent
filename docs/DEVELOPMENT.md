@@ -29,7 +29,7 @@ python -m pip install -r requirements-presentation.txt
 ## Test
 
 ```powershell
-python -m pytest finsent\tests -q
+pytest -q
 ```
 
 ## Compile Check
@@ -75,6 +75,20 @@ python -m finsent.scripts.run_dashboard
 ```
 
 Open `http://127.0.0.1:8050`.
+
+## Demo Preflight
+
+```powershell
+python -m finsent.scripts.demo_preflight
+```
+
+Optional warm-up before a presentation:
+
+```powershell
+python -m finsent.scripts.demo_preflight --warm
+```
+
+Preflight exits `0` when core local checks pass. Missing Alpaca credentials are reported as offline-only readiness rather than a hard failure.
 
 ## Pipeline Smoke
 

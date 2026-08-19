@@ -68,6 +68,7 @@ Market-relative and sector-relative returns use timestamp-aligned common windows
 
 The dashboard includes a compact System Status panel with:
 
+- build commit or `unknown/local`
 - active market provider
 - active news provider
 - provider state
@@ -79,6 +80,12 @@ The dashboard includes a compact System Status panel with:
 - latest safe runtime error
 
 Diagnostics are process-local and not persisted.
+
+## Demo Preflight
+
+`python -m finsent.scripts.demo_preflight` checks imports, SQLite reachability, schema version, Phase 16 integrity, Alpaca readiness, FinBERT dependency availability, Catalyst Intelligence, Market Context Intelligence, required directories, and port `8050`.
+
+It never prints secrets. Missing Alpaca credentials produce `DEMO READY - OFFLINE MODE ONLY` when core local checks pass. `--warm` is opt-in and can initialize FinBERT plus the current demo workspace before a presentation.
 
 ## Security
 
