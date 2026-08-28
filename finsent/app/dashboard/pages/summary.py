@@ -12,8 +12,12 @@ def layout() -> html.Div:
                     html.Div("Overview", className="section-kicker"),
                     html.H1(id="summary-page-title", className="page-title"),
                     html.P(
+                        "A clear view of price, news sentiment, FinSent signals, major catalysts, and market context.",
+                        className="page-subtitle simple-only",
+                    ),
+                    html.P(
                         "Financial news intelligence, provider status, and short-term signal context for the selected instrument.",
-                        className="page-subtitle",
+                        className="page-subtitle analyst-only",
                     ),
                     html.Div(id="summary-badge-row", className="badge-row"),
                 ],
@@ -75,6 +79,14 @@ def layout() -> html.Div:
                     ),
                 ],
                 className="g-3 mb-3",
+            ),
+            html.Div(
+                [
+                    html.Div("Recent News", className="section-kicker"),
+                    html.H3("Important Headlines", className="section-title"),
+                    html.Div(id="summary-recent-headlines", className="headline-list"),
+                ],
+                className="section-shell simple-only",
             ),
         ],
         className="analysis-page",

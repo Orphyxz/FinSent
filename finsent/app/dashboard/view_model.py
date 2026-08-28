@@ -54,9 +54,9 @@ if TYPE_CHECKING:
 
 
 EXCHANGE_OPTIONS = [
-    {"label": "US Markets", "value": "US"},
-    {"label": "NSE India", "value": "NSE"},
-    {"label": "BSE India", "value": "BSE"},
+    {"label": "All", "value": "ALL"},
+    {"label": "US", "value": "US"},
+    {"label": "India", "value": "INDIA"},
 ]
 HORIZON_DAYS = {"short": 3, "medium": 7, "long": 30}
 DATA_MODE_LIVE = "LIVE DATA"
@@ -324,8 +324,8 @@ def _normalize_news_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def filter_symbols_for_exchange(exchange_filter: str | None = None) -> list[SymbolRecord]:
-    exchange = (exchange_filter or "US").upper().strip()
-    return registry.list_symbols(exchange)
+    market = (exchange_filter or "US").upper().strip()
+    return registry.list_symbols(market)
 
 
 def get_ticker_options(exchange_filter: str | None = None) -> list[dict[str, str]]:
@@ -340,11 +340,19 @@ def get_ticker_options(exchange_filter: str | None = None) -> list[dict[str, str
             symbol.provider_symbol,
         ),
     )
-    return [{"label": symbol.ui_label, "value": symbol.provider_symbol} for symbol in ordered]
+    return [
+        {
+            "label": symbol.ui_label,
+            "value": symbol.provider_symbol,
+            "search": f"{symbol.ticker} {symbol.display_name} {symbol.market} {symbol.exchange} {symbol.sector}",
+        }
+        for symbol in ordered
+    ]
 
 
 def get_default_ticker_for_exchange(exchange_filter: str | None = None) -> str:
-    if (exchange_filter or "US").upper().strip() == "US":
+    market = (exchange_filter or "US").upper().strip()
+    if market in {"US", "ALL"}:
         return settings.default_ticker if settings.default_ticker in LIVE_WATCHLIST_SYMBOLS else "AAPL"
     local = get_local_research_symbols(exchange_filter)
     if local:
@@ -355,7 +363,7 @@ def get_default_ticker_for_exchange(exchange_filter: str | None = None) -> str:
 
 def get_default_compare_tickers(focus_ticker: str | None = None, exchange_filter: str | None = "US") -> list[str]:
     focus = (focus_ticker or "").upper().strip()
-    if (exchange_filter or "US").upper().strip() == "US":
+    if (exchange_filter or "US").upper().strip() in {"US", "ALL"}:
         return [symbol for symbol in DEFAULT_COMPARE_SYMBOLS if symbol != focus]
     return [symbol for symbol in get_local_research_symbols(exchange_filter) if symbol != focus][:4]
 
@@ -374,11 +382,54 @@ def get_exchange_for_ticker(ticker: str) -> str:
     return "US"
 
 
+def get_market_filter_for_ticker(ticker: str) -> str:
+    return "US" if get_exchange_for_ticker(ticker) == "US" else "INDIA"
+
+
 def get_company_name(ticker: str) -> str:
     symbol = _symbol_from_value(ticker)
     if symbol is not None:
         return symbol.display_name
     return (ticker or "").upper()
+
+
+def get_display_symbol(ticker: str) -> str:
+    symbol = _symbol_from_value(ticker)
+    return symbol.ticker if symbol is not None else (ticker or "").upper()
+
+
+def get_instrument_metadata(ticker: str) -> dict[str, str]:
+    symbol = _symbol_from_value(ticker)
+    if symbol is None:
+        return {
+            "symbol": ticker,
+            "company_name": ticker,
+            "market": "UNKNOWN",
+            "exchange": "UNKNOWN",
+            "currency": "",
+            "sector": "Other",
+        }
+    return {
+        "symbol": symbol.ticker,
+        "company_name": symbol.display_name,
+        "market": symbol.market,
+        "exchange": symbol.listing_exchange or symbol.exchange,
+        "currency": symbol.currency,
+        "sector": symbol.sector,
+    }
+
+
+def format_currency(value: float | None, currency: str | None, *, unavailable: str = "n/a") -> str:
+    try:
+        amount = float(value) if value is not None else float("nan")
+    except (TypeError, ValueError):
+        return unavailable
+    if not pd.notna(amount):
+        return unavailable
+    code = (currency or "").upper().strip()
+    prefix = "$" if code == "USD" else "\u20b9" if code == "INR" else ""
+    suffix = "" if prefix else f" {code}" if code else ""
+    return f"{prefix}{amount:,.2f}{suffix}"
 
 
 def get_price_status_note(ticker: str, has_price: bool, quote_meta: dict[str, object] | None = None) -> str:
@@ -452,11 +503,11 @@ def detect_data_mode() -> str:
 
 
 def get_local_research_symbols(exchange_filter: str | None = None) -> list[str]:
-    exchange = (exchange_filter or "US").upper().strip()
+    market = (exchange_filter or "US").upper().strip()
     init_db()
     try:
         with SessionLocal() as session:
-            rows = session.execute(
+            statement = (
                 select(
                     Instrument.display_symbol,
                     func.count(func.distinct(NewsArticle.id)).label("articles"),
@@ -467,9 +518,13 @@ def get_local_research_symbols(exchange_filter: str | None = None) -> list[str]:
                 .outerjoin(NewsArticle, NewsArticle.instrument_id == Instrument.id)
                 .outerjoin(PriceBar, PriceBar.instrument_id == Instrument.id)
                 .outerjoin(SignalRun, SignalRun.instrument_id == Instrument.id)
-                .where(Instrument.exchange == exchange)
                 .group_by(Instrument.display_symbol)
-            ).all()
+            )
+            if market == "INDIA":
+                statement = statement.where(Instrument.exchange.in_(["NSE", "BSE"]))
+            elif market != "ALL":
+                statement = statement.where(Instrument.exchange == market)
+            rows = session.execute(statement).all()
     except Exception:
         return []
     scored = [
@@ -680,14 +735,36 @@ def build_focus_status_banner(focus_ticker: str, state: DashboardState) -> html.
         html.Div(f"Quality: {overall_quality}", className="status-pill"),
         html.Div(f"Data quality: {data_quality}", className="status-pill"),
     ]
-    return html.Div(
+    market_status = str(quote_meta.get("market_status") or "UNKNOWN")
+    if not compare_row.empty and "market_status" in compare_row.columns:
+        market_status = str(compare_row["market_status"].iloc[0] or market_status)
+    simple_status = html.Div(
+        [
+            html.Div(market_status.replace("_", " ").title(), className="status-value"),
+            html.Div(
+                f"{focus_ticker} uses {price_source} market data. Information is {freshness_age}; overall quality is {overall_quality}.",
+                className="status-copy",
+            ),
+            html.Div(
+                [
+                    html.Div(f"Source: {price_source}", className="status-pill"),
+                    html.Div(f"Freshness: {freshness_age}", className="status-pill"),
+                    html.Div(f"Quality: {overall_quality}", className="status-pill"),
+                ],
+                className="badge-row",
+            ),
+        ],
+        className="status-banner simple-only",
+    )
+    analyst_status = html.Div(
         [
             html.Div("Data Status", className="status-value"),
             html.Div(state.data_status, className="status-copy"),
             html.Div(pills, className="badge-row"),
         ],
-        className="status-banner",
+        className="status-banner analyst-only",
     )
+    return html.Div([simple_status, analyst_status], className="adaptive-status-wrap")
 
 
 def build_runtime_status_panel() -> html.Div:
@@ -718,7 +795,20 @@ def build_runtime_status_panel() -> html.Div:
         ("DB Size", _format_bytes(db.size_bytes)),
         ("Latest Error", snapshot.latest_runtime_error or "none"),
     ]
-    return html.Details(
+    simple_panel = html.Details(
+        [
+            html.Summary("System status", className="system-status-summary"),
+            html.Div(
+                [
+                    html.Div("System operational" if db.state == "HEALTHY" else "System status limited", className="status-value"),
+                    html.Div(f"Market data: {market_provider} | News: {news_provider} | Last refresh: {last_refresh_age}", className="status-copy"),
+                ],
+                className="simple-system-status",
+            ),
+        ],
+        className="system-status-panel simple-only",
+    )
+    analyst_panel = html.Details(
         [
             html.Summary("System Status", className="system-status-summary"),
             html.Div(
@@ -742,8 +832,9 @@ def build_runtime_status_panel() -> html.Div:
                 className="system-status-details",
             ),
         ],
-        className="system-status-panel",
+        className="system-status-panel analyst-only",
     )
+    return html.Div([simple_panel, analyst_panel], className="adaptive-system-status")
 
 
 def _provider_from_health(records: tuple[dict[str, object], ...], service: str) -> str | None:
@@ -1835,6 +1926,32 @@ def build_ai_explanation(focus_ticker: str, news_df: pd.DataFrame, compare_df: p
     return lines
 
 
+def build_simple_signal_explanation(focus_ticker: str, news_df: pd.DataFrame, compare_df: pd.DataFrame) -> list[str]:
+    ticker_news = news_df[news_df["ticker"] == focus_ticker].sort_values("published_at", ascending=False)
+    rows = compare_df[compare_df["ticker"] == focus_ticker]
+    row = rows.iloc[0] if not rows.empty else pd.Series(dtype=object)
+    v1 = str(row.get("signal_label") or "unavailable").replace("_", " ").title()
+    v2 = str(row.get("v2_label") or "unavailable").replace("_", " ").title()
+    sentiment_score = float(row.get("avg_sentiment") or 0.0) if not row.empty else 0.0
+    price_change = float(row.get("pct_change") or 0.0) if not row.empty else 0.0
+    factors = [
+        "positive news" if sentiment_score > 0.15 else "negative news" if sentiment_score < -0.15 else "mixed news",
+        "upward price momentum" if price_change > 0.25 else "downward price momentum" if price_change < -0.25 else "limited price momentum",
+    ]
+    lines = [
+        f"Signal V1 is {v1}; Signal V2 is {v2}.",
+        f"Supporting factors: {factors[0]} and {factors[1]}.",
+    ]
+    if not ticker_news.empty:
+        latest = ticker_news.iloc[0]
+        catalyst = str(latest.get("catalyst_type") or latest.get("catalyst_tag") or "Other").replace("_", " ").title()
+        lines.append(f"Latest attention driver: {catalyst}. {latest.get('title') or 'Recent headline available.'}")
+    else:
+        lines.append("No recent headline is available, so the signal has less news context than usual.")
+    lines.append("This is an analytical signal, not an investment recommendation.")
+    return lines
+
+
 def build_alerts(compare_df: pd.DataFrame, event_df: pd.DataFrame, alert_threshold: int) -> list[dict[str, str]]:
     alerts: list[dict[str, str]] = []
     for _, row in compare_df.iterrows():
@@ -1858,6 +1975,22 @@ def build_alerts(compare_df: pd.DataFrame, event_df: pd.DataFrame, alert_thresho
                 {
                     "title": f'{row["name"]} price/news divergence',
                     "detail": f'Price moved {row["pct_change"]:.2f}% while sentiment stayed positive, suggesting watch-level disagreement.',
+                }
+            )
+        if int(row.get("catalyst_count") or 0) > 0 and str(row.get("top_catalyst_impact") or "").upper() in {"HIGH", "VERY_HIGH"}:
+            alerts.append(
+                {
+                    "title": f'{row["name"]} has a high-impact catalyst',
+                    "detail": f'{str(row.get("top_catalyst") or "Event").replace("_", " ").title()}: {row.get("top_catalyst_title") or "recent catalyst coverage"}.',
+                }
+            )
+        relative_move = row.get("market_relative_return")
+        if pd.notna(relative_move) and abs(float(relative_move)) >= 0.02:
+            direction = "outperforming" if float(relative_move) > 0 else "underperforming"
+            alerts.append(
+                {
+                    "title": f'{row["name"]} has an unusual market-relative move',
+                    "detail": f'The stock is {direction} its US benchmark by {abs(float(relative_move)) * 100.0:.2f} percentage points in the selected window.',
                 }
             )
     if not event_df.empty:
@@ -2090,10 +2223,11 @@ def build_compare_chart(compare_df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     if not compare_df.empty:
         ordered = compare_df.sort_values("pct_change", ascending=False)
+        labels = ordered["ticker"].map(get_display_symbol)
         v2_values = pd.to_numeric(ordered.get("v2_score"), errors="coerce")
-        fig.add_trace(go.Bar(x=ordered["ticker"], y=ordered["avg_sentiment"], name="V1 / Sentiment", marker_color=PALETTE["bull"]))
-        fig.add_trace(go.Bar(x=ordered["ticker"], y=v2_values, name="V2 Score", marker_color=PALETTE["line"]))
-        fig.add_trace(go.Scatter(x=ordered["ticker"], y=ordered["news_volume"], name="Article Volume", mode="lines+markers", line={"color": PALETTE["line"], "width": 3}, marker={"size": 10}, yaxis="y2"))
+        fig.add_trace(go.Bar(x=labels, y=ordered["avg_sentiment"], name="V1 / Sentiment", marker_color=PALETTE["bull"]))
+        fig.add_trace(go.Bar(x=labels, y=v2_values, name="V2 Score", marker_color=PALETTE["line"]))
+        fig.add_trace(go.Scatter(x=labels, y=ordered["news_volume"], name="Article Volume", mode="lines+markers", line={"color": PALETTE["line"], "width": 3}, marker={"size": 10}, yaxis="y2"))
     fig.update_layout(
         title="Signal Snapshot",
         barmode="group",
@@ -2127,7 +2261,7 @@ def build_price_timeline(
                 start_close = float(subset["close"].iloc[0])
                 if start_close:
                     y_values = (subset["close"] / start_close) * 100.0
-            fig.add_trace(go.Scatter(x=subset["timestamp"], y=y_values, mode="lines", name=ticker, line={"width": 3}))
+            fig.add_trace(go.Scatter(x=subset["timestamp"], y=y_values, mode="lines", name=get_display_symbol(ticker), line={"width": 3}))
     fig.update_layout(
         title=title,
         paper_bgcolor=PALETTE["paper"],
@@ -2243,7 +2377,11 @@ def build_recent_price_histogram(
     return fig
 
 
-def build_metric_grid(items: list[tuple[str, str, str]], column_size: int = 3) -> list[dbc.Col]:
+def build_metric_grid(
+    items: list[tuple[str, str, str]],
+    column_size: int = 3,
+    class_name: str | None = None,
+) -> list[dbc.Col]:
     return [
         dbc.Col(
             html.Div(
@@ -2252,6 +2390,7 @@ def build_metric_grid(items: list[tuple[str, str, str]], column_size: int = 3) -
             ),
             md=6,
             lg=column_size,
+            className=class_name,
         )
         for title, value, note in items
     ]
@@ -2274,14 +2413,25 @@ def build_empty_figure(title: str, message: str) -> go.Figure:
 
 def build_market_context_panel(market_context_df: pd.DataFrame, focus_ticker: str) -> list[html.Div]:
     row = _market_context_row(market_context_df, focus_ticker)
-    if not row:
+    if not row or not row.get("benchmark_symbol"):
         return [
             html.Div(
-                "Benchmark context is not available for the current symbol or market.",
+                "Indian benchmark context unavailable. FinSent does not compare Indian equities against US benchmarks.",
                 className="explanation-line",
             )
         ]
-    return build_summary_list(
+    simple = html.Div(
+        build_summary_list(
+            [
+                ("Stock Move", _format_pct(row.get("stock_return"))),
+                ("Market-relative", _label(row.get("relative_strength_label"))),
+                ("Movement Context", _label(row.get("stock_move_context"))),
+                ("Freshness", str(row.get("freshness") or "n/a")),
+            ]
+        ),
+        className="simple-only",
+    )
+    analyst = html.Div(build_summary_list(
         [
             (focus_ticker, _format_pct(row.get("stock_return"))),
             (str(row.get("benchmark_symbol") or "SPY"), _format_pct(row.get("benchmark_return"))),
@@ -2296,17 +2446,26 @@ def build_market_context_panel(market_context_df: pd.DataFrame, focus_ticker: st
             ("Quality", _label(row.get("quality"))),
             ("Freshness", str(row.get("freshness") or "n/a")),
         ]
-    )
+    ), className="analyst-only")
+    return [simple, analyst]
 
 
 def build_overview_market_context(market_context_df: pd.DataFrame, compare_df: pd.DataFrame) -> list[html.Div]:
     if market_context_df.empty:
         return [html.Div("Market context is unavailable for the current workspace.", className="explanation-line")]
+    supported = market_context_df[market_context_df["benchmark_symbol"].notna()] if "benchmark_symbol" in market_context_df.columns else pd.DataFrame()
+    if supported.empty:
+        return [
+            html.Div(
+                "Indian benchmark context unavailable. Price, sentiment, signals, and catalysts remain available when their providers respond.",
+                className="explanation-line",
+            )
+        ]
     regime = _first_nonempty(market_context_df.get("market_regime"), "UNKNOWN")
     freshness = _first_nonempty(market_context_df.get("freshness"), "UNAVAILABLE")
     spy_return = _first_nonempty_numeric(market_context_df.get("benchmark_return"))
     qqq_return = _first_nonempty_numeric(market_context_df.get("qqq_return"))
-    items = [
+    analyst_items = [
         html.Div(
             [
                 html.Div("Broad Market", className="summary-label"),
@@ -2318,7 +2477,7 @@ def build_overview_market_context(market_context_df: pd.DataFrame, compare_df: p
     ]
     if not compare_df.empty:
         for _, row in compare_df.sort_values("market_relative_return", ascending=False, na_position="last").head(6).iterrows():
-            items.append(
+            analyst_items.append(
                 html.Div(
                     [
                         html.Div(str(row.get("ticker") or ""), className="summary-label"),
@@ -2331,13 +2490,27 @@ def build_overview_market_context(market_context_df: pd.DataFrame, compare_df: p
                     className="summary-item",
                 )
             )
-    return items
+    focus = compare_df.iloc[0] if not compare_df.empty else pd.Series(dtype=object)
+    relative_label = _label(focus.get("relative_strength_label")) if not focus.empty else "Unavailable"
+    move_context = _label(focus.get("stock_move_context")) if not focus.empty else "Unavailable"
+    simple_items = build_summary_list(
+        [
+            ("Broader Market", _label(regime)),
+            ("Selected Stock", relative_label),
+            ("What It Means", move_context),
+            ("Freshness", freshness),
+        ]
+    )
+    return [
+        html.Div(simple_items, className="simple-only"),
+        html.Div(analyst_items, className="analyst-only"),
+    ]
 
 
 def build_market_context_explanation(focus_ticker: str, market_context_df: pd.DataFrame, catalyst_df: pd.DataFrame | None = None) -> list[str]:
     row = _market_context_row(market_context_df, focus_ticker)
-    if not row:
-        return [f"Market benchmark context is not configured or unavailable for {focus_ticker}."]
+    if not row or not row.get("benchmark_symbol"):
+        return [f"Indian benchmark context is unavailable for {focus_ticker}; no US benchmark comparison is applied."]
     lines = [
         (
             f"{focus_ticker} is {_label(row.get('relative_strength_label')).lower()} with "
@@ -2412,14 +2585,15 @@ def build_relative_performance_chart(focus_ticker: str, price_df: pd.DataFrame, 
 
 
 def build_compare_relative_chart(compare_df: pd.DataFrame) -> go.Figure:
-    if compare_df.empty or "market_relative_return" not in compare_df.columns:
+    if compare_df.empty or "market_relative_return" not in compare_df.columns or pd.to_numeric(compare_df["market_relative_return"], errors="coerce").dropna().empty:
         return build_empty_figure("Relative Strength", "Market-relative comparison is unavailable.")
     ordered = compare_df.sort_values("market_relative_return", ascending=False, na_position="last")
     market_values = pd.to_numeric(ordered.get("market_relative_return"), errors="coerce") * 100.0
     sector_values = pd.to_numeric(ordered.get("sector_relative_return"), errors="coerce") * 100.0
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=ordered["ticker"], y=market_values, name="vs SPY", marker_color=PALETTE["line"]))
-    fig.add_trace(go.Bar(x=ordered["ticker"], y=sector_values, name="vs Sector", marker_color=PALETTE["accent_2"]))
+    labels = ordered["ticker"].map(get_display_symbol)
+    fig.add_trace(go.Bar(x=labels, y=market_values, name="vs Market", marker_color=PALETTE["line"]))
+    fig.add_trace(go.Bar(x=labels, y=sector_values, name="vs Sector", marker_color=PALETTE["accent_2"]))
     fig.update_layout(
         title="Relative Strength Ranking",
         barmode="group",
@@ -2583,12 +2757,13 @@ def build_compare_catalyst_table(compare_df: pd.DataFrame) -> list[html.Div]:
         items.append(
             html.Div(
                 [
-                    html.Div(str(row.get("ticker") or ""), className="summary-label"),
+                    html.Div(get_display_symbol(str(row.get("ticker") or "")), className="summary-label"),
                     html.Div(
                         f'{str(row.get("top_catalyst") or "UNKNOWN").replace("_", " ").title()} | {row.get("top_catalyst_direction", "UNKNOWN")} | {row.get("top_catalyst_impact", "n/a")}',
                         className="summary-value",
                     ),
-                    html.Div(f'{int(row.get("catalyst_count") or 0)} event group(s). {row.get("top_catalyst_title", "")}', className="metric-note"),
+                    html.Div(str(row.get("top_catalyst_title") or "No recent catalyst headline"), className="metric-note simple-only"),
+                    html.Div(f'{int(row.get("catalyst_count") or 0)} event group(s). {row.get("top_catalyst_title", "")}', className="metric-note analyst-only"),
                 ],
                 className="summary-item",
             )
@@ -2602,14 +2777,28 @@ def build_compare_market_context_table(compare_df: pd.DataFrame) -> list[html.Di
     items: list[html.Div] = []
     ordered = compare_df.sort_values("market_relative_return", ascending=False, na_position="last")
     for _, row in ordered.iterrows():
+        benchmark = row.get("benchmark_symbol")
+        if not benchmark:
+            items.append(
+                html.Div(
+                    [
+                        html.Div(get_display_symbol(str(row.get("ticker") or "")), className="summary-label"),
+                        html.Div("Indian benchmark context unavailable", className="summary-value"),
+                        html.Div("No SPY or US sector comparison is applied.", className="metric-note analyst-only"),
+                    ],
+                    className="summary-item",
+                )
+            )
+            continue
         items.append(
             html.Div(
                 [
-                    html.Div(str(row.get("ticker") or ""), className="summary-label"),
+                    html.Div(get_display_symbol(str(row.get("ticker") or "")), className="summary-label"),
                     html.Div(
-                        f'vs SPY {_format_pct(row.get("market_relative_return"))} | vs {row.get("sector_benchmark_symbol") or "Sector"} {_format_pct(row.get("sector_relative_return"))}',
+                        f'vs {benchmark} {_format_pct(row.get("market_relative_return"))} | vs {row.get("sector_benchmark_symbol") or "Sector"} {_format_pct(row.get("sector_relative_return"))}',
                         className="summary-value",
                     ),
+                    html.Div(_label(row.get("relative_strength_label")), className="metric-note simple-only"),
                     html.Div(
                         (
                             f'{_label(row.get("relative_strength_label"))} | '
@@ -2618,7 +2807,7 @@ def build_compare_market_context_table(compare_df: pd.DataFrame) -> list[html.Di
                             f'beta {_format_float(row.get("beta_to_market"), 2)} | '
                             f'quality {_label(row.get("market_context_quality"))}'
                         ),
-                        className="metric-note",
+                        className="metric-note analyst-only",
                     ),
                 ],
                 className="summary-item",
@@ -2637,11 +2826,28 @@ def _catalyst_row(row: pd.Series, *, include_symbol: bool) -> html.Div:
         f'{row.get("catalyst_time_horizon", "UNKNOWN")} | '
         f'{row.get("novelty_label", "NEW")}'
     )
+    simple_detail = (
+        f'{symbol}{str(row.get("catalyst_type") or "UNKNOWN").replace("_", " ").title()} | '
+        f'{str(row.get("catalyst_direction") or "UNKNOWN").title()} | '
+        f'{str(row.get("catalyst_impact_label") or "n/a").replace("_", " ").title()} impact'
+    )
     return html.Div(
         [
-            html.Div(detail, className="summary-label"),
-            html.Div(title, className="summary-value"),
-            html.Div(f'Priority {float(row.get("catalyst_priority") or 0.0):.3f} | Group {row.get("event_group_id", "")}', className="metric-note"),
+            html.Div(
+                [
+                    html.Div(simple_detail, className="summary-label"),
+                    html.Div(title, className="summary-value"),
+                ],
+                className="simple-only",
+            ),
+            html.Div(
+                [
+                    html.Div(detail, className="summary-label"),
+                    html.Div(title, className="summary-value"),
+                    html.Div(f'Priority {float(row.get("catalyst_priority") or 0.0):.3f} | Group {row.get("event_group_id", "")}', className="metric-note"),
+                ],
+                className="analyst-only",
+            ),
         ],
         className="summary-item",
     )
@@ -2708,6 +2914,8 @@ def build_news_table(event_df: pd.DataFrame, news_df: pd.DataFrame) -> pd.DataFr
                 "Time",
                 "Age",
                 "Ticker",
+                "Company",
+                "Market",
                 "Provider",
                 "Source",
                 "Headline",
@@ -2740,7 +2948,9 @@ def build_news_table(event_df: pd.DataFrame, news_df: pd.DataFrame) -> pd.DataFr
 
     table_df["Time"] = pd.to_datetime(table_df["published_at"]).dt.strftime("%Y-%m-%d %H:%M")
     table_df["Age"] = pd.to_datetime(table_df["published_at"]).apply(format_age_from_timestamp)
-    table_df["Ticker"] = table_df["ticker"]
+    table_df["Ticker"] = table_df["ticker"].map(get_display_symbol)
+    table_df["Company"] = table_df["ticker"].map(get_company_name)
+    table_df["Market"] = table_df["ticker"].map(lambda value: get_instrument_metadata(str(value))["market"])
     table_df["Provider"] = table_df.get("provider", "Unknown")
     table_df["Source"] = table_df.get("source", "Unknown")
     table_df["Headline"] = table_df["title"]
@@ -2772,6 +2982,8 @@ def build_news_table(event_df: pd.DataFrame, news_df: pd.DataFrame) -> pd.DataFr
             "Time",
             "Age",
             "Ticker",
+            "Company",
+            "Market",
             "Provider",
             "Source",
             "Headline",
@@ -2789,6 +3001,42 @@ def build_news_table(event_df: pd.DataFrame, news_df: pd.DataFrame) -> pd.DataFr
             "Explanation",
         ]
     ]
+
+
+def build_simple_news_table(event_df: pd.DataFrame, news_df: pd.DataFrame) -> pd.DataFrame:
+    table = build_news_table(event_df, news_df)
+    columns = ["Time", "Company", "Ticker", "Headline", "Sentiment", "Catalyst", "Catalyst Impact"]
+    for column in columns:
+        if column not in table.columns:
+            table[column] = "n/a"
+    return table[columns]
+
+
+def build_recent_headlines(news_df: pd.DataFrame, focus_ticker: str, limit: int = 5) -> list[html.Div]:
+    rows = news_df[news_df["ticker"] == focus_ticker] if not news_df.empty else pd.DataFrame()
+    if rows.empty:
+        return [
+            html.Div(
+                "No recent headlines are available for this symbol. Price and signal panels remain capability-aware.",
+                className="explanation-line",
+            )
+        ]
+    items: list[html.Div] = []
+    for _, row in rows.sort_values("published_at", ascending=False).head(limit).iterrows():
+        published = pd.to_datetime(row.get("published_at"), errors="coerce")
+        age = format_age_from_timestamp(published) if pd.notna(published) else "time unavailable"
+        sentiment = str(row.get("sentiment_label") or "neutral").title()
+        catalyst = str(row.get("catalyst_type") or row.get("catalyst_tag") or "Other").replace("_", " ").title()
+        items.append(
+            html.Div(
+                [
+                    html.Div(f"{age} | {sentiment} | {catalyst}", className="summary-label"),
+                    html.Div(str(row.get("title") or "Untitled headline"), className="headline-title"),
+                ],
+                className="headline-item",
+            )
+        )
+    return items
 
 
 def _table_series(table_df: pd.DataFrame, column: str, default: str) -> pd.Series:

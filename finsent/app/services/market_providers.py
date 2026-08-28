@@ -543,6 +543,7 @@ class KiteMarketDataProvider(BaseMarketProvider):
         quality = "live" if freshness is not None and freshness <= 60 else "delayed" if freshness is not None else "unavailable"
         final_quality = quality if current_price is not None else "unavailable"
         provider_status = _status_for_quote(self.provider_name, "market_quote", final_quality, "Kite quote snapshot", market_timestamp)
+        market_status = classify_india_market_status()
         return QuoteSnapshot(
             symbol=symbol.ticker,
             exchange=symbol.exchange,
@@ -559,7 +560,7 @@ class KiteMarketDataProvider(BaseMarketProvider):
             provider=self.provider_name,
             freshness_seconds=freshness,
             quality_status=final_quality,
-            note="Kite quote snapshot",
+            note=f"Kite quote snapshot; market_status={market_status}",
             provider_status=provider_status,
         )
 
@@ -750,6 +751,20 @@ def classify_us_market_status(now: datetime | None = None) -> str:
         return "MARKET OPEN"
     if time(16, 0) <= current_time < time(20, 0):
         return "AFTER-HOURS"
+    return "MARKET CLOSED"
+
+
+def classify_india_market_status(now: datetime | None = None) -> str:
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    india_time = current.astimezone(ZoneInfo("Asia/Kolkata"))
+    if india_time.weekday() >= 5:
+        return "MARKET CLOSED"
+    if time(9, 0) <= india_time.time() < time(9, 15):
+        return "PRE-OPEN"
+    if time(9, 15) <= india_time.time() < time(15, 30):
+        return "MARKET OPEN"
     return "MARKET CLOSED"
 
 

@@ -10,10 +10,15 @@ def layout() -> html.Div:
             html.Div(
                 [
                     html.Div("Monitoring", className="section-kicker"),
-                    html.H1("Contextual Alerts", className="page-title"),
+                    html.H1("Stocks That Deserve Attention", className="page-title simple-only"),
+                    html.H1("Contextual Alerts", className="page-title analyst-only"),
                     html.P(
-                        "Compact monitoring for weak sentiment, coverage shifts, and notable movement in the current workspace.",
-                        className="page-subtitle",
+                        "Current attention signals for strong catalysts, large moves, sentiment shifts, and unusual relative performance. These are not persistent notification subscriptions.",
+                        className="page-subtitle simple-only",
+                    ),
+                    html.P(
+                        "Compact monitoring for weak sentiment, coverage shifts, and notable movement in the current workspace. These are not persistent push or email subscriptions.",
+                        className="page-subtitle analyst-only",
                     ),
                 ],
                 className="section-shell page-header-shell terminal-page-header mb-2",
@@ -60,7 +65,7 @@ def layout() -> html.Div:
                         lg=12,
                     ),
                 ],
-                className="g-3 mb-3",
+                className="g-3 mb-3 analyst-only",
             ),
             dbc.Accordion(
                 [
@@ -81,7 +86,7 @@ def layout() -> html.Div:
                 ],
                 start_collapsed=True,
                 always_open=False,
-                className="page-accordion mb-4",
+                className="page-accordion mb-4 analyst-only",
             ),
         ],
         className="analysis-page",

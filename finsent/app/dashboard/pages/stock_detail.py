@@ -12,8 +12,12 @@ def layout() -> html.Div:
                     html.Div("Live Stock Intelligence", className="section-kicker"),
                     html.H1(id="stock-page-title", className="page-title"),
                     html.P(
+                        "Price, sentiment, signals, catalysts, market context, and the latest important news in one view.",
+                        className="page-subtitle simple-only",
+                    ),
+                    html.P(
                         "Current/latest price, financial news, FinBERT sentiment, live Signal V1, and live Signal V2 components.",
-                        className="page-subtitle",
+                        className="page-subtitle analyst-only",
                     ),
                     html.Div(id="stock-badge-row", className="badge-row"),
                 ],
@@ -38,7 +42,7 @@ def layout() -> html.Div:
                                             value="price",
                                             clearable=False,
                                             searchable=False,
-                                            className="finsent-dropdown chart-mode-dropdown",
+                                            className="finsent-dropdown chart-mode-dropdown analyst-only",
                                         ),
                                     ],
                                     className="chart-card-header",
@@ -97,6 +101,7 @@ def layout() -> html.Div:
                             className="chart-card",
                         ),
                         lg=8,
+                        className="analyst-only",
                     ),
                     dbc.Col(
                         html.Div(
@@ -108,6 +113,7 @@ def layout() -> html.Div:
                             className="section-shell",
                         ),
                         lg=4,
+                        className="stock-market-context-col",
                     ),
                 ],
                 className="g-3 mb-4",
@@ -124,6 +130,7 @@ def layout() -> html.Div:
                             className="section-shell",
                         ),
                         lg=5,
+                        className="stock-key-catalyst-col",
                     ),
                     dbc.Col(
                         html.Div(
@@ -135,9 +142,18 @@ def layout() -> html.Div:
                             className="section-shell",
                         ),
                         lg=7,
+                        className="analyst-only",
                     ),
                 ],
                 className="g-3 mb-4",
+            ),
+            html.Div(
+                [
+                    html.Div("Recent News", className="section-kicker"),
+                    html.H3("Important Headlines", className="section-title"),
+                    html.Div(id="stock-recent-headlines", className="headline-list"),
+                ],
+                className="section-shell simple-only",
             ),
         ],
         className="analysis-page",

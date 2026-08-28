@@ -292,11 +292,7 @@ class IntelligenceService:
 
     @staticmethod
     def storage_ticker(symbol: SymbolRecord) -> str:
-        if symbol.exchange == "NSE":
-            return f"{symbol.ticker}.NS"
-        if symbol.exchange == "BSE":
-            return f"{symbol.ticker}.BO"
-        return symbol.ticker
+        return symbol.yahoo_symbol
 
 
 def _analysis_score(sentiment: str, confidence: float) -> float:

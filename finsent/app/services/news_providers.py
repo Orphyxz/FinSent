@@ -177,7 +177,7 @@ class CuratedWebNewsProvider:
             return []
         # Fallback provider for markets without a stronger direct news integration yet.
         raw_articles = self.scraper.fetch_latest(
-            ticker=f"{symbol.ticker}.NS" if symbol.exchange == "NSE" else f"{symbol.ticker}.BO" if symbol.exchange == "BSE" else symbol.ticker,
+            ticker=symbol.symbol_for("fallback_web"),
             limit=limit,
         )
         self.leaf_provider = self.scraper.last_leaf_provider

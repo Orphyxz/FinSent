@@ -492,8 +492,9 @@ class MarketContextService:
         symbol_records = [symbol for symbol in resolved if symbol is not None]
         end = self.clock()
         start = end - timedelta(days=lookback_days)
-        benchmark_symbols = {"SPY", "QQQ"}
-        sector_symbols = {sector_etf_for_symbol(symbol) for symbol in symbol_records if symbol.exchange == "US"}
+        us_symbols = [symbol for symbol in symbol_records if symbol.exchange == "US"]
+        benchmark_symbols = {"SPY", "QQQ"} if us_symbols else set()
+        sector_symbols = {sector_etf_for_symbol(symbol) for symbol in us_symbols}
         benchmark_symbols.update(symbol for symbol in sector_symbols if symbol)
 
         fetched: dict[str, _BarsEntry] = {

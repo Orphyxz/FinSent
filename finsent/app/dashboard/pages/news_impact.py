@@ -12,8 +12,12 @@ def layout() -> html.Div:
                     html.Div("Live News Intelligence", className="section-kicker"),
                     html.H1("Current Financial News", className="page-title"),
                     html.P(
+                        "Recent headlines with company, sentiment, catalyst, and likely impact at a glance.",
+                        className="page-subtitle simple-only",
+                    ),
+                    html.P(
                         "Newest provider-backed headlines first, with FinBERT sentiment, confidence, provenance, catalyst, and impact context.",
-                        className="page-subtitle",
+                        className="page-subtitle analyst-only",
                     ),
                 ],
                 className="section-shell page-header-shell terminal-page-header mb-2",
@@ -40,7 +44,7 @@ def layout() -> html.Div:
                             html.Div("Direction", className="control-label"),
                             dcc.Dropdown(id="news-direction-filter", multi=True, className="finsent-dropdown workspace-dropdown"),
                         ],
-                        className="control-card workspace-filter-card",
+                        className="control-card workspace-filter-card analyst-only",
                     ),
                 ],
                 className="workspace-filter-grid compact-filter-row mb-3",
@@ -70,7 +74,15 @@ def layout() -> html.Div:
                         lg=4,
                     ),
                 ],
-                className="g-3 mb-3",
+                className="g-3 mb-3 analyst-only",
+            ),
+            html.Div(
+                [
+                    html.Div("Headline Brief", className="section-kicker"),
+                    html.H3("Recent Important News", className="section-title"),
+                    html.Div(id="news-simple-table", className="simple-table-wrap"),
+                ],
+                className="section-shell simple-only",
             ),
             dbc.Accordion(
                 [
@@ -124,7 +136,7 @@ def layout() -> html.Div:
                 ],
                 start_collapsed=False,
                 always_open=False,
-                className="page-accordion mb-4",
+                className="page-accordion mb-4 analyst-only",
             ),
         ],
         className="analysis-page",

@@ -25,6 +25,7 @@ def build_app_layout(default_ticker: str, default_compare_tickers: list[str] | N
                     "analysis_ready": True,
                 },
             ),
+            dcc.Store(id="display-mode-store", storage_type="local", data="simple"),
             dcc.Store(id="live-refresh-store", storage_type="memory"),
             build_navbar(),
             html.Div(build_landing_search(default_ticker), id="landing-controls-container"),
@@ -43,5 +44,6 @@ def build_app_layout(default_ticker: str, default_compare_tickers: list[str] | N
             html.Main(id="page-container", className="workspace-main"),
             build_footer(),
         ],
-        className="dashboard-shell",
+        id="dashboard-shell",
+        className="dashboard-shell mode-simple",
     )

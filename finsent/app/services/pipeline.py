@@ -51,7 +51,7 @@ class FinSentPipeline:
         with SessionLocal() as session:
             news_repo = NewsRepository(session)
             price_repo = PriceRepository(session)
-            ui_ticker = symbol.ticker if symbol.exchange == "US" else f"{symbol.ticker}.NS" if symbol.exchange == "NSE" else f"{symbol.ticker}.BO"
+            ui_ticker = symbol.yahoo_symbol
             news_df = news_repo.list_news_df(ticker=ui_ticker, exchange=symbol.exchange)
             price_df = price_repo.list_price_df(ticker=ui_ticker)
 

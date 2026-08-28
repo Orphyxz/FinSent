@@ -37,6 +37,10 @@ def layout() -> html.Div:
                 [
                     section_header("Locked Research", "Phase 16 Final Evaluation", "Historical 1D evaluation of FinSent's sentiment and signal methodologies."),
                     html.Div(
+                        "Locked historical research: 111 final observations. Signal V1 performed better than V2.0 on the primary balanced metrics; these results are not trading-performance claims.",
+                        className="explanation-line simple-only",
+                    ),
+                    html.Div(
                         [
                             status_badge("Locked research", "PHASE_16"),
                             status_badge("Final experiment", "COMPLETED_LOCKED"),
@@ -117,14 +121,14 @@ def layout() -> html.Div:
                     html.Div([html.Div("Confusion", className="section-kicker"), html.H3("V1 vs Realized", className="section-title"), dcc.Graph(figure=confusion_figure(v1["confusion_matrix"], "Signal V1"), config={"displayModeBar": False, "responsive": True})], className="chart-card"),
                     html.Div([html.Div("Confusion", className="section-kicker"), html.H3("V2.0 vs Realized", className="section-title"), dcc.Graph(figure=confusion_figure(v2["confusion_matrix"], "Signal V2.0"), config={"displayModeBar": False, "responsive": True})], className="chart-card"),
                 ],
-                className="research-two-column",
+                className="research-two-column analyst-only",
             ),
             html.Div(
                 [
                     html.Div([html.Div("Class Distribution", className="section-kicker"), html.H3("Signal and Outcome Mix", className="section-title"), dcc.Graph(figure=distribution_figure(summary["class_distributions"]), config={"displayModeBar": False, "responsive": True})], className="chart-card"),
                     html.Div([html.Div("Paired Result", className="section-kicker"), html.H3("Identical Observations", className="section-title"), dcc.Graph(figure=paired_figure(summary["paired_analysis"]), config={"displayModeBar": False, "responsive": True}), html.Div("McNemar not run: discordant N=19 was insufficient for meaningful inference.", className="research-note")], className="chart-card"),
                 ],
-                className="research-two-column",
+                className="research-two-column analyst-only",
             ),
             html.Div(
                 [
@@ -142,7 +146,7 @@ def layout() -> html.Div:
                         className="section-shell",
                     ),
                 ],
-                className="research-two-column",
+                className="research-two-column analyst-only",
             ),
             html.Div(
                 [
@@ -176,7 +180,7 @@ def layout() -> html.Div:
                         className="section-shell",
                     ),
                 ],
-                className="research-two-column",
+                className="research-two-column analyst-only",
             ),
         ],
         className="analysis-page research-page",

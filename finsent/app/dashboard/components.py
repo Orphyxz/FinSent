@@ -37,6 +37,27 @@ def build_navbar() -> html.Div:
             html.Div(id="nav-links", className="nav-links"),
             html.Div(
                 [
+                    html.Div(
+                        [
+                            html.Span("View", className="visually-hidden"),
+                            dcc.RadioItems(
+                                id="display-mode-toggle",
+                                options=[
+                                    {"label": "Simple", "value": "simple"},
+                                    {"label": "Analyst", "value": "analyst"},
+                                ],
+                                value="simple",
+                                inline=True,
+                                persistence=True,
+                                persistence_type="local",
+                                className="mode-segmented-control",
+                                inputClassName="mode-segmented-input",
+                                labelClassName="mode-segmented-label",
+                            ),
+                        ],
+                        className="mode-control-wrap",
+                        title="Choose a simplified or detailed dashboard view",
+                    ),
                     dcc.Link("Home", href="/", id="nav-home-link", className="nav-home-link", title="Return to overview"),
                     html.Div(id="nav-mode-badge", className="nav-mode-badge"),
                 ],
@@ -77,27 +98,31 @@ def build_workspace_bar(
                         [
                             html.Div(
                                 [
-                                    html.Div("Selected Exchange", className="control-label"),
-                                    dcc.Dropdown(
+                                    html.Div("Market", className="control-label"),
+                                    dcc.RadioItems(
                                         id="global-exchange-filter",
                                         options=exchange_options,
                                         value=exchange_filter,
-                                        clearable=False,
-                                        searchable=False,
-                                        className="finsent-dropdown workspace-dropdown",
+                                        inline=True,
+                                        className="market-segmented-control",
+                                        inputClassName="market-segmented-input",
+                                        labelClassName="market-segmented-label",
                                     ),
                                 ],
                                 className="workspace-primary-control",
                             ),
                             html.Div(
                                 [
-                                    html.Div("Selected Ticker", className="control-label"),
+                                    html.Div("Search Company or Ticker", className="control-label"),
                                     dcc.Dropdown(
                                         id="global-focus-ticker",
                                         options=ticker_options,
                                         value=focus_ticker,
                                         clearable=False,
                                         searchable=True,
+                                        placeholder="Search AAPL, Apple, RELIANCE...",
+                                        optionHeight=42,
+                                        maxHeight=300,
                                         className="finsent-dropdown workspace-dropdown",
                                     ),
                                 ],
@@ -108,8 +133,8 @@ def build_workspace_bar(
                     ),
                     html.Div(
                         [
-                            html.Div("Mode", className="workspace-disclosure-label"),
-                            html.Div("Live/latest provider data is separated from locked historical research.", className="workspace-disclosure-copy"),
+                            html.Div("Research boundary", className="workspace-disclosure-label"),
+                            html.Div("Live/latest intelligence remains separate from the locked historical evaluation.", className="workspace-disclosure-copy"),
                         ],
                         className="workspace-disclosure-copy-wrap",
                     ),
@@ -139,7 +164,7 @@ def build_workspace_bar(
                                             ),
                                         ],
                                         id="horizon-toolbar-control",
-                                        className="control-card workspace-filter-card",
+                                        className="control-card workspace-filter-card analyst-only",
                                     ),
                                     html.Div(
                                         [
@@ -159,7 +184,7 @@ def build_workspace_bar(
                                             ),
                                         ],
                                         id="date-toolbar-control",
-                                        className="control-card workspace-filter-card",
+                                        className="control-card workspace-filter-card analyst-only",
                                     ),
                                     html.Div(
                                         [
@@ -209,7 +234,7 @@ def build_workspace_bar(
                                             ),
                                         ],
                                         id="alert-toolbar-control",
-                                        className="control-card workspace-filter-card",
+                                        className="control-card workspace-filter-card analyst-only",
                                     ),
                                 ],
                                 className="workspace-filter-grid",
@@ -247,14 +272,15 @@ def build_landing_search(default_ticker: str) -> html.Div:
                 [
                     html.Div(
                         [
-                            html.Div("Select Exchange", className="control-label"),
-                            dcc.Dropdown(
+                            html.Div("Market", className="control-label"),
+                            dcc.RadioItems(
                                 id="landing-exchange-filter",
                                 options=get_exchange_options(),
                                 value=default_exchange,
-                                clearable=False,
-                                searchable=False,
-                                className="finsent-dropdown landing-search-dropdown",
+                                inline=True,
+                                className="market-segmented-control",
+                                inputClassName="market-segmented-input",
+                                labelClassName="market-segmented-label",
                             ),
                         ],
                         className="landing-search-field",
@@ -268,6 +294,8 @@ def build_landing_search(default_ticker: str) -> html.Div:
                                 value=default_ticker,
                                 clearable=False,
                                 searchable=True,
+                                optionHeight=42,
+                                maxHeight=300,
                                 className="finsent-dropdown landing-search-dropdown",
                             ),
                         ],

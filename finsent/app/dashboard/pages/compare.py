@@ -12,8 +12,12 @@ def layout() -> html.Div:
                     html.Div("Compare", className="section-kicker"),
                     html.H1("Live Market Compare", className="page-title"),
                     html.P(
+                        "Compare normalized movement, sentiment, FinSent signals, relative strength, and major catalysts.",
+                        className="page-subtitle simple-only",
+                    ),
+                    html.P(
                         "Compare 2-5 symbols across normalized price movement, current sentiment, live V1/V2 signals, news coverage, and freshness.",
-                        className="page-subtitle",
+                        className="page-subtitle analyst-only",
                     ),
                 ],
                 className="section-shell page-header-shell terminal-page-header mb-2",
@@ -63,12 +67,12 @@ def layout() -> html.Div:
                             html.Div("Signal Snapshot", className="section-kicker"),
                             html.H3("Market and Sector Relative Return", className="section-title"),
                             html.P(
-                                "Use this to compare each symbol's return against SPY and its mapped sector ETF.",
+                                "US symbols use SPY and mapped sector ETFs. Indian benchmark context is shown as unavailable rather than using a US proxy.",
                                 className="section-helper",
                             ),
                             dcc.Graph(id="compare-secondary-chart", config={"displayModeBar": False, "responsive": True}),
                         ],
-                        className="chart-card compact-chart-card mb-4",
+                        className="chart-card compact-chart-card mb-4 analyst-only",
                     ),
                     html.Div(
                         [
