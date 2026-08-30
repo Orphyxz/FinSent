@@ -683,17 +683,102 @@ class KiteMarketDataProvider(BaseMarketProvider):
 
 
 class YahooHistoricalMarketDataProvider(BaseMarketProvider):
-    """Historical-only fallback using FinSent's established Yahoo Chart source."""
+    """Credential-free Indian quote and bars fallback using Yahoo Chart."""
 
     provider_name = "yahoo_chart"
 
     def __init__(self, timeout: int = 20) -> None:
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "FinSent/Phase23.1 Yahoo chart historical fallback"})
+        self.session.headers.update({"User-Agent": "FinSent Yahoo chart Indian market fallback"})
 
     def fetch_quote_snapshot(self, symbol: SymbolRecord) -> QuoteSnapshot:
-        return self._unavailable_quote(symbol, "Yahoo Chart is configured as a historical-bars fallback only")
+        if symbol.exchange not in {"NSE", "BSE"}:
+            return self._unavailable_quote(symbol, "Yahoo Chart fallback only supports Indian exchange symbols")
+
+        yahoo_symbol = symbol.symbol_for(self.provider_name)
+        response = self.session.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{yahoo_symbol}",
+            params={"range": "1d", "interval": "1m", "events": "history"},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        chart = (response.json() or {}).get("chart") or {}
+        results = chart.get("result") or []
+        if not results:
+            return self._unavailable_quote(symbol, f"Yahoo Chart returned no quote for {yahoo_symbol}")
+
+        result = results[0]
+        meta = result.get("meta") or {}
+        timestamps = result.get("timestamp") or []
+        quotes = ((result.get("indicators") or {}).get("quote") or [{}])[0]
+        closes = quotes.get("close") or []
+        current_price = self._coerce_float(meta.get("regularMarketPrice"))
+        market_timestamp = self._coerce_epoch_seconds(meta.get("regularMarketTime"))
+        if current_price is None or market_timestamp is None:
+            for timestamp, close in reversed(list(zip(timestamps, closes, strict=False))):
+                parsed_close = self._coerce_float(close)
+                parsed_timestamp = self._coerce_epoch_seconds(timestamp)
+                if parsed_close is not None and parsed_timestamp is not None:
+                    current_price = current_price if current_price is not None else parsed_close
+                    market_timestamp = market_timestamp or parsed_timestamp
+                    break
+        if current_price is None or market_timestamp is None:
+            return self._unavailable_quote(symbol, f"Yahoo Chart quote was incomplete for {yahoo_symbol}")
+
+        market_status = classify_india_market_status()
+        freshness = PolygonMarketDataProvider._freshness(market_timestamp)
+        quality = _quality_for_market(freshness, market_status, has_price=True)
+        previous_close = self._coerce_float(meta.get("previousClose")) or self._coerce_float(meta.get("chartPreviousClose"))
+        absolute_change = current_price - previous_close if previous_close not in {None, 0.0} else None
+        percent_change = absolute_change / previous_close if absolute_change is not None and previous_close else None
+        day_open = self._first_float(quotes.get("open") or [])
+        latest_open = self._last_float(quotes.get("open") or [])
+        latest_high = self._last_float(quotes.get("high") or [])
+        latest_low = self._last_float(quotes.get("low") or [])
+        latest_close = self._last_float(closes)
+        latest_volume = self._last_float(quotes.get("volume") or [])
+        ingested_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        note = "Yahoo Chart credential-free Indian quote fallback (may be delayed)"
+        provider_status = _status_for_quote(self.provider_name, "market_quote", quality, note, market_timestamp)
+        return QuoteSnapshot(
+            symbol=symbol.ticker,
+            exchange=symbol.exchange,
+            provider_symbol=yahoo_symbol,
+            current_price=current_price,
+            currency=str(meta.get("currency") or settings.default_quote_currency_in),
+            bid=None,
+            ask=None,
+            spread_absolute=None,
+            spread_percentage=None,
+            volume=self._coerce_float(meta.get("regularMarketVolume")),
+            market_timestamp=market_timestamp,
+            ingested_at=ingested_at,
+            provider=self.provider_name,
+            freshness_seconds=freshness,
+            quality_status=quality,
+            note=note,
+            provider_status=provider_status,
+            latest_trade_price=current_price,
+            latest_trade_timestamp=market_timestamp,
+            minute_open=latest_open,
+            minute_high=latest_high,
+            minute_low=latest_low,
+            minute_close=latest_close,
+            minute_volume=latest_volume,
+            day_open=day_open,
+            day_high=self._coerce_float(meta.get("regularMarketDayHigh")),
+            day_low=self._coerce_float(meta.get("regularMarketDayLow")),
+            day_close=current_price,
+            day_volume=self._coerce_float(meta.get("regularMarketVolume")),
+            previous_close=previous_close,
+            absolute_change=absolute_change,
+            percent_change=percent_change,
+            market_status=market_status,
+            feed="yahoo_chart",
+            retrieved_at=ingested_at,
+            freshness_label=quality.upper(),
+        )
 
     def fetch_price_bars(self, symbol: SymbolRecord, start: datetime, end: datetime, interval: str) -> pd.DataFrame:
         if symbol.exchange not in {"NSE", "BSE"}:
@@ -739,6 +824,28 @@ class YahooHistoricalMarketDataProvider(BaseMarketProvider):
         frame = pd.DataFrame(rows).set_index("timestamp")
         frame = frame[~frame.index.duplicated(keep="last")].sort_index()
         return frame[["Open", "High", "Low", "Close", "Volume"]].apply(pd.to_numeric, errors="coerce").dropna()
+
+    @staticmethod
+    def _coerce_float(value: object) -> float | None:
+        try:
+            return None if value is None else float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _coerce_epoch_seconds(value: object) -> datetime | None:
+        try:
+            return datetime.fromtimestamp(int(value), tz=timezone.utc).replace(tzinfo=None)
+        except (TypeError, ValueError, OSError, OverflowError):
+            return None
+
+    @classmethod
+    def _first_float(cls, values: list[object]) -> float | None:
+        return next((parsed for value in values if (parsed := cls._coerce_float(value)) is not None), None)
+
+    @classmethod
+    def _last_float(cls, values: list[object]) -> float | None:
+        return next((parsed for value in reversed(values) if (parsed := cls._coerce_float(value)) is not None), None)
 
 
 class UnavailableMarketProvider(BaseMarketProvider):

@@ -594,11 +594,11 @@ def default_market_candidates() -> list[ProviderCandidate]:
         ),
         ProviderCandidate(
             provider="yahoo_chart",
-            service=HISTORICAL_DATA_SERVICE,
+            service=MARKET_DATA_SERVICE,
             supports_exchange=lambda exchange: exchange in {"NSE", "BSE"},
             configured=lambda: True,
             factory=lambda: YahooHistoricalMarketDataProvider(),
-            unconfigured_message="Yahoo Chart historical fallback is unavailable.",
+            unconfigured_message="Yahoo Chart Indian market fallback is unavailable.",
         ),
     ]
 

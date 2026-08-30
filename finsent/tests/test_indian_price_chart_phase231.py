@@ -14,7 +14,7 @@ from finsent.app.dashboard.view_model import (
     get_default_ticker_for_exchange,
     get_ticker_options,
 )
-from finsent.app.services.market_providers import YahooHistoricalMarketDataProvider
+from finsent.app.services.market_providers import QuoteSnapshot, YahooHistoricalMarketDataProvider, is_usable_quote_snapshot
 from finsent.app.services.provider_contracts import ProviderCandidate
 from finsent.app.services.provider_routers import MarketDataRouter
 from finsent.app.services.symbol_registry import registry
@@ -107,6 +107,95 @@ def test_indian_router_falls_back_to_yahoo_chart_without_using_us_providers(monk
     assert symbol.symbol_for(result.provider) == "RELIANCE.NS"
     assert [attempt.provider for attempt in result.attempts] == ["kite", "yahoo_chart"]
     assert not {"alpaca", "polygon"}.intersection(attempt.provider for attempt in result.attempts)
+
+
+def test_yahoo_chart_indian_quote_returns_latest_available_price() -> None:
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "chart": {
+                    "result": [
+                        {
+                            "meta": {
+                                "currency": "INR",
+                                "regularMarketPrice": 1287.0,
+                                "regularMarketTime": 1787910305,
+                                "previousClose": 1282.2,
+                                "regularMarketDayHigh": 1291.8,
+                                "regularMarketDayLow": 1280.0,
+                                "regularMarketVolume": 6826848,
+                            },
+                            "timestamp": [1787888700, 1787910305],
+                            "indicators": {
+                                "quote": [
+                                    {
+                                        "open": [1284.0, 1286.5],
+                                        "high": [1285.0, 1288.0],
+                                        "low": [1281.0, 1286.0],
+                                        "close": [1283.5, 1287.0],
+                                        "volume": [1000, 2000],
+                                    }
+                                ]
+                            },
+                        }
+                    ]
+                }
+            }
+
+    class FakeSession:
+        def get(self, _url, **_kwargs):
+            return FakeResponse()
+
+    symbol = registry.get("NSE", "RELIANCE")
+    assert symbol is not None
+    provider = YahooHistoricalMarketDataProvider()
+    provider.session = FakeSession()
+
+    quote = provider.fetch_quote_snapshot(symbol)
+
+    assert is_usable_quote_snapshot(quote)
+    assert quote.provider == "yahoo_chart"
+    assert quote.provider_symbol == "RELIANCE.NS"
+    assert quote.current_price == 1287.0
+    assert quote.previous_close == 1282.2
+    assert quote.currency == "INR"
+    assert quote.market_status in {"MARKET OPEN", "MARKET CLOSED", "PRE-OPEN"}
+
+
+def test_indian_quote_router_uses_yahoo_when_kite_is_unconfigured(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "kite_api_key", "")
+    monkeypatch.setattr(settings, "kite_access_token", "")
+    symbol = registry.get("NSE", "RELIANCE")
+    assert symbol is not None
+    quote = QuoteSnapshot(
+        symbol="RELIANCE",
+        exchange="NSE",
+        provider_symbol="RELIANCE.NS",
+        current_price=1287.0,
+        currency="INR",
+        bid=None,
+        ask=None,
+        spread_absolute=None,
+        spread_percentage=None,
+        volume=1000.0,
+        market_timestamp=datetime(2026, 8, 28, 10, 0),
+        ingested_at=datetime(2026, 8, 30, 10, 0),
+        provider="yahoo_chart",
+        freshness_seconds=172800,
+        quality_status="stale",
+        note="Yahoo Chart credential-free Indian quote fallback (may be delayed)",
+    )
+    monkeypatch.setattr(YahooHistoricalMarketDataProvider, "fetch_quote_snapshot", lambda self, _symbol: quote)
+
+    result = MarketDataRouter().fetch_quote(symbol)
+
+    assert result.provider == "yahoo_chart"
+    assert result.available is True
+    assert result.data is quote
+    assert [attempt.provider for attempt in result.attempts] == ["kite", "yahoo_chart"]
 
 
 def test_indian_canonical_values_remain_bare_in_ui() -> None:

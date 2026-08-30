@@ -69,7 +69,7 @@ flowchart TD
 Current market-data chains:
 
 - US quote/bars: Alpaca -> Polygon -> structured unavailable.
-- NSE/BSE quote/bars: Kite -> structured unavailable.
+- NSE/BSE quote/bars: Kite -> credential-free Yahoo Chart latest-available fallback -> structured unavailable.
 - Alpaca normally uses `ALPACA_FEED=iex`; this is not consolidated SIP.
 - Polygon has internal quote fallbacks: snapshot -> last trade -> previous close.
 - Kite can resolve instruments through its instrument cache for bars.
@@ -242,6 +242,7 @@ The app does not persist full raw API responses or secret-bearing request URLs.
 | Polygon | quotes/bars/news | US | `POLYGON_API_KEY` | Optional fallback for US market/news |
 | Kite | quotes/bars | NSE/BSE | `KITE_API_KEY`, `KITE_ACCESS_TOKEN` | Router primary for India market |
 | Marketaux | news | US/NSE/BSE | `MARKETAUX_API_TOKEN` | Optional news fallback |
+| Yahoo Chart | quotes/bars | NSE/BSE | none | Credential-free latest-available fallback; may be delayed/stale |
 | Fallback web | news | US/NSE/BSE | optional nested configs | Router fallback for news |
 
 ## Legacy Providers
@@ -256,6 +257,6 @@ The app does not persist full raw API responses or secret-bearing request URLs.
 
 - Provider audit rows exist for real provider attempts, but raw API payload archiving is intentionally not implemented.
 - Router-level cache is in-memory only; it is not persisted across application restarts.
-- Market fallback does not activate legacy yfinance market code.
+- Yahoo Chart is a best-effort, credential-free Indian-market fallback and is not an exchange-grade real-time feed.
 - Provider health is current-session in the dashboard; provider audit rows store real provider attempts separately.
 - Provider status, quote mode, and data-quality labels are surfaced compactly in System Status rather than a separate full observability product.

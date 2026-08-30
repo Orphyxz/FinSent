@@ -105,6 +105,7 @@ flowchart TD
 | Market data | Alpaca | US | Primary live demo quotes/bars | `ALPACA_API_KEY`, `ALPACA_API_SECRET` |
 | Market data | Polygon | US | Optional fallback | `POLYGON_API_KEY` |
 | Market data | Kite | NSE/BSE | Optional India provider | `KITE_API_KEY`, `KITE_ACCESS_TOKEN` |
+| Market data | Yahoo Chart | NSE/BSE | Credential-free latest-available fallback | None |
 | News | Alpaca/Benzinga | US | Primary current news | `ALPACA_API_KEY`, `ALPACA_API_SECRET` |
 | News | Polygon | US | Optional fallback | `POLYGON_API_KEY` |
 | News | Marketaux | US/NSE/BSE | Optional fallback | `MARKETAUX_API_TOKEN` |
