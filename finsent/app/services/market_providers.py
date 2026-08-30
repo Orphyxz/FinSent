@@ -682,6 +682,65 @@ class KiteMarketDataProvider(BaseMarketProvider):
         return cache
 
 
+class YahooHistoricalMarketDataProvider(BaseMarketProvider):
+    """Historical-only fallback using FinSent's established Yahoo Chart source."""
+
+    provider_name = "yahoo_chart"
+
+    def __init__(self, timeout: int = 20) -> None:
+        self.timeout = timeout
+        self.session = requests.Session()
+        self.session.headers.update({"User-Agent": "FinSent/Phase23.1 Yahoo chart historical fallback"})
+
+    def fetch_quote_snapshot(self, symbol: SymbolRecord) -> QuoteSnapshot:
+        return self._unavailable_quote(symbol, "Yahoo Chart is configured as a historical-bars fallback only")
+
+    def fetch_price_bars(self, symbol: SymbolRecord, start: datetime, end: datetime, interval: str) -> pd.DataFrame:
+        if symbol.exchange not in {"NSE", "BSE"}:
+            return super().fetch_price_bars(symbol, start, end, interval)
+
+        yahoo_symbol = symbol.symbol_for(self.provider_name)
+        response = self.session.get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{yahoo_symbol}",
+            params={
+                "period1": int((start - timedelta(days=2)).replace(tzinfo=timezone.utc).timestamp()),
+                "period2": int((end + timedelta(days=2)).replace(tzinfo=timezone.utc).timestamp()),
+                "interval": interval,
+                "events": "history",
+            },
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        chart = (response.json() or {}).get("chart") or {}
+        results = chart.get("result") or []
+        if not results:
+            return super().fetch_price_bars(symbol, start, end, interval)
+
+        result = results[0]
+        timestamps = result.get("timestamp") or []
+        quotes = ((result.get("indicators") or {}).get("quote") or [{}])[0]
+        rows: list[dict[str, object]] = []
+        for index, timestamp in enumerate(timestamps):
+            try:
+                values = {
+                    "Open": quotes["open"][index],
+                    "High": quotes["high"][index],
+                    "Low": quotes["low"][index],
+                    "Close": quotes["close"][index],
+                    "Volume": quotes["volume"][index],
+                }
+            except (IndexError, KeyError, TypeError):
+                continue
+            if any(value is None for value in values.values()):
+                continue
+            rows.append({"timestamp": pd.to_datetime(timestamp, unit="s", utc=True).tz_localize(None), **values})
+        if not rows:
+            return super().fetch_price_bars(symbol, start, end, interval)
+        frame = pd.DataFrame(rows).set_index("timestamp")
+        frame = frame[~frame.index.duplicated(keep="last")].sort_index()
+        return frame[["Open", "High", "Low", "Close", "Volume"]].apply(pd.to_numeric, errors="coerce").dropna()
+
+
 class UnavailableMarketProvider(BaseMarketProvider):
     provider_name = "unavailable"
 

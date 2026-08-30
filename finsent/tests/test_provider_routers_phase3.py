@@ -293,8 +293,8 @@ def test_default_market_candidates_route_us_nse_and_bse(monkeypatch) -> None:
     candidates = default_market_candidates()
 
     assert [candidate.provider for candidate in candidates if candidate.supports_exchange("US")] == ["alpaca", "polygon"]
-    assert [candidate.provider for candidate in candidates if candidate.supports_exchange("NSE")] == ["kite"]
-    assert [candidate.provider for candidate in candidates if candidate.supports_exchange("BSE")] == ["kite"]
+    assert [candidate.provider for candidate in candidates if candidate.supports_exchange("NSE")] == ["kite", "yahoo_chart"]
+    assert [candidate.provider for candidate in candidates if candidate.supports_exchange("BSE")] == ["kite", "yahoo_chart"]
 
 
 def test_historical_local_nse_data_policy_accepts_valid_csv(tmp_path) -> None:

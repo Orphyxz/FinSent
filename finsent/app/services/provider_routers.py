@@ -14,6 +14,7 @@ from finsent.app.services.market_providers import (
     PolygonMarketDataProvider,
     QuoteSnapshot,
     UnavailableMarketProvider,
+    YahooHistoricalMarketDataProvider,
     is_usable_quote_snapshot,
 )
 from finsent.app.services.news_providers import (
@@ -590,6 +591,14 @@ def default_market_candidates() -> list[ProviderCandidate]:
             configured=lambda: bool(settings.kite_api_key and settings.kite_access_token),
             factory=lambda: KiteMarketDataProvider(),
             unconfigured_message="KITE_API_KEY or KITE_ACCESS_TOKEN is not configured.",
+        ),
+        ProviderCandidate(
+            provider="yahoo_chart",
+            service=HISTORICAL_DATA_SERVICE,
+            supports_exchange=lambda exchange: exchange in {"NSE", "BSE"},
+            configured=lambda: True,
+            factory=lambda: YahooHistoricalMarketDataProvider(),
+            unconfigured_message="Yahoo Chart historical fallback is unavailable.",
         ),
     ]
 

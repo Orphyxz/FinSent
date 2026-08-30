@@ -7,6 +7,7 @@ import pandas as pd
 from dash.development.base_component import Component
 
 from finsent.app.config.settings import settings
+from finsent.app.dashboard import view_model as dashboard_view_model
 from finsent.app.dashboard.app import create_app
 from finsent.app.dashboard.layout import build_app_layout
 from finsent.app.dashboard.pages import alerts, compare, news_impact, research, stock_detail, summary
@@ -94,13 +95,20 @@ def test_phase23_registry_searches_ticker_and_company_name() -> None:
     assert registry.search("HDFC Bank", "INDIA")[0].ticker == "HDFCBANK"
 
 
-def test_phase23_market_filter_options_are_compact_and_searchable() -> None:
+def test_phase23_market_filter_options_are_compact_and_searchable(monkeypatch) -> None:
     assert len(filter_symbols_for_exchange("ALL")) > len(filter_symbols_for_exchange("US"))
     assert all(item.exchange == "US" for item in filter_symbols_for_exchange("US"))
     assert all(item.exchange == "NSE" for item in filter_symbols_for_exchange("INDIA"))
     india_options = get_ticker_options("INDIA")
-    assert any(option["value"] == "NSE:RELIANCE" and "Reliance" in option["search"] for option in india_options)
-    assert get_default_ticker_for_exchange("INDIA").startswith("NSE:")
+    assert any(option["value"] == "RELIANCE" and "Reliance" in option["search"] for option in india_options)
+    monkeypatch.setattr(dashboard_view_model, "get_local_research_symbols", lambda _market: ["RELIANCE"])
+    default = get_default_ticker_for_exchange("INDIA")
+    symbol = registry.resolve_any(default)
+    assert default == "RELIANCE"
+    assert symbol is not None
+    assert symbol.market == "INDIA"
+    assert symbol.exchange == "NSE"
+    assert symbol.symbol_for("kite") == "NSE:RELIANCE"
 
 
 def test_phase23_provider_symbol_normalization_is_centralized() -> None:

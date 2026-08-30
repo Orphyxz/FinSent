@@ -79,6 +79,8 @@ def _selection(data: dict | None) -> dict:
     }
     if data:
         base.update(data)
+    base["focus_ticker"] = get_display_symbol(str(base.get("focus_ticker") or default_ticker))
+    base["compare_tickers"] = [get_display_symbol(str(ticker)) for ticker in base.get("compare_tickers", []) if ticker]
     if base.get("exchange_filter") in {"NSE", "BSE"}:
         base["exchange_filter"] = "INDIA"
     return base
@@ -481,7 +483,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             if not ticker_prices.empty
             else build_empty_figure(
                 f"{focus_ticker} Last 7 Trading Days",
-                "No live market price history is available for the current window.",
+                "Historical price data is unavailable for the current window.",
             )
         )
         explanation_lines = build_ai_explanation(focus_ticker, state.news_df, state.compare_df)[:3]
@@ -647,7 +649,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
                     title=f"{focus_ticker} Price Timeline",
                 )
                 if not ticker_prices.empty
-                else build_empty_figure(f"{focus_ticker} Price Timeline", "Live quote unavailable. No stored historical price bars were found for this selected symbol.")
+                else build_empty_figure(f"{focus_ticker} Price Timeline", "Historical price data is unavailable for this selected symbol.")
             )
         signal_lines = build_ai_explanation(focus_ticker, state.news_df, state.compare_df)
         simple_signal_lines = build_simple_signal_explanation(focus_ticker, state.news_df, state.compare_df)

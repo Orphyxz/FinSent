@@ -290,7 +290,7 @@ def _storage_ticker(symbol: SymbolRecord) -> str:
 
 
 def _symbol_key(symbol: SymbolRecord) -> str:
-    return symbol.provider_symbol
+    return symbol.ticker
 
 
 def _format_sentiment_score(label: str | None, confidence: float | None) -> float:
@@ -343,7 +343,7 @@ def get_ticker_options(exchange_filter: str | None = None) -> list[dict[str, str
     return [
         {
             "label": symbol.ui_label,
-            "value": symbol.provider_symbol,
+            "value": symbol.ticker,
             "search": f"{symbol.ticker} {symbol.display_name} {symbol.market} {symbol.exchange} {symbol.sector}",
         }
         for symbol in ordered
@@ -358,7 +358,7 @@ def get_default_ticker_for_exchange(exchange_filter: str | None = None) -> str:
     if local:
         return local[0]
     symbols = filter_symbols_for_exchange(exchange_filter)
-    return symbols[0].provider_symbol if symbols else "AAPL"
+    return symbols[0].ticker if symbols else "AAPL"
 
 
 def get_default_compare_tickers(focus_ticker: str | None = None, exchange_filter: str | None = "US") -> list[str]:
@@ -2285,7 +2285,7 @@ def build_recent_price_histogram(
     if focus_ticker:
         work = work[work["ticker"] == focus_ticker]
     if work.empty:
-        return build_empty_figure(title, "No live market price history is available for the current window.")
+        return build_empty_figure(title, "Historical price data is unavailable for the current window.")
 
     work["timestamp"] = pd.to_datetime(work["timestamp"], errors="coerce")
     numeric_columns = ["open", "high", "low", "close", "volume"]
@@ -2294,7 +2294,7 @@ def build_recent_price_histogram(
             work[column] = pd.to_numeric(work[column], errors="coerce")
     work = work.dropna(subset=["timestamp", "close"]).sort_values("timestamp")
     if work.empty:
-        return build_empty_figure(title, "No live market price history is available for the current window.")
+        return build_empty_figure(title, "Historical price data is unavailable for the current window.")
 
     work["day"] = work["timestamp"].dt.floor("D")
     daily = (
@@ -2310,7 +2310,7 @@ def build_recent_price_histogram(
         .copy()
     )
     if daily.empty:
-        return build_empty_figure(title, "No live market price history is available for the current window.")
+        return build_empty_figure(title, "Historical price data is unavailable for the current window.")
     daily["label"] = daily["day"].dt.strftime("%d %b")
     value_floor = float(daily["close"].min()) if not daily["close"].empty else 0.0
     value_ceiling = float(daily["close"].max()) if not daily["close"].empty else 0.0

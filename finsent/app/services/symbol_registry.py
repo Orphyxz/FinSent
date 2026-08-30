@@ -39,7 +39,7 @@ class SymbolRecord:
             return self.provider_symbol
         if target == "polygon":
             return self.polygon_symbol or self.ticker
-        if target in {"yahoo", "yfinance", "fallback_web"}:
+        if target in {"yahoo", "yahoo_chart", "yfinance", "fallback_web"}:
             return self.yahoo_symbol
         return self.ticker if self.exchange == "US" else self.provider_symbol
 
