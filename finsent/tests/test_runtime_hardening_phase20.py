@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
+from time import sleep
 from types import SimpleNamespace
 
 import pandas as pd
@@ -140,6 +143,49 @@ def test_dashboard_state_cache_reuses_identical_workspace(monkeypatch) -> None:
     second = view_model.build_dashboard_state("AAPL", ["NVDA"], "medium", None, None)
 
     assert first is second
+    assert calls["count"] == 1
+
+
+def test_dashboard_state_cache_single_flights_concurrent_callbacks(monkeypatch) -> None:
+    from finsent.app.dashboard import view_model
+
+    calls = {"count": 0}
+    calls_lock = Lock()
+    state = view_model.DashboardState(
+        news_df=view_model.empty_news_frame(),
+        price_df=view_model.empty_price_frame(),
+        event_df=pd.DataFrame(),
+        daily_summary_df=pd.DataFrame(),
+        compare_df=pd.DataFrame(columns=view_model.COMPARE_COLUMNS),
+        sector_df=pd.DataFrame(),
+        snapshot_map={},
+        quote_meta_map={},
+        signal_meta_map={},
+        demo_mode=False,
+        data_status="ok",
+        data_mode=view_model.DATA_MODE_UNAVAILABLE,
+    )
+
+    def fake_builder(*_args, **_kwargs):
+        with calls_lock:
+            calls["count"] += 1
+        sleep(0.05)
+        return state
+
+    view_model._dashboard_state_cache._entry = None
+    monkeypatch.setattr(view_model, "_build_dashboard_state_uncached", fake_builder)
+    monkeypatch.setattr(view_model, "detect_data_mode", lambda: view_model.DATA_MODE_UNAVAILABLE)
+    monkeypatch.setattr(settings, "dashboard_state_cache_ttl_seconds", 60)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(
+            executor.map(
+                lambda _index: view_model.build_dashboard_state("AAPL", ["NVDA"], "medium", None, None),
+                range(8),
+            )
+        )
+
+    assert all(result is state for result in results)
     assert calls["count"] == 1
 
 

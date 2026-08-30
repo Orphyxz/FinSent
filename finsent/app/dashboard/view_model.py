@@ -260,6 +260,7 @@ class _DashboardStateCache:
 
 
 _dashboard_state_cache = _DashboardStateCache()
+_dashboard_state_build_lock = RLock()
 _live_refresh_lock = RLock()
 _live_refresh_inflight: set[str] = set()
 
@@ -1541,34 +1542,41 @@ def build_dashboard_state(
     if cached is not None:
         return cached
 
-    started = datetime.now(timezone.utc).replace(tzinfo=None)
-    timer = perf_counter()
-    try:
-        state = _build_dashboard_state_uncached(focus_ticker, compare_tickers, horizon, start_date, end_date)
-    except Exception as exc:
+    # A single page load fires several Dash callbacks with the same workspace
+    # key. Let one callback build it while the others wait for the cached value.
+    with _dashboard_state_build_lock:
+        cached = _dashboard_state_cache.get(key)
+        if cached is not None:
+            return cached
+
+        started = datetime.now(timezone.utc).replace(tzinfo=None)
+        timer = perf_counter()
+        try:
+            state = _build_dashboard_state_uncached(focus_ticker, compare_tickers, horizon, start_date, end_date)
+        except Exception as exc:
+            completed = datetime.now(timezone.utc).replace(tzinfo=None)
+            runtime_diagnostics.record_refresh(
+                key=str(key),
+                started_at=started,
+                completed_at=completed,
+                duration_ms=int((perf_counter() - timer) * 1000),
+                cache_status="ERROR",
+                symbols=list(selected),
+                error=exc,
+            )
+            raise
+
+        _dashboard_state_cache.set(key, state)
         completed = datetime.now(timezone.utc).replace(tzinfo=None)
         runtime_diagnostics.record_refresh(
             key=str(key),
             started_at=started,
             completed_at=completed,
             duration_ms=int((perf_counter() - timer) * 1000),
-            cache_status="ERROR",
+            cache_status="MISS",
             symbols=list(selected),
-            error=exc,
         )
-        raise
-
-    _dashboard_state_cache.set(key, state)
-    completed = datetime.now(timezone.utc).replace(tzinfo=None)
-    runtime_diagnostics.record_refresh(
-        key=str(key),
-        started_at=started,
-        completed_at=completed,
-        duration_ms=int((perf_counter() - timer) * 1000),
-        cache_status="MISS",
-        symbols=list(selected),
-    )
-    return state
+        return state
 
 
 def _build_dashboard_state_uncached(

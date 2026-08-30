@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from finsent.app.config.settings import settings
@@ -17,7 +17,27 @@ if settings.database_url.startswith("sqlite:///"):
     sqlite_path = Path(settings.database_url.replace("sqlite:///", "", 1))
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
 
-engine = create_engine(settings.database_url, future=True)
+_engine_options: dict[str, object] = {"future": True}
+if settings.database_url.startswith("sqlite:///"):
+    # Dash serves callbacks on multiple threads. Give SQLite time to wait for a
+    # short writer and allow readers to continue while that writer commits.
+    _engine_options["connect_args"] = {"timeout": 30, "check_same_thread": False}
+
+engine = create_engine(settings.database_url, **_engine_options)
+
+
+if engine.dialect.name == "sqlite":
+    @event.listens_for(engine, "connect")
+    def _configure_sqlite_connection(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA busy_timeout=30000")
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+        finally:
+            cursor.close()
+
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 

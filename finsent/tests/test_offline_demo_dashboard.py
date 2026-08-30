@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import func, select
 
 from finsent.app.config.settings import settings
@@ -18,6 +19,7 @@ from finsent.app.database.entities import EventStudyResult, ExperimentRun, NewsA
 def test_local_research_mode_detects_transferred_research_state(monkeypatch) -> None:
     _disable_live_credentials(monkeypatch)
     summary = get_local_research_summary()
+    _require_full_data_bundle(summary)
 
     assert detect_data_mode() == DATA_MODE_LOCAL
     assert summary["articles"] >= 400
@@ -38,6 +40,7 @@ def test_default_demo_symbol_and_peers_are_live_watchlist_first(monkeypatch) -> 
 
 def test_dashboard_state_uses_stored_news_finbert_prices_and_research_signals(monkeypatch) -> None:
     _disable_live_credentials(monkeypatch)
+    _require_full_data_bundle(get_local_research_summary())
     focus = "AMZN"
     state = build_dashboard_state(focus, ["NVDA", "TSLA"], "medium", None, None)
 
@@ -86,6 +89,11 @@ def _counts(session, entities: list[type]) -> dict[str, int]:
         entity.__tablename__: session.execute(select(func.count()).select_from(entity)).scalar_one()
         for entity in entities
     }
+
+
+def _require_full_data_bundle(summary: dict[str, object]) -> None:
+    if int(summary.get("articles", 0)) < 400:
+        pytest.skip("optional FinSent research data bundle is not installed")
 
 
 def _disable_live_credentials(monkeypatch) -> None:

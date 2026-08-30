@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import logging
+from threading import RLock
 from time import perf_counter
 
 import pandas as pd
@@ -36,6 +37,7 @@ from finsent.app.services.symbol_registry import SymbolRecord, registry
 
 
 logger = logging.getLogger(__name__)
+_live_persistence_lock = RLock()
 
 
 @dataclass(slots=True)
@@ -121,128 +123,149 @@ class IntelligenceService:
         analyses: list[ArticleAnalysis] = []
         uncached_remote_analyses = 0
 
-        with SessionLocal() as session:
-            try:
-                news_repo = NewsRepository(session)
-                price_repo = PriceRepository(session)
-                quote_repo = QuoteSnapshotRepository(session)
-                analysis_repo = AnalysisRepository(session)
-                signal_repo = SignalSnapshotRepository(session)
-                instrument = InstrumentRepository(session).get_or_create_from_symbol(symbol)
-                audit_repo = ProviderAuditRepository(session)
-                quality_repo = DataQualityRepository(session)
-                research_repo = ResearchResultRepository(session)
+        # Read the analysis cache in a short, read-only session. In particular,
+        # do not keep a SQLite write transaction open while FinBERT downloads or
+        # performs inference on first use.
+        with SessionLocal() as cache_session:
+            analysis_repo = AnalysisRepository(cache_session)
+            cached_analyses = {
+                article.dedupe_hash: analysis_repo.get_by_article_hash(article.dedupe_hash)
+                for article in articles
+            }
 
-                quote_repo.upsert_quote_snapshot(symbol, quote)
-                if not quote_result.from_cache:
-                    quote_audit = audit_repo.record_provider_result(
-                        result=quote_result,
-                        operation="fetch_quote",
-                        instrument_id=instrument.id,
-                        record_count=1 if quote_result.data is not None else 0,
-                    )
-                    if quote_result.quality is not None:
-                        quality_repo.store_assessment(
-                            subject_type="provider_audit",
-                            subject_id=quote_audit.id,
-                            assessment=quote_result.quality,
-                        )
-                if not price_result.from_cache:
-                    bars_audit = audit_repo.record_provider_result(
-                        result=price_result,
-                        operation="fetch_price_bars",
-                        instrument_id=instrument.id,
-                        record_count=0 if price_history is None else int(len(price_history)),
-                    )
-                    if price_result.quality is not None:
-                        quality_repo.store_assessment(
-                            subject_type="provider_audit",
-                            subject_id=bars_audit.id,
-                            assessment=price_result.quality,
-                        )
-                if not news_result.from_cache:
-                    news_audit = audit_repo.record_provider_result(
-                        result=news_result,
-                        operation="fetch_news",
-                        instrument_id=instrument.id,
-                        record_count=len(fetched_articles),
-                    )
-                    if news_result.quality is not None:
-                        quality_repo.store_assessment(
-                            subject_type="provider_audit",
-                            subject_id=news_audit.id,
-                            assessment=news_result.quality,
-                        )
-                for article in articles:
-                    cached = analysis_repo.get_by_article_hash(article.dedupe_hash)
-                    analysis_from_cache = cached is not None
-                    if cached is not None:
-                        analysis = cached
-                    else:
-                        if uncached_remote_analyses < settings.llm_analysis_limit:
-                            analysis = self.llm.analyze_article(symbol, article)
-                            uncached_remote_analyses += 1
-                        else:
-                            analysis = heuristic_article_analysis(
-                                symbol,
-                                article,
-                                provider=self.llm.provider_name,
-                                parse_status="heuristic_budget_fallback",
-                                reason="LLM analysis budget reached for this refresh; local heuristic analysis used.",
-                            )
-                    analyses.append(analysis)
-                    row = news_repo.upsert_normalized_news(symbol, article, analysis)
-                    if not analysis_from_cache and analysis.provider == "finbert":
-                        research_repo.store_sentiment_run(
-                            article_id=row.id,
-                            instrument_id=instrument.id,
-                            experiment_id=None,
-                            provider="finbert",
-                            model_family="finbert",
-                            model_name=settings.model_name,
-                            model_version=settings.model_name,
-                            analysis_method="classifier",
-                            schema_version="live_sentiment_analysis_v1",
-                            sentiment_label=analysis.sentiment,
-                            sentiment_score=_analysis_score(analysis.sentiment, analysis.confidence),
-                            confidence=analysis.confidence,
-                            relevance=1.0 if analysis.relevant else 0.0,
-                            impact_strength=analysis.impact_strength,
-                            time_horizon=analysis.time_horizon,
-                            catalyst_tag=analysis.catalyst_tag,
-                            short_reason=analysis.short_reason,
-                            parse_status=analysis.parse_status,
-                            fallback_used=False,
-                            metadata={"run_type": "APPLICATION_LIVE_RUN", "article_hash": article.dedupe_hash},
-                        )
-
-                article_pairs = list(zip(articles, analyses))
-                aggregate = self.llm.aggregate(symbol, article_pairs)
-                signal = self.signal_engine.compute(quote, article_pairs, aggregate)
-                v2_input = SignalEngineV2Service(session=session).build_input(
-                    instrument=symbol,
-                    news_pairs=article_pairs,
-                    quote=quote,
-                    price_bars=price_history,
-                    quote_quality=quote_result.quality,
-                    bars_quality=price_result.quality,
-                    news_quality=news_result.quality,
-                    provider_metadata={
-                        "run_type": "APPLICATION_LIVE_RUN",
-                        "market_provider": quote_result.provider,
-                        "news_provider": news_result.provider,
-                        "feed": getattr(quote, "feed", None) or settings.alpaca_feed,
-                        "input_fingerprint": _live_input_fingerprint(quote, articles, price_history),
-                    },
+        analysis_cache_hits: list[bool] = []
+        for article in articles:
+            cached = cached_analyses.get(article.dedupe_hash)
+            analysis_from_cache = cached is not None
+            if cached is not None:
+                analysis = cached
+            elif uncached_remote_analyses < settings.llm_analysis_limit:
+                analysis = self.llm.analyze_article(symbol, article)
+                uncached_remote_analyses += 1
+            else:
+                analysis = heuristic_article_analysis(
+                    symbol,
+                    article,
+                    provider=self.llm.provider_name,
+                    parse_status="heuristic_budget_fallback",
+                    reason="LLM analysis budget reached for this refresh; local heuristic analysis used.",
                 )
-                signal_v2 = SignalEngineV2Service(session=session).evaluate(v2_input, persist=True, experiment_id=None)
-                if not price_history.empty:
-                    price_repo.upsert_price_bars(self.storage_ticker(symbol), price_history)
-                signal_repo.upsert_signal_snapshot(symbol, quote, aggregate, signal)
-                session.commit()
-            except Exception:
-                session.rollback()
-                raise
+            analyses.append(analysis)
+            analysis_cache_hits.append(analysis_from_cache)
+
+        article_pairs = list(zip(articles, analyses))
+        aggregate = self.llm.aggregate(symbol, article_pairs)
+        signal = self.signal_engine.compute(quote, article_pairs, aggregate)
+        v2_input = SignalEngineV2Service().build_input(
+            instrument=symbol,
+            news_pairs=article_pairs,
+            quote=quote,
+            price_bars=price_history,
+            quote_quality=quote_result.quality,
+            bars_quality=price_result.quality,
+            news_quality=news_result.quality,
+            provider_metadata={
+                "run_type": "APPLICATION_LIVE_RUN",
+                "market_provider": quote_result.provider,
+                "news_provider": news_result.provider,
+                "feed": getattr(quote, "feed", None) or settings.alpaca_feed,
+                "input_fingerprint": _live_input_fingerprint(quote, articles, price_history),
+            },
+        )
+
+        # SQLite has a single writer. Keep this section small and serialize it
+        # across live ticker refreshes so Dash callback concurrency cannot make
+        # an otherwise healthy refresh fail with "database is locked".
+        with _live_persistence_lock:
+            with SessionLocal() as session:
+                try:
+                    news_repo = NewsRepository(session)
+                    price_repo = PriceRepository(session)
+                    quote_repo = QuoteSnapshotRepository(session)
+                    signal_repo = SignalSnapshotRepository(session)
+                    instrument = InstrumentRepository(session).get_or_create_from_symbol(symbol)
+                    audit_repo = ProviderAuditRepository(session)
+                    quality_repo = DataQualityRepository(session)
+                    research_repo = ResearchResultRepository(session)
+
+                    quote_repo.upsert_quote_snapshot(symbol, quote)
+                    if not quote_result.from_cache:
+                        quote_audit = audit_repo.record_provider_result(
+                            result=quote_result,
+                            operation="fetch_quote",
+                            instrument_id=instrument.id,
+                            record_count=1 if quote_result.data is not None else 0,
+                        )
+                        if quote_result.quality is not None:
+                            quality_repo.store_assessment(
+                                subject_type="provider_audit",
+                                subject_id=quote_audit.id,
+                                assessment=quote_result.quality,
+                            )
+                    if not price_result.from_cache:
+                        bars_audit = audit_repo.record_provider_result(
+                            result=price_result,
+                            operation="fetch_price_bars",
+                            instrument_id=instrument.id,
+                            record_count=0 if price_history is None else int(len(price_history)),
+                        )
+                        if price_result.quality is not None:
+                            quality_repo.store_assessment(
+                                subject_type="provider_audit",
+                                subject_id=bars_audit.id,
+                                assessment=price_result.quality,
+                            )
+                    if not news_result.from_cache:
+                        news_audit = audit_repo.record_provider_result(
+                            result=news_result,
+                            operation="fetch_news",
+                            instrument_id=instrument.id,
+                            record_count=len(fetched_articles),
+                        )
+                        if news_result.quality is not None:
+                            quality_repo.store_assessment(
+                                subject_type="provider_audit",
+                                subject_id=news_audit.id,
+                                assessment=news_result.quality,
+                            )
+                    for article, analysis, analysis_from_cache in zip(
+                        articles, analyses, analysis_cache_hits, strict=True
+                    ):
+                        row = news_repo.upsert_normalized_news(symbol, article, analysis)
+                        if not analysis_from_cache and analysis.provider == "finbert":
+                            research_repo.store_sentiment_run(
+                                article_id=row.id,
+                                instrument_id=instrument.id,
+                                experiment_id=None,
+                                provider="finbert",
+                                model_family="finbert",
+                                model_name=settings.model_name,
+                                model_version=settings.model_name,
+                                analysis_method="classifier",
+                                schema_version="live_sentiment_analysis_v1",
+                                sentiment_label=analysis.sentiment,
+                                sentiment_score=_analysis_score(analysis.sentiment, analysis.confidence),
+                                confidence=analysis.confidence,
+                                relevance=1.0 if analysis.relevant else 0.0,
+                                impact_strength=analysis.impact_strength,
+                                time_horizon=analysis.time_horizon,
+                                catalyst_tag=analysis.catalyst_tag,
+                                short_reason=analysis.short_reason,
+                                parse_status=analysis.parse_status,
+                                fallback_used=False,
+                                metadata={"run_type": "APPLICATION_LIVE_RUN", "article_hash": article.dedupe_hash},
+                            )
+
+                    signal_v2 = SignalEngineV2Service(session=session).evaluate(
+                        v2_input, persist=True, experiment_id=None
+                    )
+                    if not price_history.empty:
+                        price_repo.upsert_price_bars(self.storage_ticker(symbol), price_history)
+                    signal_repo.upsert_signal_snapshot(symbol, quote, aggregate, signal)
+                    session.commit()
+                except Exception:
+                    session.rollback()
+                    raise
 
         runtime_diagnostics.record_refresh(
             key=f"intelligence:{symbol.provider_symbol}",
