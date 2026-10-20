@@ -27,7 +27,7 @@ These files are usable as historical price input after explicit import. Because 
 
 ## Reference-Only Files
 
-`All_Indian_Stocks_listed_in_nifty500.csv` and `6000 Largest Companies ranked by Market Cap.csv` are company universe/reference files. They are useful for symbol coverage analysis but are not article or price histories by themselves.
+`data/reference/india_nifty500_companies.csv` and `data/reference/us_largest_companies_by_market_cap.csv` are company universe/reference files. They are useful for symbol coverage analysis but are not article or price histories by themselves.
 
 ## Unusable Local File
 

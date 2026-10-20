@@ -7,8 +7,8 @@ Phase 5 makes local dataset provenance explicit. CSV files remain intentional pr
 | Dataset | Role | Status Policy |
 |---|---|---|
 | `archive/v1/*.csv` | Offline NSE historical/import/reference data | Keep. Default scan is sampled and marked partial unless deep-scanned. Not a live quote substitute. |
-| `All_Indian_Stocks_listed_in_nifty500.csv` | India company universe/reference | Keep as reference data. |
-| `6000 Largest Companies ranked by Market Cap.csv` | US company universe/reference | Keep as reference data. |
+| `data/reference/india_nifty500_companies.csv` | India company universe/reference | Keep as reference data. |
+| `data/reference/us_largest_companies_by_market_cap.csv` | US company universe/reference | Keep as reference data. |
 | `SnP_daily_update.csv` | Intended US historical price file | Keep guarded. Current local copy is a Git LFS pointer and is classified `BROKEN`. Do not fabricate replacement data. |
 | `data/research_sources/fnspid` | Phase 11 bounded FNSPID historical-news subset | Keep local/generated. Manifest is reproducibility metadata; subset data remains ignored. |
 | `data/research_sources/yfinance_daily` | Phase 11 bounded daily research price subset | Keep local/generated. Daily bars support only `1D` Event Study V2. |

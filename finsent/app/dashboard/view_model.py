@@ -439,7 +439,7 @@ def get_price_status_note(ticker: str, has_price: bool, quote_meta: dict[str, ob
         freshness = quote_meta.get("freshness_seconds")
         quality = str(quote_meta.get("quality_status") or "unavailable")
         age_note = (
-            f"Last market update {int(float(freshness))}s ago"
+            f"Last market update {format_age_seconds(float(freshness))} ago"
             if freshness is not None and pd.notna(freshness)
             else "Freshness unavailable"
         )
@@ -595,6 +595,11 @@ def format_age_from_timestamp(value: object) -> str:
         return "n/a"
     now = pd.Timestamp.utcnow().tz_localize(None)
     delta_seconds = max(int((now - ts.tz_localize(None) if getattr(ts, "tzinfo", None) is not None else now - ts).total_seconds()), 0)
+    return format_age_seconds(delta_seconds)
+
+
+def format_age_seconds(seconds: float) -> str:
+    delta_seconds = max(int(seconds), 0)
     if delta_seconds < 60:
         return f"{delta_seconds}s"
     if delta_seconds < 3600:

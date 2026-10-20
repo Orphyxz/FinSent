@@ -4,6 +4,8 @@ Financial News Sentiment & Short-Term Market Intelligence Platform
 
 FinSent is a local Dash application for financial news sentiment, catalyst explanation, live/latest market context, and short-term signal research. It is designed for academic demonstration and research reproducibility, not for automated trading or investment advice.
 
+![FinSent overview dashboard](docs/screenshots/overview.png)
+
 ## What FinSent Does
 
 Live application path:
@@ -200,6 +202,8 @@ Alerts are contextual dashboard signals derived from the current workspace. FinS
 
 ## Research Results
 
+![Locked research dashboard](docs/screenshots/research.png)
+
 The locked Phase 16 1D final cohort has `N=111` technical-eligible observations from AMZN, NVDA, and TSLA using bounded FNSPID/Yahoo research data.
 
 | Metric | Signal V1 | Signal V2.0 |
@@ -221,6 +225,8 @@ Interpretation: V2.0 produced slightly higher directional accuracy on fewer dire
 Do not rerun or tune against Phase 16 final holdout artifacts.
 
 ## Documentation
+
+Full index: [docs/README.md](docs/README.md). Key docs:
 
 - [Active Architecture](docs/ACTIVE_ARCHITECTURE.md)
 - [Provider Architecture](docs/PROVIDER_ARCHITECTURE.md)

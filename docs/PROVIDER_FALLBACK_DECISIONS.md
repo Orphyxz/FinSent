@@ -43,8 +43,8 @@ This order favors freshness first, but data quality is explicitly lowered for se
 |---|---|---|---|
 | `archive/v1/*.csv` | ACTIVE FOR OFFLINE IMPORT | USABLE/PARTIAL | Large NSE historical archive. Timestamp normalized to naive UTC. Completeness varies by file and is not yet scored by symbol/date coverage. |
 | `SnP_daily_update.csv` | BROKEN IN LOCAL COPY | BROKEN | Current file is a Git LFS pointer. Guard rejects it before parsing. |
-| `All_Indian_Stocks_listed_in_nifty500.csv` | ACTIVE REFERENCE DATA | PARTIAL | Useful universe/reference file, not a live price source. |
-| `6000 Largest Companies ranked by Market Cap.csv` | ACTIVE REFERENCE DATA | PARTIAL | Useful US universe/reference file, not a live price source. |
+| `data/reference/india_nifty500_companies.csv` | ACTIVE REFERENCE DATA | PARTIAL | Useful universe/reference file, not a live price source. |
+| `data/reference/us_largest_companies_by_market_cap.csv` | ACTIVE REFERENCE DATA | PARTIAL | Useful US universe/reference file, not a live price source. |
 | Provider bars from Polygon/Kite | ACTIVE LIVE/HISTORICAL PROVIDER | USABLE WHEN VALID | Routed through `MarketDataRouter` and validated before acceptance. |
 
 ## Remaining Decisions

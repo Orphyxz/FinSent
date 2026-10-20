@@ -110,6 +110,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         external_stylesheets=[dbc.themes.BOOTSTRAP],
         assets_folder=get_assets_folder(),
         suppress_callback_exceptions=True,
+        title="FinSent",
     )
     app.layout = build_app_layout(default_ticker, default_compare_tickers)
 

@@ -12,8 +12,8 @@ from finsent.app.database.repository import PriceRepository
 
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
-DEFAULT_INDIA_COMPANY_FILE = ROOT_DIR / "All_Indian_Stocks_listed_in_nifty500.csv"
-DEFAULT_US_COMPANY_FILE = ROOT_DIR / "6000 Largest Companies ranked by Market Cap.csv"
+DEFAULT_INDIA_COMPANY_FILE = ROOT_DIR / "data" / "reference" / "india_nifty500_companies.csv"
+DEFAULT_US_COMPANY_FILE = ROOT_DIR / "data" / "reference" / "us_largest_companies_by_market_cap.csv"
 DEFAULT_INDIA_ARCHIVE_DIR = ROOT_DIR / "archive" / "v1"
 DEFAULT_US_PRICE_FILE = ROOT_DIR / "SnP_daily_update.csv"
 GIT_LFS_POINTER_HEADER = "version https://git-lfs.github.com/spec/v1"
