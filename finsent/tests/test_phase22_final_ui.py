@@ -28,8 +28,8 @@ def test_phase22_layout_keeps_callback_targets_and_places_status_as_utility() ->
         "global-compare-apply",
     }
     assert expected.issubset(ids)
-    direct_ids = [child.id for child in layout.children if hasattr(child, "id") and child.id]
-    assert direct_ids.index("system-status-panel") < direct_ids.index("page-container")
+    ordered_ids = _ids_in_order(layout)
+    assert ordered_ids.index("system-status-panel") < ordered_ids.index("page-container")
 
 
 def test_phase22_pages_expose_presentation_grade_sections_without_new_features() -> None:
@@ -162,3 +162,16 @@ def _text(component) -> list[str]:
     elif children is not None:
         values.extend(_text(children))
     return values
+
+
+def _ids_in_order(component) -> list[str]:
+    ordered: list[str] = []
+    if hasattr(component, "id") and component.id:
+        ordered.append(component.id)
+    children = getattr(component, "children", None)
+    if isinstance(children, (list, tuple)):
+        for child in children:
+            ordered.extend(_ids_in_order(child))
+    elif children is not None and not isinstance(children, (str, int, float)):
+        ordered.extend(_ids_in_order(children))
+    return ordered

@@ -80,8 +80,8 @@ def test_phase23_registry_materially_expands_us_and_india() -> None:
     us = registry.list_symbols("US")
     india = registry.list_symbols("INDIA")
 
-    assert 75 <= len(us) <= 150
-    assert 50 <= len(india) <= 100
+    assert 150 <= len(us) <= 260
+    assert 120 <= len(india) <= 200
     assert {"Technology", "Financials", "Health Care", "Energy", "Industrials", "Utilities", "Real Estate", "Materials"}.issubset(
         {item.sector for item in us}
     )

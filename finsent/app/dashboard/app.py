@@ -192,7 +192,8 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         date_style = {"display": "block"} if current_path in {"/", "/summary", "/news-impact"} else {"display": "none"}
         compare_style = {"display": "block"} if current_path in {"/", "/summary", "/stock-detail", "/news-impact", "/compare", "/alerts"} else {"display": "none"}
         alert_style = {"display": "block"} if current_path == "/alerts" else {"display": "none"}
-        top_style = {"display": "none"} if current_path == "/research" else {"display": "block"}
+        # Empty style lets the stylesheet lay the controls into the shared control dock.
+        top_style = {"display": "none"} if current_path == "/research" else {}
         return top_style, {"display": "none"}, horizon_style, date_style, compare_style, alert_style
 
     @app.callback(

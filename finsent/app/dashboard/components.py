@@ -113,7 +113,7 @@ def build_workspace_bar(
                             ),
                             html.Div(
                                 [
-                                    html.Div("Search Company or Ticker", className="control-label"),
+                                    html.Div("Company or ticker", className="control-label"),
                                     dcc.Dropdown(
                                         id="global-focus-ticker",
                                         options=ticker_options,
@@ -130,13 +130,6 @@ def build_workspace_bar(
                             ),
                         ],
                         className="workspace-primary-block workspace-primary-control-grid",
-                    ),
-                    html.Div(
-                        [
-                            html.Div("Research boundary", className="workspace-disclosure-label"),
-                            html.Div("Live/latest intelligence remains separate from the locked historical evaluation.", className="workspace-disclosure-copy"),
-                        ],
-                        className="workspace-disclosure-copy-wrap",
                     ),
                 ],
                 className="workspace-primary-row",
@@ -240,7 +233,7 @@ def build_workspace_bar(
                                 className="workspace-filter-grid",
                             )
                         ],
-                        title="More filters",
+                        title="Filters",
                         item_id="workspace-filters",
                     )
                 ],
@@ -313,7 +306,7 @@ def build_landing_search(default_ticker: str) -> html.Div:
 
 def build_footer() -> html.Div:
     return html.Div(
-        "FinSent Research Terminal | Dash | Plotly | Locked final evaluation read-only",
+        "FinSent · Research signals only, not investment advice · Locked evaluation is read-only",
         className="footer-strip",
     )
 

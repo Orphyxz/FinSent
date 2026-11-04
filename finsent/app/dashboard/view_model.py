@@ -744,20 +744,16 @@ def build_focus_status_banner(focus_ticker: str, state: DashboardState) -> html.
     market_status = str(quote_meta.get("market_status") or "UNKNOWN")
     if not compare_row.empty and "market_status" in compare_row.columns:
         market_status = str(compare_row["market_status"].iloc[0] or market_status)
+    market_tone = "open" if "OPEN" in market_status.upper() and "CLOSED" not in market_status.upper() else "closed"
     simple_status = html.Div(
         [
-            html.Div(market_status.replace("_", " ").title(), className="status-value"),
             html.Div(
-                f"{focus_ticker} uses {price_source} market data. Information is {freshness_age}; overall quality is {overall_quality}.",
-                className="status-copy",
+                [html.Span(className=f"status-dot status-dot-{market_tone}"), market_status.replace("_", " ").title()],
+                className="status-value",
             ),
             html.Div(
-                [
-                    html.Div(f"Source: {price_source}", className="status-pill"),
-                    html.Div(f"Freshness: {freshness_age}", className="status-pill"),
-                    html.Div(f"Quality: {overall_quality}", className="status-pill"),
-                ],
-                className="badge-row",
+                f"{price_source} data · updated {freshness_age} · quality {str(overall_quality).lower()}",
+                className="status-copy",
             ),
         ],
         className="status-banner simple-only",
@@ -803,39 +799,50 @@ def build_runtime_status_panel() -> html.Div:
     ]
     simple_panel = html.Details(
         [
-            html.Summary("System status", className="system-status-summary"),
+            html.Summary(
+                [html.Span(className=f"status-dot status-dot-{'open' if db.state == 'HEALTHY' else 'closed'}"), "Status"],
+                className="system-status-summary",
+            ),
             html.Div(
                 [
-                    html.Div("System operational" if db.state == "HEALTHY" else "System status limited", className="status-value"),
-                    html.Div(f"Market data: {market_provider} | News: {news_provider} | Last refresh: {last_refresh_age}", className="status-copy"),
+                    html.Div("All systems operational" if db.state == "HEALTHY" else "Some services limited", className="status-value"),
+                    html.Div(f"Market data: {market_provider} · News: {news_provider} · Last refresh: {last_refresh_age}", className="status-copy"),
                 ],
-                className="simple-system-status",
+                className="simple-system-status system-status-popover",
             ),
         ],
         className="system-status-panel simple-only",
     )
     analyst_panel = html.Details(
         [
-            html.Summary("System Status", className="system-status-summary"),
+            html.Summary(
+                [html.Span(className=f"status-dot status-dot-{'open' if db.state == 'HEALTHY' else 'closed'}"), "System status"],
+                className="system-status-summary",
+            ),
             html.Div(
                 [
                     html.Div(
                         [
-                            html.Div(label, className="summary-label"),
-                            html.Div(value, className="summary-value"),
+                            html.Div(
+                                [
+                                    html.Div(label, className="summary-label"),
+                                    html.Div(value, className="summary-value"),
+                                ],
+                                className="summary-item",
+                            )
+                            for label, value in health_items
                         ],
-                        className="summary-item",
-                    )
-                    for label, value in health_items
+                        className="system-status-grid",
+                    ),
+                    html.Div(
+                        [
+                            html.Div(f"{label}: {value}", className="metric-note")
+                            for label, value in details
+                        ],
+                        className="system-status-details",
+                    ),
                 ],
-                className="system-status-grid",
-            ),
-            html.Div(
-                [
-                    html.Div(f"{label}: {value}", className="metric-note")
-                    for label, value in details
-                ],
-                className="system-status-details",
+                className="system-status-popover",
             ),
         ],
         className="system-status-panel analyst-only",

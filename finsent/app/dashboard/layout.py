@@ -29,18 +29,24 @@ def build_app_layout(default_ticker: str, default_compare_tickers: list[str] | N
             dcc.Store(id="live-refresh-store", storage_type="memory"),
             build_navbar(),
             html.Div(build_landing_search(default_ticker), id="landing-controls-container"),
+            # Symbol controls, filters and system status share one compact dock.
             html.Div(
-                build_workspace_bar(
-                    focus_ticker=default_ticker,
-                    exchange_filter="US",
-                    compare_tickers=compare_tickers,
-                    horizon="medium",
-                    date_window="30d",
-                    alert_threshold=40,
-                ),
-                id="top-controls-container",
+                [
+                    html.Div(
+                        build_workspace_bar(
+                            focus_ticker=default_ticker,
+                            exchange_filter="US",
+                            compare_tickers=compare_tickers,
+                            horizon="medium",
+                            date_window="30d",
+                            alert_threshold=40,
+                        ),
+                        id="top-controls-container",
+                    ),
+                    html.Div(id="system-status-panel"),
+                ],
+                className="control-dock",
             ),
-            html.Div(id="system-status-panel"),
             html.Main(id="page-container", className="workspace-main"),
             build_footer(),
         ],

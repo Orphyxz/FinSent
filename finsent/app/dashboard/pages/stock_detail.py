@@ -62,7 +62,7 @@ def layout() -> html.Div:
                                         html.H3("Market Header", className="section-title"),
                                         html.Div(id="stock-summary-panel", className="summary-stack"),
                                     ],
-                                    className="section-shell compact-panel mb-3",
+                                    className="section-shell compact-panel",
                                 ),
                                 html.Div(
                                     [
@@ -72,14 +72,6 @@ def layout() -> html.Div:
                                         html.Div(id="stock-ai-explanation", className="explanation-box compact"),
                                     ],
                                     className="section-shell explanation-shell",
-                                ),
-                                html.Div(
-                                    [
-                                        html.Div("Catalyst Intelligence", className="section-kicker"),
-                                        html.H3("Catalyst Summary", className="section-title"),
-                                        html.Div(id="stock-catalyst-summary", className="summary-stack"),
-                                    ],
-                                    className="section-shell mt-3",
                                 ),
                             ],
                             className="stack-shell",
@@ -125,6 +117,7 @@ def layout() -> html.Div:
                             [
                                 html.Div("Catalyst Intelligence", className="section-kicker"),
                                 html.H3("Key Catalysts", className="section-title"),
+                                html.Div(id="stock-catalyst-summary", className="summary-stack catalyst-summary-grid"),
                                 html.Div(id="stock-key-catalysts", className="summary-stack catalyst-list"),
                             ],
                             className="section-shell",
