@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone
 from io import StringIO
 import logging
-from typing import Protocol
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -56,16 +55,6 @@ class QuoteSnapshot:
     feed: str | None = None
     retrieved_at: datetime | None = None
     freshness_label: str = "UNKNOWN"
-
-
-class MarketDataProvider(Protocol):
-    provider_name: str
-
-    def fetch_quote_snapshot(self, symbol: SymbolRecord) -> QuoteSnapshot:
-        ...
-
-    def fetch_price_bars(self, symbol: SymbolRecord, start: datetime, end: datetime, interval: str) -> pd.DataFrame:
-        ...
 
 
 class BaseMarketProvider:
@@ -296,9 +285,9 @@ class PolygonMarketDataProvider(BaseMarketProvider):
         minute = ticker_payload.get("min") or {}
         updated_raw = ticker_payload.get("updated")
         market_timestamp = self._coerce_epoch_ms(updated_raw)
-        current_price = self._coerce_float(minute.get("c"))
-        bid = self._coerce_float(last_quote.get("p"))
-        ask = self._coerce_float(last_quote.get("P"))
+        current_price = _coerce_float(minute.get("c"))
+        bid = _coerce_float(last_quote.get("p"))
+        ask = _coerce_float(last_quote.get("P"))
         spread_abs, spread_pct = self._spread(bid, ask)
         freshness = self._freshness(market_timestamp)
         quality = "live" if freshness is not None and freshness <= 60 else "delayed" if freshness is not None else "unavailable"
@@ -314,7 +303,7 @@ class PolygonMarketDataProvider(BaseMarketProvider):
             ask=ask,
             spread_absolute=spread_abs,
             spread_percentage=spread_pct,
-            volume=self._coerce_float(minute.get("v")),
+            volume=_coerce_float(minute.get("v")),
             market_timestamp=market_timestamp,
             ingested_at=datetime.now(timezone.utc).replace(tzinfo=None),
             provider=self.provider_name,
@@ -345,7 +334,7 @@ class PolygonMarketDataProvider(BaseMarketProvider):
         except requests.RequestException:
             return None
         result = payload.get("results") or {}
-        price = self._coerce_float(result.get("p"))
+        price = _coerce_float(result.get("p"))
         market_timestamp = self._coerce_epoch_ns(result.get("t"))
         if price is None:
             return None
@@ -387,7 +376,7 @@ class PolygonMarketDataProvider(BaseMarketProvider):
         if not results:
             return None
         row = results[0]
-        price = self._coerce_float(row.get("c"))
+        price = _coerce_float(row.get("c"))
         market_timestamp = self._coerce_epoch_ms(row.get("t"))
         if price is None:
             return None
@@ -408,7 +397,7 @@ class PolygonMarketDataProvider(BaseMarketProvider):
             ask=None,
             spread_absolute=None,
             spread_percentage=None,
-            volume=self._coerce_float(row.get("v")),
+            volume=_coerce_float(row.get("v")),
             market_timestamp=market_timestamp,
             ingested_at=datetime.now(timezone.utc).replace(tzinfo=None),
             provider=self.provider_name,
@@ -458,13 +447,6 @@ class PolygonMarketDataProvider(BaseMarketProvider):
         normalized = interval.lower().strip()
         mapping = {"1d": (1, "day"), "30m": (30, "minute"), "15m": (15, "minute"), "5m": (5, "minute")}
         return mapping.get(normalized, (15, "minute"))
-
-    @staticmethod
-    def _coerce_float(value: object) -> float | None:
-        try:
-            return None if value is None else float(value)
-        except (TypeError, ValueError):
-            return None
 
     @staticmethod
     def _coerce_epoch_ms(value: object) -> datetime | None:
@@ -539,7 +521,7 @@ class KiteMarketDataProvider(BaseMarketProvider):
         spread_abs, spread_pct = PolygonMarketDataProvider._spread(bid, ask)
         market_timestamp = self._coerce_datetime(quote.get("timestamp")) or self._coerce_datetime(quote.get("last_trade_time"))
         freshness = PolygonMarketDataProvider._freshness(market_timestamp)
-        current_price = self._coerce_float(quote.get("last_price"))
+        current_price = _coerce_float(quote.get("last_price"))
         quality = "live" if freshness is not None and freshness <= 60 else "delayed" if freshness is not None else "unavailable"
         final_quality = quality if current_price is not None else "unavailable"
         provider_status = _status_for_quote(self.provider_name, "market_quote", final_quality, "Kite quote snapshot", market_timestamp)
@@ -554,7 +536,7 @@ class KiteMarketDataProvider(BaseMarketProvider):
             ask=ask,
             spread_absolute=spread_abs,
             spread_percentage=spread_pct,
-            volume=self._coerce_float(quote.get("volume")),
+            volume=_coerce_float(quote.get("volume")),
             market_timestamp=market_timestamp,
             ingested_at=datetime.now(timezone.utc).replace(tzinfo=None),
             provider=self.provider_name,
@@ -616,13 +598,6 @@ class KiteMarketDataProvider(BaseMarketProvider):
             return super().fetch_price_bars(symbol, start, end, interval)
         frame = pd.DataFrame(rows).set_index("timestamp")
         return frame[["Open", "High", "Low", "Close", "Volume"]]
-
-    @staticmethod
-    def _coerce_float(value: object) -> float | None:
-        try:
-            return None if value is None else float(value)
-        except (TypeError, ValueError):
-            return None
 
     @staticmethod
     def _coerce_datetime(value: object) -> datetime | None:
@@ -713,11 +688,11 @@ class YahooHistoricalMarketDataProvider(BaseMarketProvider):
         timestamps = result.get("timestamp") or []
         quotes = ((result.get("indicators") or {}).get("quote") or [{}])[0]
         closes = quotes.get("close") or []
-        current_price = self._coerce_float(meta.get("regularMarketPrice"))
+        current_price = _coerce_float(meta.get("regularMarketPrice"))
         market_timestamp = self._coerce_epoch_seconds(meta.get("regularMarketTime"))
         if current_price is None or market_timestamp is None:
             for timestamp, close in reversed(list(zip(timestamps, closes, strict=False))):
-                parsed_close = self._coerce_float(close)
+                parsed_close = _coerce_float(close)
                 parsed_timestamp = self._coerce_epoch_seconds(timestamp)
                 if parsed_close is not None and parsed_timestamp is not None:
                     current_price = current_price if current_price is not None else parsed_close
@@ -729,7 +704,7 @@ class YahooHistoricalMarketDataProvider(BaseMarketProvider):
         market_status = classify_india_market_status()
         freshness = PolygonMarketDataProvider._freshness(market_timestamp)
         quality = _quality_for_market(freshness, market_status, has_price=True)
-        previous_close = self._coerce_float(meta.get("previousClose")) or self._coerce_float(meta.get("chartPreviousClose"))
+        previous_close = _coerce_float(meta.get("previousClose")) or _coerce_float(meta.get("chartPreviousClose"))
         absolute_change = current_price - previous_close if previous_close not in {None, 0.0} else None
         percent_change = absolute_change / previous_close if absolute_change is not None and previous_close else None
         day_open = self._first_float(quotes.get("open") or [])
@@ -751,7 +726,7 @@ class YahooHistoricalMarketDataProvider(BaseMarketProvider):
             ask=None,
             spread_absolute=None,
             spread_percentage=None,
-            volume=self._coerce_float(meta.get("regularMarketVolume")),
+            volume=_coerce_float(meta.get("regularMarketVolume")),
             market_timestamp=market_timestamp,
             ingested_at=ingested_at,
             provider=self.provider_name,
@@ -767,10 +742,10 @@ class YahooHistoricalMarketDataProvider(BaseMarketProvider):
             minute_close=latest_close,
             minute_volume=latest_volume,
             day_open=day_open,
-            day_high=self._coerce_float(meta.get("regularMarketDayHigh")),
-            day_low=self._coerce_float(meta.get("regularMarketDayLow")),
+            day_high=_coerce_float(meta.get("regularMarketDayHigh")),
+            day_low=_coerce_float(meta.get("regularMarketDayLow")),
             day_close=current_price,
-            day_volume=self._coerce_float(meta.get("regularMarketVolume")),
+            day_volume=_coerce_float(meta.get("regularMarketVolume")),
             previous_close=previous_close,
             absolute_change=absolute_change,
             percent_change=percent_change,
@@ -826,13 +801,6 @@ class YahooHistoricalMarketDataProvider(BaseMarketProvider):
         return frame[["Open", "High", "Low", "Close", "Volume"]].apply(pd.to_numeric, errors="coerce").dropna()
 
     @staticmethod
-    def _coerce_float(value: object) -> float | None:
-        try:
-            return None if value is None else float(value)
-        except (TypeError, ValueError):
-            return None
-
-    @staticmethod
     def _coerce_epoch_seconds(value: object) -> datetime | None:
         try:
             return datetime.fromtimestamp(int(value), tz=timezone.utc).replace(tzinfo=None)
@@ -841,11 +809,11 @@ class YahooHistoricalMarketDataProvider(BaseMarketProvider):
 
     @classmethod
     def _first_float(cls, values: list[object]) -> float | None:
-        return next((parsed for value in values if (parsed := cls._coerce_float(value)) is not None), None)
+        return next((parsed for value in values if (parsed := _coerce_float(value)) is not None), None)
 
     @classmethod
     def _last_float(cls, values: list[object]) -> float | None:
-        return next((parsed for value in reversed(values) if (parsed := cls._coerce_float(value)) is not None), None)
+        return next((parsed for value in reversed(values) if (parsed := _coerce_float(value)) is not None), None)
 
 
 class UnavailableMarketProvider(BaseMarketProvider):
@@ -853,15 +821,6 @@ class UnavailableMarketProvider(BaseMarketProvider):
 
     def fetch_quote_snapshot(self, symbol: SymbolRecord) -> QuoteSnapshot:
         return self._unavailable_quote(symbol, "No market data provider configured for this exchange")
-
-
-def build_market_provider(symbol: SymbolRecord) -> MarketDataProvider:
-    """Legacy convenience factory; active runtime uses provider_routers.MarketDataRouter."""
-    if symbol.exchange == "US":
-        return AlpacaMarketDataProvider() if settings.alpaca_api_key and settings.alpaca_api_secret else PolygonMarketDataProvider()
-    if symbol.exchange in {"NSE", "BSE"}:
-        return KiteMarketDataProvider()
-    return UnavailableMarketProvider()
 
 
 def _status_for_quote(

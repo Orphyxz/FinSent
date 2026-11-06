@@ -130,7 +130,7 @@ class PolygonNewsProvider:
     def _normalize(self, symbol: SymbolRecord, item: dict[str, object]) -> NormalizedNewsArticle:
         title = str(item.get("title", "")).strip()
         url = str(item.get("article_url", "")).strip()
-        published_at = self._coerce_datetime(item.get("published_utc")) or datetime.now(timezone.utc).replace(tzinfo=None)
+        published_at = _coerce_datetime(item.get("published_utc")) or datetime.now(timezone.utc).replace(tzinfo=None)
         provider_status = ProviderStatus.available_status(self.provider_name, "news", "Polygon news article normalized", source_timestamp=published_at)
         dedupe_hash = build_article_dedupe_hash(title=title, url=url, source="Polygon", published_at=published_at)
         return NormalizedNewsArticle(
@@ -148,18 +148,6 @@ class PolygonNewsProvider:
             relevance_score=1.0,
             provider_status=provider_status,
         )
-
-    @staticmethod
-    def _coerce_datetime(value: object) -> datetime | None:
-        if not value:
-            return None
-        try:
-            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        except ValueError:
-            return None
-        if parsed.tzinfo is None:
-            return parsed
-        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 class CuratedWebNewsProvider:
@@ -285,7 +273,7 @@ class MarketauxNewsProvider:
             url = str(item.get("url", "")).strip()
             if not title or not url:
                 continue
-            published_at = self._coerce_datetime(item.get("published_at")) or datetime.now(timezone.utc).replace(tzinfo=None)
+            published_at = _coerce_datetime(item.get("published_at")) or datetime.now(timezone.utc).replace(tzinfo=None)
             source = str(item.get("source", "Marketaux")).strip() or "Marketaux"
             dedupe_hash = build_article_dedupe_hash(title=title, url=url, source=source, published_at=published_at)
             if dedupe_hash in seen:
@@ -324,18 +312,6 @@ class MarketauxNewsProvider:
         if symbol.exchange == "BSE":
             return [f"{symbol.ticker}.BO", symbol.ticker]
         return [symbol.ticker]
-
-    @staticmethod
-    def _coerce_datetime(value: object) -> datetime | None:
-        if not value:
-            return None
-        try:
-            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        except ValueError:
-            return None
-        if parsed.tzinfo is None:
-            return parsed
-        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
 
     @staticmethod
     def _relevance_for_symbol(symbol: SymbolRecord, entities: list[object], candidates: set[str]) -> float:

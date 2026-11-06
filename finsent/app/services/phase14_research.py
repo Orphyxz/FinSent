@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from hashlib import sha256
 import json
 import math
 from pathlib import Path
-from statistics import mean, median, pstdev
+from statistics import mean, median
 from typing import Any, Protocol
 
 import pandas as pd
 
-from finsent.app.services.model_comparison import classification_metrics
 from finsent.app.services.phase13_research import (
     DEFAULT_PHASE12_ROWS,
     FINAL_HOLDOUT_DATASET_ID,
@@ -19,7 +18,8 @@ from finsent.app.services.phase13_research import (
     build_temporal_folds,
     to_jsonable,
 )
-from finsent.app.services.research_dataset import ResearchCohort, ResearchCohortConfig
+from finsent.app.services.research_dataset import ResearchCohort
+from finsent.app.utils.time import utc_now
 
 
 PHASE14_OUTPUT_DIR = Path("output") / "research" / "phase14"
@@ -526,10 +526,6 @@ def metrics_to_dict(metrics: CalibrationMetrics) -> dict[str, Any]:
 
 def stable_fingerprint(payload: Any) -> str:
     return sha256(json.dumps(to_jsonable(payload), sort_keys=True).encode("utf-8")).hexdigest()
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _clamp01(value: float) -> float:

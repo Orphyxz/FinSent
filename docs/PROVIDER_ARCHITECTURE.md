@@ -249,8 +249,6 @@ The app does not persist full raw API responses or secret-bearing request URLs.
 
 | Component | Status | Notes |
 |---|---|---|
-| `finsent/app/services/market_data.py` | LEGACY | Older market logic. Not active in provider router. |
-| `finsent/app/services/sentiment.py` | RESEARCH / KEEP FOR NOW | FinBERT and old sentiment services for future comparison. |
 | yfinance/Yahoo inside `YahooFinanceScraper` | fallback implementation detail | Active only beneath fallback web. |
 
 ## Known Limitations

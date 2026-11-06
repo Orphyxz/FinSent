@@ -20,11 +20,6 @@ FinBERT / research:
 python -m pip install -r requirements-research.txt
 ```
 
-Presentation tooling:
-
-```powershell
-python -m pip install -r requirements-presentation.txt
-```
 
 ## Test
 

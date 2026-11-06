@@ -32,12 +32,7 @@ from finsent.app.services.phase14_research import CALIBRATOR_VERSION, IdentityCa
 from finsent.app.services.phase15_research import FINAL_HOLDOUT_V3_DATASET_ID, FINAL_HOLDOUT_V3_STATUS
 from finsent.app.services.research_dataset import ResearchCohortBuilder, ResearchCohortConfig, ResearchCohortSample
 from finsent.app.services.sentiment_intelligence import SentimentIntelligenceService
-from finsent.app.services.sentiment_v2 import (
-    FinBERTSentimentAnalyzer,
-    ModelExecutionStatus,
-    SentimentAnalysisInput,
-    SentimentAnalysisResult,
-)
+from finsent.app.services.sentiment_v2 import FinBERTSentimentAnalyzer, ModelExecutionStatus, SentimentAnalysisInput
 from finsent.app.services.signal_engine import CompositeSignalEngine
 from finsent.app.services.signal_engine_v2 import (
     ENGINE_NAME_V2,
@@ -49,6 +44,8 @@ from finsent.app.services.signal_engine_v2 import (
     SignalNewsItemV2,
     result_metadata,
 )
+from finsent.app.utils.time import utc_now
+from finsent.app.utils.files import file_sha256
 
 
 PHASE16_OUTPUT_DIR = Path("output") / "research" / "phase16"
@@ -135,20 +132,8 @@ class FinalObservation:
     exclusion_reason: str | None = None
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
 def stable_hash(value: Any) -> str:
     return sha256(json.dumps(to_jsonable(value), sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
-
-
-def file_sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def write_json(path: Path, payload: Any) -> Path:

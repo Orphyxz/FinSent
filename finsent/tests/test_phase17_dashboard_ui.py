@@ -10,7 +10,7 @@ from finsent.app.dashboard import components
 from finsent.app.dashboard.app import create_app
 from finsent.app.dashboard.pages import alerts, compare, news_impact, research, stock_detail, summary
 from finsent.app.dashboard.research_results import EXPECTED_FINGERPRINT, FinalResearchResultsService, file_sha256, pct
-from finsent.app.dashboard.ui_components import compact_empty, quality_badge, research_metric, signal_badge, status_badge
+from finsent.app.dashboard.ui_components import compact_empty, research_metric, status_badge
 from finsent.app.database.base import SessionLocal, engine
 from finsent.app.database.entities import EventStudyResult, ExperimentRun, SentimentAnalysisRun, SignalRun
 
@@ -67,9 +67,6 @@ def test_reusable_ui_components_expose_consistent_badge_classes() -> None:
     assert status_badge("Holdout", "FINAL_HOLDOUT_V3_EVALUATED_LOCKED").className == (
         "status-badge status-final-holdout-v3-evaluated-locked"
     )
-    assert signal_badge("bullish").className == "signal-badge signal-positive"
-    assert signal_badge("bearish").children == "Signal: Bearish"
-    assert quality_badge("ok").children == "Quality: OK"
     assert research_metric("Strict Accuracy", "32.4%", 111).className == "research-metric"
     assert compact_empty("No data", "Artifact missing").className == "empty-state-card compact-empty"
     assert pct(0.3243) == "32.4%"

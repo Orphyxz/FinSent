@@ -23,7 +23,7 @@ def layout() -> html.Div:
                 ],
                 className="section-shell page-header-shell terminal-page-header mb-2",
             ),
-            html.Div(id="alerts-status-banner", className="mb-3 market-status-strip"),
+            html.Div(id="alerts-status-banner", className="market-status-strip analyst-only"),
             dbc.Row(
                 [
                     dbc.Col(
@@ -36,6 +36,7 @@ def layout() -> html.Div:
                             className="section-shell",
                         ),
                         lg=7,
+                        className="simple-full-col",
                     ),
                     dbc.Col(
                         html.Div(
@@ -47,6 +48,7 @@ def layout() -> html.Div:
                             className="section-shell",
                         ),
                         lg=5,
+                        className="analyst-only",
                     ),
                 ],
                 className="g-3 mb-3",

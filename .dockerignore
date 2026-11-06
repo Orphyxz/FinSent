@@ -1,0 +1,14 @@
+.git
+.venv
+venv
+.claude
+**/__pycache__
+.pytest_cache
+*.pyc
+.env
+data/*.db
+data/*.db-*
+archive/v1
+output/promo
+*.pptx
+*.docx

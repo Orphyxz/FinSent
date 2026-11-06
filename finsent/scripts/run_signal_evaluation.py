@@ -5,7 +5,10 @@ from datetime import datetime
 from pathlib import Path
 
 from finsent.app.database.base import SessionLocal, init_db
-from finsent.app.services.historical_signal_evaluation import HistoricalSignalEvaluationConfig, HistoricalSignalEvaluator, export_signal_evaluation
+from finsent.app.services.historical_signal_evaluation import (
+    HistoricalSignalEvaluationConfig,
+    HistoricalSignalEvaluator,
+)
 from finsent.app.services.research_dataset import ResearchCohortConfig
 
 

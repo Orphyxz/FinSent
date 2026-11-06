@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import sha256
 import json
 from pathlib import Path
 from typing import Any
+from finsent.app.utils.files import file_sha256
 
 
 SUMMARY_PATH = Path("output/research/phase16/FINAL_EVALUATION_SUMMARY.json")
@@ -54,23 +54,7 @@ class FinalResearchResultsService:
         )
 
 
-def file_sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def pct(value: float | None, *, digits: int = 1) -> str:
     if value is None:
         return "n/a"
     return f"{float(value) * 100:.{digits}f}%"
-
-
-def metric_value(summary: dict[str, Any], engine: str, metric: str) -> float | None:
-    return summary.get("metrics", {}).get(engine, {}).get(metric)
-
-
-def metric_n(summary: dict[str, Any], engine: str) -> int:
-    return int(summary.get("metrics", {}).get(engine, {}).get("total") or 0)

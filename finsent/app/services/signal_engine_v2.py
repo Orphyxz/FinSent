@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 import math
 from typing import Any
 
@@ -10,7 +10,7 @@ import pandas as pd
 from finsent.app.services.llm_analyzers import ArticleAnalysis
 from finsent.app.services.market_providers import QuoteSnapshot
 from finsent.app.services.news_providers import NormalizedNewsArticle
-from finsent.app.services.provider_reliability import DataQualityAssessment, DataQualityLabel, FreshnessLabel
+from finsent.app.services.provider_reliability import DataQualityAssessment, FreshnessLabel
 from finsent.app.services.symbol_registry import SymbolRecord
 
 
@@ -98,10 +98,6 @@ class SignalResultV2:
     missing_inputs: list[str]
     data_quality: dict[str, Any]
     generated_at: datetime
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def clamp(value: float, minimum: float = -1.0, maximum: float = 1.0) -> float:

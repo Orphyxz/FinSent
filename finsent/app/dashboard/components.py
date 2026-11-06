@@ -8,6 +8,7 @@ from finsent.app.dashboard.view_model import get_exchange_options, get_ticker_op
 
 ANALYSIS_NAV_ITEMS = [
     ("Overview", "/summary"),
+    ("Market Map", "/market-map"),
     ("Stock Research", "/stock-detail"),
     ("News Intelligence", "/news-impact"),
     ("Compare", "/compare"),
@@ -306,13 +307,15 @@ def build_landing_search(default_ticker: str) -> html.Div:
 
 def build_footer() -> html.Div:
     return html.Div(
-        "FinSent · Research signals only, not investment advice · Locked evaluation is read-only",
+        [
+            html.Span("FinSent · Research signals only, not investment advice · Locked evaluation is read-only"),
+            html.Span(
+                [html.Kbd("/"), " search ", html.Kbd("1"), "–", html.Kbd("7"), " pages ", html.Kbd("P"), " print"],
+                className="shortcut-hint",
+            ),
+        ],
         className="footer-strip",
     )
-
-
-def build_button_link(label: str, href: str, class_name: str = "page-link-button") -> dbc.Button:
-    return dbc.Button(label, href=href, class_name=class_name, color="link")
 
 
 def build_empty_state(title: str, message: str) -> html.Div:

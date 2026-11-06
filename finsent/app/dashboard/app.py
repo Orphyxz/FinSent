@@ -7,8 +7,10 @@ from dash import Input, Output, State, ctx, html, no_update
 from dash.exceptions import PreventUpdate
 
 from finsent.app.dashboard.components import build_empty_state, build_nav_links
+from finsent.app.dashboard.intel_callbacks import register as register_intelligence_callbacks
 from finsent.app.dashboard.layout import build_app_layout
-from finsent.app.dashboard.pages import alerts, compare, news_impact, research, stock_detail, summary
+from finsent.app.dashboard.selection import resolve_date_window as _resolve_date_window, selection as _selection
+from finsent.app.dashboard.pages import alerts, compare, market_map, news_impact, research, stock_detail, summary
 from finsent.app.dashboard.view_model import (
     buy_sell_ratio_series,
     build_ai_explanation,
@@ -20,7 +22,6 @@ from finsent.app.dashboard.view_model import (
     build_compare_catalyst_table,
     build_compare_market_context_table,
     build_compare_relative_chart,
-    build_compare_chart,
     build_dashboard_state,
     build_empty_figure,
     build_focus_status_banner,
@@ -30,7 +31,6 @@ from finsent.app.dashboard.view_model import (
     build_key_catalysts,
     build_market_context_explanation,
     build_market_context_panel,
-    build_overlay_chart,
     build_overview_market_context,
     build_recent_price_histogram,
     build_recent_headlines,
@@ -48,7 +48,6 @@ from finsent.app.dashboard.view_model import (
     ensure_live_data,
     get_default_compare_tickers,
     get_default_ticker_for_exchange,
-    get_exchange_for_ticker,
     get_market_filter_for_ticker,
     get_company_name,
     get_instrument_metadata,
@@ -66,40 +65,16 @@ from finsent.app.dashboard.view_model import (
 )
 
 
-def _selection(data: dict | None) -> dict:
-    default_ticker = get_default_ticker_for_exchange("US")
-    base = {
-        "focus_ticker": default_ticker,
-        "exchange_filter": "US",
-        "compare_tickers": get_default_compare_tickers(default_ticker, "US"),
-        "horizon": "medium",
-        "date_window": "30d",
-        "alert_threshold": 40,
-        "analysis_ready": True,
-    }
-    if data:
-        base.update(data)
-    base["focus_ticker"] = get_display_symbol(str(base.get("focus_ticker") or default_ticker))
-    base["compare_tickers"] = [get_display_symbol(str(ticker)) for ticker in base.get("compare_tickers", []) if ticker]
-    if base.get("exchange_filter") in {"NSE", "BSE"}:
-        base["exchange_filter"] = "INDIA"
-    return base
-
-
-def _resolve_date_window(selection: dict) -> tuple[str | None, str | None]:
-    today = pd.Timestamp.now().normalize()
-    date_window = selection.get("date_window", "30d")
-    if date_window == "7d":
-        return (today - pd.Timedelta(days=7)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
-    if date_window == "30d":
-        return (today - pd.Timedelta(days=30)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
-    if date_window == "90d":
-        return (today - pd.Timedelta(days=90)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
-    return None, None
-
-
 def _format_price(value: float | None, currency: str | None) -> str:
     return format_currency(value, currency)
+
+
+def _recent_headlines(selection_data: dict | None):
+    selection = _selection(selection_data)
+    focus_ticker = selection["focus_ticker"]
+    start_date, end_date = _resolve_date_window(selection)
+    state = build_dashboard_state(focus_ticker, selection["compare_tickers"], selection["horizon"], start_date, end_date)
+    return build_recent_headlines(state.news_df, focus_ticker)
 
 
 def create_app(default_ticker: str | None = None) -> dash.Dash:
@@ -113,6 +88,13 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         title="FinSent",
     )
     app.layout = build_app_layout(default_ticker, default_compare_tickers)
+    register_intelligence_callbacks(app)
+    app.clientside_callback(
+        "function(clicks) { if (clicks) { window.print(); } return window.dash_clientside.no_update; }",
+        Output("stock-print", "title"),
+        Input("stock-print", "n_clicks"),
+        prevent_initial_call=True,
+    )
 
     app.clientside_callback(
         """
@@ -145,6 +127,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         routes = {
             "/": summary.layout,
             "/summary": summary.layout,
+            "/market-map": market_map.layout,
             "/stock-detail": stock_detail.layout,
             "/news-impact": news_impact.layout,
             "/compare": compare.layout,
@@ -510,17 +493,12 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Input("live-refresh-store", "data"),
     )
     def refresh_summary_headlines(selection_data: dict | None, _refresh_data: dict | None):
-        selection = _selection(selection_data)
-        focus_ticker = selection["focus_ticker"]
-        start_date, end_date = _resolve_date_window(selection)
-        state = build_dashboard_state(focus_ticker, selection["compare_tickers"], selection["horizon"], start_date, end_date)
-        return build_recent_headlines(state.news_df, focus_ticker)
+        return _recent_headlines(selection_data)
 
     @app.callback(
         Output("stock-page-title", "children"),
         Output("stock-badge-row", "children"),
         Output("stock-metric-row", "children"),
-        Output("stock-main-chart", "figure"),
         Output("stock-ai-explanation", "children"),
         Output("stock-summary-panel", "children"),
         Output("stock-relative-chart", "figure"),
@@ -528,11 +506,10 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Output("stock-catalyst-summary", "children"),
         Output("stock-key-catalysts", "children"),
         Output("stock-catalyst-timeline", "children"),
-        Input("stock-chart-mode", "value"),
         Input("selection-store", "data"),
         Input("live-refresh-store", "data"),
     )
-    def refresh_stock_detail(chart_mode: str | None, selection_data: dict | None, _refresh_data: dict | None):
+    def refresh_stock_detail(selection_data: dict | None, _refresh_data: dict | None):
         selection = _selection(selection_data)
         focus_ticker = selection["focus_ticker"]
         if not selection["analysis_ready"] or not focus_ticker:
@@ -642,17 +619,6 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             ]
         )
         summary = [html.Div(simple_summary, className="simple-only"), html.Div(analyst_summary, className="analyst-only")]
-        if chart_mode == "overlay":
-            main_chart = build_overlay_chart(focus_ticker, state.price_df, state.news_df)
-        else:
-            main_chart = (
-                build_price_timeline(
-                    ticker_prices if not ticker_prices.empty else state.price_df.head(0),
-                    title=f"{focus_ticker} Price Timeline",
-                )
-                if not ticker_prices.empty
-                else build_empty_figure(f"{focus_ticker} Price Timeline", "Historical price data is unavailable for this selected symbol.")
-            )
         signal_lines = build_ai_explanation(focus_ticker, state.news_df, state.compare_df)
         simple_signal_lines = build_simple_signal_explanation(focus_ticker, state.news_df, state.compare_df)
         for line in build_market_context_explanation(focus_ticker, state.market_context_df, state.catalyst_df):
@@ -666,7 +632,6 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             f"{get_display_symbol(focus_ticker)} | {company_name}",
             badges,
             metrics,
-            main_chart,
             [
                 html.Div([html.Div(line, className="explanation-line") for line in simple_signal_lines], className="simple-only"),
                 html.Div([html.Div(line, className="explanation-line") for line in signal_lines], className="analyst-only"),
@@ -685,11 +650,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
         Input("live-refresh-store", "data"),
     )
     def refresh_stock_headlines(selection_data: dict | None, _refresh_data: dict | None):
-        selection = _selection(selection_data)
-        focus_ticker = selection["focus_ticker"]
-        start_date, end_date = _resolve_date_window(selection)
-        state = build_dashboard_state(focus_ticker, selection["compare_tickers"], selection["horizon"], start_date, end_date)
-        return build_recent_headlines(state.news_df, focus_ticker)
+        return _recent_headlines(selection_data)
 
     @app.callback(
         Output("news-impact-status-banner", "children"),
@@ -883,7 +844,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
                 selection_summary,
                 build_empty_state(
                     "Add peer tickers to compare",
-                    f"Use More filters to choose 2-5 symbols, then press Compare. The page will then rank live/latest price, sentiment, signals, and freshness against {focus_ticker}.",
+                    f"Open Filters, choose up to 4 peers, then press Compare. The page will then rank live/latest price, sentiment, signals, and freshness against {focus_ticker}.",
                 ),
                 {"display": "block"},
                 {"display": "none"},
@@ -957,7 +918,7 @@ def create_app(default_ticker: str | None = None) -> dash.Dash:
             selection_summary,
             [],
             {"display": "none"},
-            {"display": "block"},
+            {},
             metrics,
             build_price_timeline(state.price_df, title="Indexed Price Performance", normalize=True),
             build_compare_relative_chart(compare_df),

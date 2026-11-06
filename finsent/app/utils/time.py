@@ -17,3 +17,8 @@ def ensure_utc_naive(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value
     return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def utc_now() -> datetime:
+    """Current time as a naive UTC datetime, the convention used for stored timestamps."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)

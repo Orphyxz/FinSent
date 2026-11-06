@@ -27,7 +27,7 @@ These files are usable as historical price input after explicit import. Because 
 
 ## Reference-Only Files
 
-`data/reference/india_nifty500_companies.csv` and `data/reference/us_largest_companies_by_market_cap.csv` are company universe/reference files. They are useful for symbol coverage analysis but are not article or price histories by themselves.
+The supported symbol universe is curated in `finsent/app/services/symbol_registry.py`; it is metadata only and holds no article or price history.
 
 ## Unusable Local File
 

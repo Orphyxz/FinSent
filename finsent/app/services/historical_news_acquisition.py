@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from hashlib import sha256
 import csv
@@ -17,10 +17,12 @@ from sqlalchemy.orm import Session
 
 from finsent.app.database.entities import NewsArticle, PriceBar
 from finsent.app.database.repository import PriceRepository
-from finsent.app.database.research_repository import DatasetRegistryRepository, InstrumentRepository
+from finsent.app.database.research_repository import DatasetRegistryRepository
 from finsent.app.services.research_dataset import LocalResearchArticleImporter, ResearchArticleImportConfig
 from finsent.app.services.sentiment_v2 import GeminiSentimentAnalyzer
 from finsent.app.services.symbol_registry import registry
+from finsent.app.utils.time import utc_now
+from finsent.app.utils.files import file_sha256
 
 
 FNSPID_NEWS_URL = "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/nasdaq_exteral_data.csv"
@@ -161,10 +163,6 @@ class SourceCandidateEvaluation:
     notes: list[str] = field(default_factory=list)
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
 def default_batch_id(prefix: str) -> str:
     return f"{prefix}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}"
 
@@ -185,14 +183,6 @@ def clean_text(value: object) -> str | None:
 
 def text_hash(title: str, summary: str | None) -> str:
     return sha256("\n".join(part for part in [title, summary] if part).encode("utf-8")).hexdigest()
-
-
-def file_sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def relative_path(path: Path, root: Path | None = None) -> str:

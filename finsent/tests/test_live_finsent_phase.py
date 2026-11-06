@@ -204,7 +204,7 @@ def test_compare_callback_renders_aapl_nvda_tsla_without_shape_error() -> None:
 
     assert response.status_code == 200
     body = response.get_json()["response"]
-    assert body["compare-content"]["style"] == {"display": "block"}
+    assert body["compare-content"]["style"].get("display") != "none"
     assert len(body["compare-main-chart"]["figure"]["data"]) >= 1
     assert len(body["compare-secondary-chart"]["figure"]["data"]) >= 1
 

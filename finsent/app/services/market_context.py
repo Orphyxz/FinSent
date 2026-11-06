@@ -14,6 +14,7 @@ from finsent.app.services.market_providers import classify_us_market_status
 from finsent.app.services.provider_routers import MarketDataRouter
 from finsent.app.services.runtime_diagnostics import CacheStats, runtime_diagnostics
 from finsent.app.services.symbol_registry import SymbolRecord, registry
+from finsent.app.utils.time import utc_now
 
 
 BROAD_MARKET_BENCHMARKS = {
@@ -166,10 +167,6 @@ class _BarsEntry:
     freshness: str
     latest_timestamp: datetime | None
     retrieved_at: datetime
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def sector_etf_for_symbol(symbol: SymbolRecord | str | None) -> str | None:

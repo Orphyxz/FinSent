@@ -15,7 +15,6 @@ import numpy as np
 import pandas as pd
 from dash import html
 from plotly import graph_objects as go
-from plotly.subplots import make_subplots
 from sqlalchemy import func, select
 
 from finsent.app.analysis.market_impact import align_news_with_prices, build_daily_impact_summary
@@ -37,14 +36,7 @@ from finsent.app.services.catalyst_intelligence import (
     catalyst_intelligence_service,
     catalyst_results_to_records,
 )
-from finsent.app.services.market_context import (
-    BROAD_MARKET_BENCHMARKS,
-    MarketContextQuality,
-    market_context_results_to_frame,
-    market_context_service,
-    normalize_bars,
-    sector_etf_for_symbol,
-)
+from finsent.app.services.market_context import market_context_results_to_frame, market_context_service, normalize_bars
 from finsent.app.services.runtime_diagnostics import CacheStats, runtime_diagnostics
 from finsent.app.services.symbol_registry import SymbolRecord, registry
 from finsent.app.utils.logging import safe_log_message
@@ -263,12 +255,6 @@ _dashboard_state_cache = _DashboardStateCache()
 _dashboard_state_build_lock = RLock()
 _live_refresh_lock = RLock()
 _live_refresh_inflight: set[str] = set()
-
-
-def get_pipeline() -> FinSentPipeline:
-    from finsent.app.services.pipeline import FinSentPipeline
-
-    return FinSentPipeline()
 
 
 def get_exchange_options() -> list[dict[str, str]]:
@@ -929,12 +915,6 @@ def buy_sell_ratio_series(news_df: pd.DataFrame) -> pd.Series:
     if "buy_sell_ratio" in news_df.columns:
         return pd.to_numeric(news_df["buy_sell_ratio"], errors="coerce").fillna(1.0)
     return pd.Series(1.0, index=news_df.index, dtype=float)
-
-
-def market_signal_series(news_df: pd.DataFrame) -> pd.Series:
-    if "market_signal" in news_df.columns:
-        return pd.to_numeric(news_df["market_signal"], errors="coerce").fillna(0.0)
-    return pd.Series(0.0, index=news_df.index, dtype=float)
 
 
 def label_for_signal(score: float) -> str:
@@ -1899,17 +1879,6 @@ def build_sector_frame(compare_df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def compute_market_mood(compare_df: pd.DataFrame) -> tuple[str, int, str]:
-    if compare_df.empty:
-        return "Neutral", 50, "Insufficient local or live data for a workspace-wide reading."
-    mood_value = int(np.clip(((compare_df["avg_sentiment"].mean() + 1.0) / 2.0) * 100.0, 0, 100))
-    if mood_value >= 60:
-        return "Bullish", mood_value, "Stored news and composite signals lean positive across the tracked names."
-    if mood_value <= 40:
-        return "Bearish", mood_value, "Stored news and composite signals lean negative across the tracked names."
-    return "Balanced", mood_value, "Signals are mixed and no strong broad-market edge is visible."
-
-
 def build_ai_explanation(focus_ticker: str, news_df: pd.DataFrame, compare_df: pd.DataFrame) -> list[str]:
     ticker_news = news_df[news_df["ticker"] == focus_ticker].sort_values("published_at", ascending=False)
     compare_row = compare_df[compare_df["ticker"] == focus_ticker]
@@ -2032,24 +2001,6 @@ def build_alerts(compare_df: pd.DataFrame, event_df: pd.DataFrame, alert_thresho
     return deduped[:6]
 
 
-def build_metric_cards(compare_df: pd.DataFrame, event_df: pd.DataFrame) -> list[dbc.Col]:
-    mood_label, mood_score, mood_note = compute_market_mood(compare_df)
-    avg_confidence = float(compare_df["avg_confidence"].dropna().mean()) if not compare_df.empty else 0.0
-    avg_return = float(compare_df["pct_change"].mean()) if not compare_df.empty else 0.0
-    avg_spread = float(compare_df["avg_spread_pct"].mean()) if not compare_df.empty else 0.0
-    metrics = [
-        ("Mood Index", f"{mood_score}", mood_label),
-        ("Signal Confidence", f"{avg_confidence:.0f}%", "Average article/model confidence across the active workspace"),
-        ("Window Return", f"{avg_return:+.2f}%", "Selected live/latest price window"),
-        ("Average Spread", f"{avg_spread:.2f}%", mood_note),
-    ]
-    return build_metric_grid(metrics, column_size=3)
-
-
-def build_sentiment_timeline(news_df: pd.DataFrame) -> go.Figure:
-    return build_sentiment_timeline_with_title(news_df, "Sentiment Timeline")
-
-
 def build_sentiment_timeline_with_title(news_df: pd.DataFrame, title: str) -> go.Figure:
     fig = go.Figure()
     sparse_series = False
@@ -2109,47 +2060,6 @@ def build_sentiment_timeline_with_title(news_df: pd.DataFrame, title: str) -> go
             text="Sparse data shown as daily bars",
             font={"size": 12, "color": PALETTE["muted"]},
         )
-    return fig
-
-
-def build_overlay_chart(focus_ticker: str, price_df: pd.DataFrame, news_df: pd.DataFrame) -> go.Figure:
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    ticker_prices = price_df[price_df["ticker"] == focus_ticker]
-    ticker_news = news_df[news_df["ticker"] == focus_ticker]
-    if not ticker_prices.empty:
-        fig.add_trace(
-            go.Scatter(
-                x=ticker_prices["timestamp"],
-                y=ticker_prices["close"],
-                mode="lines",
-                name=f"{focus_ticker} Price",
-                line={"color": PALETTE["line"], "width": 3},
-            ),
-            secondary_y=False,
-        )
-    if not ticker_news.empty:
-        fig.add_trace(
-            go.Bar(
-                x=ticker_news["published_at"],
-                y=ticker_news["sentiment_score"],
-                name="Headline Sentiment",
-                marker_color=np.where(ticker_news["sentiment_score"] >= 0, PALETTE["bull"], PALETTE["bear"]),
-                opacity=0.55,
-                hovertext=ticker_news["title"],
-            ),
-            secondary_y=True,
-        )
-    fig.update_layout(
-        title=f"Price vs Sentiment Overlay | {focus_ticker}",
-        paper_bgcolor=PALETTE["paper"],
-        plot_bgcolor=PALETTE["paper"],
-        font={"color": PALETTE["ink"]},
-        margin={"l": 32, "r": 24, "t": 56, "b": 28},
-        legend={"orientation": "h", "y": 1.1},
-    )
-    fig.update_xaxes(gridcolor=PALETTE["grid"])
-    fig.update_yaxes(title_text="Price", secondary_y=False, gridcolor=PALETTE["grid"])
-    fig.update_yaxes(title_text="Sentiment", secondary_y=True, showgrid=False)
     return fig
 
 

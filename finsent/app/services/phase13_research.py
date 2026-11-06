@@ -13,10 +13,10 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from finsent.app.database.entities import EventStudyResult, NewsArticle, SentimentAnalysisRun
+from finsent.app.database.entities import EventStudyResult, SentimentAnalysisRun
 from finsent.app.services.historical_signal_evaluation import signal_direction
 from finsent.app.services.model_comparison import classification_metrics
-from finsent.app.services.research_dataset import ResearchCohort, ResearchCohortConfig
+from finsent.app.services.research_dataset import ResearchCohort
 from finsent.app.services.signal_engine_v2 import (
     ENGINE_NAME_V2,
     ENGINE_VERSION_V2,
@@ -27,6 +27,7 @@ from finsent.app.services.signal_engine_v2 import (
     score_label,
     validate_signal_v2_config,
 )
+from finsent.app.utils.files import file_sha256
 
 
 PHASE13_EXPERIMENT_ID = "phase13_development_tuning_v1"
@@ -162,10 +163,6 @@ def assert_not_final_holdout(dataset_id: str | None, *, purpose: str, final_eval
             f"Refusing to use {FINAL_HOLDOUT_DATASET_ID} for {purpose}. "
             "It is FINAL_HOLDOUT_LOCKED and requires an explicit future final-evaluation mode."
         )
-
-
-def guard_cohort(config: ResearchCohortConfig, *, purpose: str, final_evaluation_mode: bool = False) -> None:
-    assert_not_final_holdout(config.dataset_id, purpose=purpose, final_evaluation_mode=final_evaluation_mode)
 
 
 def write_final_holdout_preregistration(path: Path, preregistration: FinalHoldoutPreregistration) -> Path:
@@ -871,14 +868,6 @@ def _mean(values: list[float]) -> float | None:
 
 def _none_to_neg(value: float | None) -> float:
     return value if value is not None else -1.0
-
-
-def file_sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def fmt(value: float | None) -> str:

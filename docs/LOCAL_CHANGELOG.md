@@ -375,3 +375,18 @@ Git synchronization is intentionally deferred until explicit authorization. No c
 - Signal V1 remains the active dashboard signal. Signal V2.0 and Signal V2.1 remain research-only.
 - Phase 16 final artifacts were read for display only and were not recomputed or modified.
 - No Git commits, pushes, pulls, branches, remotes, pull requests, history changes, or other Git write operations were performed.
+
+## Codebase Cleanup
+
+- Removed unused modules: `services/market_data.py`, `services/sentiment.py`, `services/dataset_registry.py`, and the empty `dashboard/pages/overview.py`, plus the reference CSVs only they read.
+- Removed 23 unused functions and classes and every unused import across the package.
+- Consolidated 12 copies of `utc_now` into `finsent/app/utils/time.py` and 5 copies of `file_sha256` into `finsent/app/utils/files.py`; provider classes now share their module-level coercion helpers.
+- Removed presentation tooling (`scripts/build_presentation.py`, `requirements-presentation.txt`) and obsolete docs (old UI audits and designs, Phase 0 baseline audit, dataset registry, presentation checklist). The three UI docs are replaced by `docs/UI_DESIGN.md`.
+- Research protocol, preregistration and Phase 16 result docs, and all `output/research` artifacts, are unchanged.
+
+## Intelligence Platform
+
+- Six modules: executive overview, stock research workbench, news intelligence, explainable signals, multi-stock compare and the research laboratory, plus a Market Map of all primary listings.
+- New services: technical indicators, cached market overview, benchmarks (US and India), market map, entity extraction, FinBERT word explanations, exploratory event explorer and a background scheduler.
+- The event explorer reads the locked Phase 16 predictions read-only; its 1D returns match the locked study within 0.15%. Nothing feeds back into the locked evaluation or the signal engines.
+- Added Dockerfile and docker-compose.yml (not built locally: Docker was unavailable on the development machine).

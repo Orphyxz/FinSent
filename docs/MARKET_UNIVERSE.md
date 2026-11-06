@@ -4,9 +4,11 @@
 
 FinSent ships with a curated, eagerly loaded metadata registry containing:
 
-- 111 US instruments across technology, financials, health care, consumer, communication services, energy, industrials, utilities, real estate, and materials.
-- 62 primary Indian NSE instruments covering major NIFTY 50 and related large-cap names.
-- 5 BSE compatibility records for symbols that need explicit BSE routing.
+- 206 US instruments across all 11 GICS sectors.
+- 149 primary Indian NSE instruments covering NIFTY 50, Nifty Next 50 and liquid mid-cap names.
+- 20 BSE compatibility records for large caps that need explicit BSE routing.
+
+Every ticker was checked against Yahoo chart data when added. Tata Motors trades as `TMPV` (Passenger Vehicles) and `TMCV` (Commercial Vehicles) after its 2025 demerger, and LTIMindtree as `LTM`. Berkshire Hathaway is omitted because Alpaca and Yahoo spell its ticker differently (`BRK.B` vs `BRK-B`).
 
 Market prices, bars, news, FinBERT inference, signals, catalysts, and benchmark context are not preloaded for this universe. They are requested only for selected instruments.
 

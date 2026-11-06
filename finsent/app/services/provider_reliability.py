@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 import math
 import time
@@ -10,14 +10,14 @@ from threading import RLock
 from typing import Generic, TypeVar
 
 import pandas as pd
-import requests
 
 from finsent.app.config.settings import settings
 from finsent.app.services.market_providers import QuoteSnapshot, is_usable_quote_snapshot
 from finsent.app.services.news_providers import NormalizedNewsArticle
 from finsent.app.services.provider_contracts import ProviderFailureCategory, classify_exception
-from finsent.app.services.provider_status import DataSourceState, ProviderStatus
+from finsent.app.services.provider_status import DataSourceState
 from finsent.app.services.runtime_diagnostics import CacheStats, runtime_diagnostics
+from finsent.app.utils.time import utc_now
 
 
 T = TypeVar("T")
@@ -221,10 +221,6 @@ class ProviderHealthRegistry:
 
     def snapshot(self) -> list[ProviderHealthRecord]:
         return sorted(self._records.values(), key=lambda row: (row.provider, row.service))
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def finite_number(value: object) -> bool:

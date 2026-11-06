@@ -10,19 +10,16 @@ from sqlalchemy.orm import sessionmaker
 from finsent.app.database.base import Base, apply_sqlite_migrations
 from finsent.app.database.entities import EventStudyResult, NewsArticle, SentimentAnalysisRun
 from finsent.app.database.repository import PriceRepository
-from finsent.app.database.research_repository import InstrumentRepository, ResearchResultRepository, json_loads
+from finsent.app.database.research_repository import InstrumentRepository, ResearchResultRepository
 from finsent.app.services.model_comparison import (
     ArticleSelectionService,
     ExclusionReason,
     GeminiFinBertExperimentRunner,
     ModelComparisonConfig,
-    agreement_summary,
     build_analysis_input,
     classification_metrics,
     comparison_fingerprint,
-    confidence_bucket_summaries,
     direction_from_score,
-    disagreement_summaries,
     export_experiment,
     paired_rows_dataframe,
     realized_direction,

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import lru_cache
 from pathlib import Path
 import csv
 
@@ -12,19 +10,9 @@ from finsent.app.database.repository import PriceRepository
 
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
-DEFAULT_INDIA_COMPANY_FILE = ROOT_DIR / "data" / "reference" / "india_nifty500_companies.csv"
-DEFAULT_US_COMPANY_FILE = ROOT_DIR / "data" / "reference" / "us_largest_companies_by_market_cap.csv"
 DEFAULT_INDIA_ARCHIVE_DIR = ROOT_DIR / "archive" / "v1"
 DEFAULT_US_PRICE_FILE = ROOT_DIR / "SnP_daily_update.csv"
 GIT_LFS_POINTER_HEADER = "version https://git-lfs.github.com/spec/v1"
-
-
-@dataclass(slots=True)
-class CompanyUniverse:
-    ticker: str
-    name: str
-    sector: str
-    market: str
 
 
 def is_git_lfs_pointer(csv_path: Path) -> bool:
@@ -44,67 +32,6 @@ def ensure_real_csv_data(csv_path: Path, label: str) -> None:
             f"{label} at {csv_path} is a Git LFS pointer, not the actual CSV data. "
             "Fetch the LFS asset or provide the real dataset before importing."
         )
-
-
-def _normalize_sector(value: object, fallback: str) -> str:
-    text = str(value).strip() if value is not None else ""
-    return text or fallback
-
-
-@lru_cache(maxsize=1)
-def load_company_universe(
-    india_company_file: Path | None = None,
-    us_company_file: Path | None = None,
-    max_us_companies: int = 250,
-) -> list[CompanyUniverse]:
-    india_company_file = india_company_file or DEFAULT_INDIA_COMPANY_FILE
-    us_company_file = us_company_file or DEFAULT_US_COMPANY_FILE
-
-    companies: list[CompanyUniverse] = []
-    seen: set[str] = set()
-
-    if india_company_file.exists():
-        india_df = pd.read_csv(india_company_file)
-        for _, row in india_df.iterrows():
-            symbol = str(row.get("Symbol", "")).strip().upper()
-            if not symbol:
-                continue
-            ticker = f"{symbol}.NS"
-            if ticker in seen:
-                continue
-            companies.append(
-                CompanyUniverse(
-                    ticker=ticker,
-                    name=str(row.get("Company Name", ticker)).strip(),
-                    sector=_normalize_sector(row.get("Industry"), "India"),
-                    market="India",
-                )
-            )
-            seen.add(ticker)
-
-    if us_company_file.exists():
-        us_df = pd.read_csv(us_company_file)
-        if "country" in us_df.columns:
-            us_df = us_df[us_df["country"].fillna("").str.lower() == "united states"]
-        if "Rank" in us_df.columns:
-            us_df = us_df.sort_values("Rank", ascending=True)
-        us_df = us_df.head(max_us_companies)
-
-        for _, row in us_df.iterrows():
-            ticker = str(row.get("Symbol", "")).strip().upper()
-            if not ticker or ticker in seen:
-                continue
-            companies.append(
-                CompanyUniverse(
-                    ticker=ticker,
-                    name=str(row.get("Name", ticker)).strip(),
-                    sector="United States",
-                    market="US",
-                )
-            )
-            seen.add(ticker)
-
-    return companies
 
 
 def load_nse_price_frame(csv_path: Path) -> tuple[str, pd.DataFrame]:

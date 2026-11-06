@@ -8,7 +8,6 @@ Phase 4 reviews fallback options for reliability and data integrity. The goal is
 |---|---|---|
 | Polygon snapshot -> last trade -> previous close | ACTIVE | Already provider-internal, preserves quote note, now exposed as leaf provider modes. Previous close is not treated as live. |
 | US Polygon -> legacy yfinance market service | DEFERRED | yfinance can improve availability, but current legacy market code has different semantics and weaker explicit provider status/provenance. Activating it may mislead users into comparing provider-grade and scraped/library data as equivalent. |
-| US Polygon -> Alpaca market service | DEFERRED | Requires Alpaca credentials and lives in deprecated `market_data.py`. It needs adapter tests and provenance normalization before activation. |
 | NSE/BSE Kite -> local archive CSV | DEFERRED | Archive data is historical/local, not a live quote substitute. Safe for research import, not active quote fallback. |
 | NSE/BSE Kite -> yfinance `.NS` / `.BO` | DEFERRED | Could improve availability but needs a dedicated normalized provider adapter, freshness policy, and reliability tests. |
 
@@ -43,8 +42,6 @@ This order favors freshness first, but data quality is explicitly lowered for se
 |---|---|---|---|
 | `archive/v1/*.csv` | ACTIVE FOR OFFLINE IMPORT | USABLE/PARTIAL | Large NSE historical archive. Timestamp normalized to naive UTC. Completeness varies by file and is not yet scored by symbol/date coverage. |
 | `SnP_daily_update.csv` | BROKEN IN LOCAL COPY | BROKEN | Current file is a Git LFS pointer. Guard rejects it before parsing. |
-| `data/reference/india_nifty500_companies.csv` | ACTIVE REFERENCE DATA | PARTIAL | Useful universe/reference file, not a live price source. |
-| `data/reference/us_largest_companies_by_market_cap.csv` | ACTIVE REFERENCE DATA | PARTIAL | Useful US universe/reference file, not a live price source. |
 | Provider bars from Polygon/Kite | ACTIVE LIVE/HISTORICAL PROVIDER | USABLE WHEN VALID | Routed through `MarketDataRouter` and validated before acceptance. |
 
 ## Remaining Decisions

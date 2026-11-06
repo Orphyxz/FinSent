@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-import shutil
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -45,27 +44,6 @@ def sqlite_path_from_url(database_url: str) -> Path | None:
     if not database_url.startswith("sqlite:///"):
         return None
     return Path(database_url.replace("sqlite:///", "", 1))
-
-
-def backup_sqlite_database(database_url: str | None = None, suffix: str = "phase5-pre-migration") -> Path | None:
-    target_url = database_url or settings.database_url
-    sqlite_path = sqlite_path_from_url(target_url)
-    if sqlite_path is None or not sqlite_path.exists() or sqlite_path.stat().st_size == 0:
-        return None
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    backup_path = sqlite_path.with_name(f"{sqlite_path.stem}.{suffix}.{timestamp}{sqlite_path.suffix}")
-    shutil.copy2(sqlite_path, backup_path)
-    return backup_path
-
-
-def _table_names(bind: Engine) -> set[str]:
-    with bind.begin() as connection:
-        return {
-            row[0]
-            for row in connection.exec_driver_sql(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-        }
 
 
 def _add_missing_columns(bind: Engine, required_columns: dict[str, dict[str, str]]) -> None:

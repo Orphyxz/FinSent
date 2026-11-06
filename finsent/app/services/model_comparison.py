@@ -23,12 +23,11 @@ from finsent.app.analysis.event_study_v2 import (
     EventStudyResultV2,
     EventStudyStatus,
 )
-from finsent.app.database.entities import EventStudyResult, NewsArticle, SentimentAnalysisRun
+from finsent.app.database.entities import NewsArticle, SentimentAnalysisRun
 from finsent.app.database.repository import PriceRepository
 from finsent.app.database.research_repository import ExperimentRepository, InstrumentRepository, json_loads
 from finsent.app.services.event_study_service_v2 import EventStudyServiceV2
-from finsent.app.services.news_providers import NormalizedNewsArticle
-from finsent.app.services.sentiment_intelligence import SentimentExecutionRecord, SentimentIntelligenceService
+from finsent.app.services.sentiment_intelligence import SentimentIntelligenceService
 from finsent.app.services.sentiment_v2 import (
     CatalystTag,
     FinBERTSentimentAnalyzer,

@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from hashlib import sha256
 import importlib.util
 import json
 from pathlib import Path
 import socket
 import sqlite3
 import subprocess
-import sys
 import tempfile
 from time import perf_counter
 
@@ -318,14 +315,6 @@ def _safe_message(exc: Exception | str) -> str:
         if secret:
             text = text.replace(secret, "[redacted]")
     return text[:240]
-
-
-def file_sha256(path: Path) -> str:
-    digest = sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 if __name__ == "__main__":

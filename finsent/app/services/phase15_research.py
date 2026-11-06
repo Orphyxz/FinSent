@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from hashlib import sha256
 import csv
 import io
@@ -12,7 +12,6 @@ import re
 import sys
 from typing import Any
 
-import pandas as pd
 import requests
 
 from finsent.app.services.historical_news_acquisition import (
@@ -26,7 +25,8 @@ from finsent.app.services.historical_news_acquisition import (
 )
 from finsent.app.services.phase13_research import FinalHoldoutEvaluationError, to_jsonable
 from finsent.app.services.phase14_research import FINAL_HOLDOUT_V2_DATASET_ID
-from finsent.app.services.research_dataset import ResearchCohort, ResearchCohortConfig
+from finsent.app.services.research_dataset import ResearchCohort
+from finsent.app.utils.time import utc_now
 
 
 PHASE15_OUTPUT_DIR = Path("output") / "research" / "phase15"
@@ -462,10 +462,6 @@ def source_layout_summary() -> dict[str, Any]:
 
 def stable_fingerprint(payload: Any) -> str:
     return sha256(json.dumps(to_jsonable(payload), sort_keys=True).encode("utf-8")).hexdigest()
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _safe_int(value: Any) -> int | None:

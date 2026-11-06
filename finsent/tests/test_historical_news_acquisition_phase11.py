@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 import io
 import json
 import os
@@ -29,7 +29,7 @@ from finsent.app.services.historical_news_acquisition import (
     readiness_report,
     write_manifest,
 )
-from finsent.app.services.research_dataset import ResearchCohortBuilder, ResearchCohortConfig, ResearchCohortExclusion
+from finsent.app.services.research_dataset import ResearchCohortBuilder, ResearchCohortConfig
 
 
 HEADER = "Unnamed: 0,Date,Article_title,Stock_symbol,Url,Publisher,Author,Article,Lsa_summary,Luhn_summary,Textrank_summary,Lexrank_summary\n"

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dash import dcc, html
+from dash import dash_table, dcc, html
 from plotly import graph_objects as go
-from plotly.subplots import make_subplots
 
 from finsent.app.dashboard.research_results import FinalResearchResultsService, pct
 from finsent.app.dashboard.ui_components import compact_empty, metadata_row, research_metric, section_header, status_badge
 from finsent.app.dashboard.view_model import PALETTE
+from finsent.app.dashboard.widgets import segmented, stat_tile
 
 
 LABELS = ["BULLISH", "NEUTRAL", "BEARISH"]
@@ -58,6 +58,26 @@ def layout() -> html.Div:
             ),
             html.Div(
                 [
+                    html.Div("In plain English", className="section-kicker"),
+                    html.H3("What the evaluation found", className="section-title"),
+                    html.Div(
+                        [
+                            stat_tile("What we tested", f"{summary['final_evaluated_n']} articles", "Could FinBERT-based signals call the next day's move on news they had never seen?"),
+                            stat_tile("Signal V1 accuracy", pct(v1["strict_accuracy"]), "The simpler signal did better than V2.", tone="positive"),
+                            stat_tile("Signal V2 accuracy", pct(v2["strict_accuracy"]), "The more complex signal did not beat V1.", tone="negative"),
+                            stat_tile("Always guessing the most common move", pct(baselines["majority_class"]["strict_accuracy"]), "Neither signal beat this baseline."),
+                        ],
+                        className="stat-grid",
+                    ),
+                    html.P(
+                        "News sentiment alone did not predict next-day moves reliably. The value of FinSent is an honest, reproducible test and a clear view of current news, not a trading edge.",
+                        className="plain-brief-text research-plain",
+                    ),
+                ],
+                className="section-shell plain-brief simple-only",
+            ),
+            html.Div(
+                [
                     metadata_row("Final N", str(summary["final_evaluated_n"])),
                     metadata_row("Eligible symbols", "AMZN 39 / NVDA 37 / TSLA 35"),
                     metadata_row("Horizon", "1D"),
@@ -65,7 +85,7 @@ def layout() -> html.Div:
                     metadata_row("Sentiment", "FinBERT"),
                     metadata_row("Prices", "Yahoo Chart Daily"),
                 ],
-                className="metadata-grid research-metadata-grid",
+                className="metadata-grid research-metadata-grid analyst-only",
             ),
             html.Div(
                 [
@@ -114,7 +134,72 @@ def layout() -> html.Div:
                         className="section-shell",
                     ),
                 ],
-                className="research-two-column",
+                className="research-two-column analyst-only",
+            ),
+            html.Div(
+                [
+                    html.Div("Classification Metrics", className="section-kicker"),
+                    html.H3("Precision, recall and F1 by class", className="section-title"),
+                    classification_table({"Signal V1": v1, "Signal V2.0": v2}),
+                    html.Div("Each class is scored one-vs-rest on the locked 111-article cohort. Strict accuracy counts NEUTRAL predictions; balanced accuracy averages per-class recall.", className="research-note"),
+                ],
+                className="section-shell analyst-only",
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Div(
+                                [
+                                    html.Div("Historical Research Laboratory", className="section-kicker"),
+                                    html.H3("Event study explorer: 1D, 3D and 5D reactions", className="section-title"),
+                                ]
+                            ),
+                            segmented("research-window", [("1D", "1D"), ("3D", "3D"), ("5D", "5D")], "1D"),
+                        ],
+                        className="panel-head",
+                    ),
+                    html.Div(
+                        "Exploratory and descriptive: Event Study V2 re-measures each locked holdout article at three windows, with abnormal return = stock return − SPY return over the same sessions. Nothing here feeds back into the locked 1D evaluation or the signal engines.",
+                        className="research-note",
+                    ),
+                    dcc.Loading(
+                        html.Div(
+                            [
+                                html.Div(id="research-event-stats", className="stat-grid"),
+                                html.Div(
+                                    [
+                                        html.Div([html.Div("Mean abnormal return by Signal V1 direction (95% CI)", className="sub-title"), dcc.Graph(id="research-event-chart", config={"displayModeBar": False, "responsive": True})]),
+                                        html.Div([html.Div("FinBERT score vs abnormal return", className="sub-title"), dcc.Graph(id="research-event-scatter", config={"displayModeBar": False, "responsive": True})]),
+                                    ],
+                                    className="research-two-column",
+                                ),
+                                dash_table.DataTable(
+                                    id="research-event-table",
+                                    page_size=12,
+                                    export_format="csv",
+                                    export_headers="display",
+                                    sort_action="native",
+                                    filter_action="native",
+                                    style_as_list_view=True,
+                                    style_table={"overflowX": "auto"},
+                                    style_cell={"backgroundColor": "#101315", "color": "#eef2f3", "border": "0", "borderBottom": "1px solid #1b2023", "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif", "fontSize": "12.5px", "padding": "8px 10px", "textAlign": "left"},
+                                    style_header={"backgroundColor": "#101315", "color": "#7d888e", "fontWeight": "600", "fontSize": "11px", "textTransform": "uppercase", "borderBottom": "1px solid #242a2e"},
+                                    style_filter={"backgroundColor": "#0a0c0e", "color": "#eef2f3"},
+                                    style_data_conditional=[
+                                        {"if": {"filter_query": "{AR} > 0", "column_id": "AR"}, "color": "#22c55e"},
+                                        {"if": {"filter_query": "{AR} < 0", "column_id": "AR"}, "color": "#ef4444"},
+                                        {"if": {"filter_query": "{Hit} = 'Yes'", "column_id": "Hit"}, "color": "#22c55e"},
+                                    ],
+                                ),
+                            ],
+                            className="event-lab",
+                        ),
+                        type="dot",
+                        color="#22c55e",
+                    ),
+                ],
+                className="section-shell event-lab-shell analyst-only",
             ),
             html.Div(
                 [
@@ -237,3 +322,38 @@ def plot_layout() -> dict:
         "yaxis": {"gridcolor": PALETTE["grid"]},
         "legend": {"orientation": "h", "y": 1.12},
     }
+
+
+def classification_table(engines: dict[str, dict]) -> html.Div:
+    header = html.Div([html.Span("Engine"), html.Span("Class"), html.Span("Precision"), html.Span("Recall"), html.Span("F1")], className="metric-table-row metric-table-head")
+    rows = [header]
+    for engine, metrics in engines.items():
+        for label in LABELS:
+            rows.append(
+                html.Div(
+                    [
+                        html.Span(engine, className="metric-engine"),
+                        html.Span(label.title()),
+                        _metric_bar(metrics["precision"].get(label)),
+                        _metric_bar(metrics["recall"].get(label)),
+                        _metric_bar(metrics["f1"].get(label)),
+                    ],
+                    className="metric-table-row",
+                )
+            )
+        rows.append(
+            html.Div(
+                [html.Span(engine, className="metric-engine"), html.Span("Macro / strict / balanced"), html.B(pct(metrics["macro_f1"])), html.B(pct(metrics["strict_accuracy"])), html.B(pct(metrics["balanced_accuracy"]))],
+                className="metric-table-row metric-table-total",
+            )
+        )
+    return html.Div(rows, className="metric-table")
+
+
+def _metric_bar(value: float | None) -> html.Span:
+    if value is None:
+        return html.Span("—")
+    return html.Span(
+        [html.Span(className="metric-bar", style={"width": f"{value * 100:.0f}%"}), html.Span(pct(value), className="metric-bar-value")],
+        className="metric-bar-cell",
+    )

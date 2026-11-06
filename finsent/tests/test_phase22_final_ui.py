@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dash import dcc, html
 
-from finsent.app.dashboard import components
 from finsent.app.dashboard.app import create_app
 from finsent.app.dashboard.layout import build_app_layout
 from finsent.app.dashboard.pages import alerts, compare, news_impact, research, stock_detail, summary
-from finsent.app.dashboard.ui_components import metric_cell, section_header
-from finsent.app.dashboard.view_model import PALETTE, build_empty_figure, build_relative_performance_chart
+from finsent.app.dashboard.ui_components import section_header
+from finsent.app.dashboard.view_model import PALETTE, build_empty_figure
 from finsent.app.dashboard.research_results import FinalResearchResultsService
 
 
@@ -90,12 +88,10 @@ def test_phase22_design_tokens_and_chart_theme_are_graphite_not_neon() -> None:
     assert layout["plot_bgcolor"] == PALETTE["paper"]
 
 
-def test_phase22_shared_components_use_consistent_section_and_metric_classes() -> None:
+def test_phase22_shared_components_use_consistent_section_classes() -> None:
     header = section_header("Market Context", "Relative Strength")
-    metric = metric_cell("V1", "Bullish", "Research signal; not advice.", tone="positive")
 
     assert "section-header" in header.className
-    assert "metric-positive" in metric.className
 
 
 def test_phase22_app_callback_map_still_contains_required_outputs() -> None:

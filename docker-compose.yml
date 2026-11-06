@@ -1,0 +1,14 @@
+# docker compose up --build   →   http://localhost:8050
+services:
+  finsent:
+    build:
+      context: .
+      args:
+        WITH_FINBERT: "${WITH_FINBERT:-0}"
+    env_file: .env
+    ports:
+      - "8050:8050"
+    volumes:
+      # SQLite database and provider caches persist across restarts.
+      - ./data:/app/data
+    restart: unless-stopped

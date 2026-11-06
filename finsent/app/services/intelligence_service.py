@@ -33,7 +33,7 @@ from finsent.app.services.provider_routers import MarketDataRouter, NewsProvider
 from finsent.app.services.provider_status import ProviderStatus
 from finsent.app.services.signal_engine import CompositeSignal, CompositeSignalEngine
 from finsent.app.services.signal_service_v2 import SignalEngineV2Service, SignalRunRecordV2
-from finsent.app.services.symbol_registry import SymbolRecord, registry
+from finsent.app.services.symbol_registry import SymbolRecord
 
 
 logger = logging.getLogger(__name__)

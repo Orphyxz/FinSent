@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 import subprocess
 from threading import RLock
@@ -12,10 +12,7 @@ from sqlalchemy import text
 from finsent.app.database.base import SCHEMA_VERSION, SessionLocal, sqlite_path_from_url
 from finsent.app.config.settings import settings
 from finsent.app.utils.logging import safe_log_message
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+from finsent.app.utils.time import utc_now
 
 
 @dataclass(frozen=True, slots=True)

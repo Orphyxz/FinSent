@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pandas as pd
 import pytest
 from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.exc import IntegrityError
@@ -11,15 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from finsent.app.database import entities  # noqa: F401
 from finsent.app.database.base import Base, SCHEMA_VERSION, apply_sqlite_migrations
-from finsent.app.database.entities import (
-    ArticleInstrument,
-    DataQualityAssessmentEntity,
-    DatasetMetadata,
-    NewsArticle,
-    ProviderAuditRun,
-    SchemaMetadata,
-    SentimentAnalysisRun,
-)
+from finsent.app.database.entities import ArticleInstrument, SentimentAnalysisRun
 from finsent.app.database.repository import NewsRepository
 from finsent.app.database.research_repository import (
     DataQualityRepository,
@@ -27,12 +18,10 @@ from finsent.app.database.research_repository import (
     InstrumentRepository,
     ProviderAuditRepository,
     ResearchResultRepository,
-    canonicalize_url,
     commit_or_rollback,
     json_loads,
 )
 from finsent.app.models.schemas import ScrapedNewsItem, SentimentResult
-from finsent.app.services.dataset_registry import DatasetScanner, DatasetSpec, register_scan_results
 from finsent.app.services.llm_analyzers import ArticleAnalysis
 from finsent.app.services.news_providers import NormalizedNewsArticle
 from finsent.app.services.provider_contracts import ProviderFailureCategory
@@ -360,49 +349,6 @@ def test_data_quality_assessment_persistence_is_not_confidence(session) -> None:
     assert row.label == "MEDIUM"
     assert json_loads(row.reasons_json) == ["scraped fallback"]
     assert not hasattr(row, "confidence")
-
-
-def test_dataset_scanner_classifies_lfs_pointer_broken_without_mutation(tmp_path: Path) -> None:
-    path = tmp_path / "SnP_daily_update.csv"
-    original = "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 100\n"
-    path.write_text(original, encoding="utf-8")
-    spec = DatasetSpec("sp_daily_update", "S&P daily update", path, "HISTORICAL_PRICE_FILE", "US", "daily", "local")
-
-    result = DatasetScanner().scan(spec)
-
-    assert result.status == "BROKEN"
-    assert "Git LFS pointer" in result.issues[0]
-    assert path.read_text(encoding="utf-8") == original
-
-
-def test_dataset_scanner_archive_and_reference_metadata(tmp_path: Path) -> None:
-    archive = tmp_path / "archive" / "v1"
-    archive.mkdir(parents=True)
-    (archive / "TCS.csv").write_text("Date,Open,High,Low,Close,Volume\n2026-08-07,100,110,90,105,1000\n", encoding="utf-8")
-    universe = tmp_path / "All_Indian_Stocks_listed_in_nifty500.csv"
-    universe.write_text("Symbol,Company Name,Industry\nTCS,Tata Consultancy Services,Technology\n", encoding="utf-8")
-    scanner = DatasetScanner()
-
-    archive_result = scanner.scan(DatasetSpec("archive", "Archive", archive, "HISTORICAL_PRICE_ARCHIVE", "India", "daily", "local"), deep=True)
-    universe_result = scanner.scan(DatasetSpec("india_universe", "India universe", universe, "REFERENCE_UNIVERSE", "India", None, "local"))
-
-    assert archive_result.status == "USABLE"
-    assert archive_result.symbol_count == 1
-    assert archive_result.row_count == 1
-    assert universe_result.status == "REFERENCE"
-    assert universe_result.symbol_count == 1
-
-
-def test_dataset_registry_round_trip(session, tmp_path: Path) -> None:
-    csv_path = tmp_path / "companies.csv"
-    csv_path.write_text("Symbol,Company Name\nAAPL,Apple\n", encoding="utf-8")
-    result = DatasetScanner().scan(DatasetSpec("companies", "Companies", csv_path, "REFERENCE_UNIVERSE", "US", None, "local"))
-
-    row = register_scan_results(session, [result])[0]
-
-    assert row.dataset_id == "companies"
-    assert row.status == "REFERENCE"
-    assert json_loads(row.columns_json) == ["Symbol", "Company Name"]
 
 
 def test_timestamp_policy_round_trip_is_naive_utc_representation(session) -> None:

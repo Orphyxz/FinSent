@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 import pandas as pd
-import pytest
 import requests
 
 from finsent.app.config.settings import settings
@@ -20,7 +19,6 @@ from finsent.app.services.provider_reliability import (
     assess_freshness,
     assess_news_quality,
     assess_quote_quality,
-    call_with_retries,
     leaf_provider_for_quote,
     retry_after_seconds,
     validate_bars_frame,

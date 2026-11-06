@@ -43,8 +43,16 @@ The two paths are intentionally separate. The live app explains current market/n
 - Deterministic Catalyst Intelligence: catalyst type, direction, impact, horizon, novelty, recency, event grouping, and priority.
 - Signal V1 live scoring and Signal V2 live component scoring.
 - Market Context Intelligence for US demo symbols: SPY/QQQ context, sector ETF comparison, market-relative and sector-relative returns, volatility, correlation, beta, and market regime.
-- Compare view for multi-symbol relative sentiment, price movement, catalysts, and market context.
-- Research dashboard for locked Phase 16 evaluation artifacts.
+- Executive overview: watchlist market sentiment gauge, index cards (S&P 500, Nasdaq 100, Dow and Russell 2000 via ETF proxies; NIFTY 50, SENSEX and NIFTY Bank), top bullish and bearish catalysts, sentiment movers, signal distribution and a live ticker tape.
+- Stock research workbench: candlestick or line OHLCV with 1D–1Y periods, SMA 20/50/200, EMA 20, Bollinger bands, volume, RSI 14 and MACD panels, a technical snapshot, 52-week range and sentiment history.
+- Explainable signals: Signal V1 and V2 side by side, with each V2 component's weight, value, contribution and reliability.
+- News intelligence feed: per-article sentiment, confidence, rule-based entity extraction (companies, people, organizations) and catalyst classification, with sentiment distribution and filters.
+- Compare view for up to five symbols: normalized daily performance, sentiment mix, news volume, catalyst distribution, volatility and a V1/V2 signal matrix.
+- Research dashboard for locked Phase 16 evaluation artifacts, plus precision/recall/F1 by class and an exploratory 1D/3D/5D event-study explorer with abnormal returns against SPY (CSV export).
+- Market Map: a sector treemap of all 355 primary listings coloured by day change, with breadth, gainers and losers, from one batch quote request per market.
+- Benchmark relative strength for both markets: US stocks against SPY and their sector ETF, Indian stocks against NIFTY 50 and the matching NSE sector index (beta, correlation, excess return).
+- Word-level FinBERT explanations: "Explain sentiment" on any article highlights the words that pushed the score up or down (leave-one-word-out).
+- Custom per-market watchlists saved in the browser, a background refresh scheduler, a print/PDF stock report, and keyboard shortcuts (`/` search, `1`–`7` pages, `P` print).
 - Runtime diagnostics for provider health, cache state, DB health, FinBERT state, refresh timing, and build commit.
 - Offline/local research mode using the local SQLite DB and bundled research artifacts when live credentials or internet are unavailable.
 
@@ -224,6 +232,14 @@ Interpretation: V2.0 produced slightly higher directional accuracy on fewer dire
 
 Do not rerun or tune against Phase 16 final holdout artifacts.
 
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:8050. The image installs the runtime requirements only; build with `WITH_FINBERT=1 docker compose up --build` to include FinBERT. The SQLite database persists in `./data`. Background refresh intervals are set with `BACKGROUND_NEWS_REFRESH_MINUTES` (default 15) and `BACKGROUND_MARKET_REFRESH_MINUTES` (default 2).
+
 ## Documentation
 
 Full index: [docs/README.md](docs/README.md). Key docs:
@@ -237,7 +253,7 @@ Full index: [docs/README.md](docs/README.md). Key docs:
 - [Phase 16 Final Evaluation](docs/PHASE16_FINAL_EVALUATION.md)
 - [Final Holdout Results](docs/FINAL_HOLDOUT_RESULTS.md)
 - [Demo Runbook](docs/DEMO_RUNBOOK.md)
-- [Presentation Checklist](docs/PRESENTATION_CHECKLIST.md)
+- [Dashboard UI Design](docs/UI_DESIGN.md)
 - [Project Summary](docs/PROJECT_SUMMARY.md)
 - [Known Limitations](docs/KNOWN_LIMITATIONS.md)
 - [Development Guide](docs/DEVELOPMENT.md)

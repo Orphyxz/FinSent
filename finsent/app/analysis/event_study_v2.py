@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import pandas as pd
 
 from finsent.app.services.symbol_registry import SymbolRecord
+from finsent.app.utils.time import utc_now
 
 
 ENGINE_NAME_EVENT_STUDY_V2 = "finsent_event_study"
@@ -287,10 +288,6 @@ def calendar_for_exchange(exchange: str) -> ExchangeCalendar | None:
     if normalized in {"NSE", "BSE"}:
         return ExchangeCalendar(normalized, "Asia/Kolkata", time(9, 15), time(15, 30), INDIA_HOLIDAYS)
     return None
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def to_naive_utc(value: datetime | None) -> datetime | None:

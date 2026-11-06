@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -25,10 +25,7 @@ from finsent.app.services.provider_contracts import ProviderFailureCategory, Pro
 from finsent.app.services.provider_reliability import DataQualityAssessment
 from finsent.app.services.symbol_registry import SymbolRecord
 from finsent.app.utils.logging import safe_log_message
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+from finsent.app.utils.time import utc_now
 
 
 def json_dumps(value: Any) -> str | None:

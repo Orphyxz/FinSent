@@ -3,10 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict
-from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
 
 from finsent.app.database.base import SCHEMA_VERSION, SessionLocal, init_db
 from finsent.app.services.historical_news_acquisition import FNSPIDPartialAcquirer, FNSPIDAcquisitionConfig, ResearchSubsetImporter

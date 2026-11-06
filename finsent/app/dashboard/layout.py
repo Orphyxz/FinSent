@@ -26,8 +26,11 @@ def build_app_layout(default_ticker: str, default_compare_tickers: list[str] | N
                 },
             ),
             dcc.Store(id="display-mode-store", storage_type="local", data="simple"),
+            # Per-market custom watchlists, kept in the viewer's browser.
+            dcc.Store(id="watchlist-store", storage_type="local", data={}),
             dcc.Store(id="live-refresh-store", storage_type="memory"),
             build_navbar(),
+            html.Div(html.Div(id="ticker-tape", className="tape-track"), className="ticker-tape", **{"aria-label": "Market ticker"}),
             html.Div(build_landing_search(default_ticker), id="landing-controls-container"),
             # Symbol controls, filters and system status share one compact dock.
             html.Div(

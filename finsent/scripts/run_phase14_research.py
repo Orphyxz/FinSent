@@ -11,7 +11,6 @@ from finsent.app.services.phase12_research import StratifiedFNSPIDAcquirer, Stra
 from finsent.app.services.phase14_research import (
     FINAL_HOLDOUT_V2_DATASET_ID,
     PHASE14_OUTPUT_DIR,
-    BinnedCalibrator,
     FinalHoldoutAdequacyPolicy,
     FinalHoldoutV2Preregistration,
     fit_selected_calibrator,

@@ -26,9 +26,6 @@ from finsent.app.services.news_providers import (
     normalize_news_limit,
 )
 from finsent.app.services.provider_contracts import (
-    ActiveHistoricalDataProvider,
-    ActiveMarketDataProvider,
-    ActiveNewsProvider,
     ProviderAttempt,
     ProviderCandidate,
     ProviderFailureCategory,

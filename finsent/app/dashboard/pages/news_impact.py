@@ -3,6 +3,8 @@ from __future__ import annotations
 import dash_bootstrap_components as dbc
 from dash import dash_table, dcc, html
 
+from finsent.app.dashboard.widgets import segmented
+
 
 def layout() -> html.Div:
     return html.Div(
@@ -22,7 +24,9 @@ def layout() -> html.Div:
                 ],
                 className="section-shell page-header-shell terminal-page-header mb-2",
             ),
-            html.Div(id="news-impact-status-banner", className="mb-2 market-status-strip"),
+            html.Div(id="news-brief", className="section-shell plain-brief simple-only"),
+            html.Div(id="news-impact-status-banner", className="market-status-strip analyst-only"),
+            html.Div(id="news-intel-summary", className="section-shell news-summary-band analyst-only"),
             html.Div(
                 [
                     html.Div(
@@ -47,7 +51,59 @@ def layout() -> html.Div:
                         className="control-card workspace-filter-card analyst-only",
                     ),
                 ],
-                className="workspace-filter-grid compact-filter-row mb-3",
+                className="workspace-filter-grid compact-filter-row analyst-only",
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.Div([html.Div("AI Financial News Intelligence", className="section-kicker"), html.H3("Article feed", className="section-title")]),
+                                        segmented(
+                                            "news-sentiment-filter",
+                                            [("all", "All"), ("positive", "Positive"), ("neutral", "Neutral"), ("negative", "Negative")],
+                                            "all",
+                                        ),
+                                    ],
+                                    className="panel-head",
+                                ),
+                                html.Div(id="news-feed", className="news-feed"),
+                            ],
+                            className="section-shell",
+                        ),
+                        lg=8,
+                        className="simple-full-col",
+                    ),
+                    dbc.Col(
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.Div("Sentiment Overview", className="section-kicker"),
+                                        html.H3("Distribution", className="section-title"),
+                                        dcc.Graph(id="news-donut", config={"displayModeBar": False, "responsive": True}),
+                                        html.Div(id="news-donut-legend", className="donut-legend"),
+                                    ],
+                                    className="section-shell",
+                                ),
+                                html.Div(
+                                    [
+                                        html.Div("Catalyst Classification", className="section-kicker"),
+                                        html.H3("What the news is about", className="section-title"),
+                                        html.Div(id="news-catalyst-breakdown", className="breakdown-stack"),
+                                    ],
+                                    className="section-shell",
+                                ),
+                            ],
+                            className="stack-shell sticky-stack",
+                        ),
+                        lg=4,
+                        className="analyst-only",
+                    ),
+                ],
+                className="g-3",
             ),
             dbc.Row(
                 [
@@ -74,7 +130,7 @@ def layout() -> html.Div:
                         lg=4,
                     ),
                 ],
-                className="g-3 mb-3 analyst-only",
+                className="g-3 analyst-only",
             ),
             html.Div(
                 [
@@ -82,7 +138,7 @@ def layout() -> html.Div:
                     html.H3("Recent Important News", className="section-title"),
                     html.Div(id="news-simple-table", className="simple-table-wrap"),
                 ],
-                className="section-shell simple-only",
+                className="section-shell analyst-only",
             ),
             dbc.Accordion(
                 [
@@ -91,6 +147,8 @@ def layout() -> html.Div:
                             dash_table.DataTable(
                                 id="news-impact-table",
                                 page_size=10,
+                                export_format="csv",
+                                export_headers="display",
                                 sort_action="native",
                                 filter_action="native",
                                 hidden_columns=[
@@ -136,7 +194,7 @@ def layout() -> html.Div:
                 ],
                 start_collapsed=False,
                 always_open=False,
-                className="page-accordion mb-4 analyst-only",
+                className="page-accordion analyst-only",
             ),
         ],
         className="analysis-page",

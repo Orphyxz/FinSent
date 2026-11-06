@@ -10,7 +10,6 @@ This document freezes the current active behavior boundary. It does not claim fu
 | ACTIVE | `python -m finsent.scripts.run_pipeline` | CLI smoke/pipeline entry point. |
 | ACTIVE | `finsent.app.dashboard.app.create_app` | Dash application factory. |
 | RESEARCH / KEEP FOR NOW | `finsent.scripts.import_kaggle_prices` | Offline historical import utility. |
-| RESEARCH / KEEP FOR NOW | `scripts/build_presentation.py` | Presentation tooling, now project-relative. |
 
 ## Active Dashboard
 
@@ -40,7 +39,6 @@ Phase 21 maps `/` to the functional Overview dashboard and keeps `/research` as 
 | ACTIVE | `PolygonMarketDataProvider` | Optional US quote and bar fallback when keyed. |
 | ACTIVE | `KiteMarketDataProvider` | NSE/BSE quote and bar provider when keyed. |
 | ACTIVE | `UnavailableMarketProvider` | Graceful unavailable state for unsupported/missing providers. |
-| LEGACY | `finsent/app/services/market_data.py` | Deprecated yfinance/older market service. Do not delete yet. |
 
 ## Active News Path
 
@@ -91,7 +89,6 @@ Raw response archiving is intentionally not implemented. The dashboard exposes c
 | ACTIVE FALLBACK | `heuristic_article_analysis` / `HeuristicSentimentAnalyzer` | Safe fallback for missing model dependencies, unconfigured providers, request failure, parse failure, or budget limits. |
 | ACTIVE / OPTIONAL | `FinBERTSentimentAnalyzer` | Sentiment V2 analyzer using optional `requirements-research.txt`; active live default when installed. |
 | STUB / DEFERRED | `OpenAIAnalyzerStub` / `OpenAIAnalyzerStubV2` | Explicit unavailable stub; no OpenAI support implemented in Phase 6. |
-| RESEARCH / KEEP FOR NOW | `finsent/app/services/sentiment.py` | Legacy FinBERT/Gemini sentiment service for older experiments. |
 | RESEARCH / KEEP FOR NOW | `FinBERTSentimentService` | Preserved, not active in dashboard runtime. |
 
 Phase 6 adds the safe CLI `python -m finsent.scripts.run_sentiment_analysis` for small explicit sentiment research runs over stored articles.
@@ -106,7 +103,6 @@ Phase 9 adds the safe CLI `python -m finsent.scripts.run_model_comparison` for c
 | ACTIVE | `finsent/app/database/entities.py` | V1 compatibility tables plus V2 research/storage ORM tables. |
 | ACTIVE | `finsent/app/database/repository.py` | Current dashboard/pipeline persistence and read adapters. |
 | ACTIVE | `finsent/app/database/research_repository.py` | Phase 5 repositories for instruments, experiments, model runs, signal runs, event results, provider audits, data quality, and dataset metadata. |
-| ACTIVE | `finsent/app/services/dataset_registry.py` | Explicit CSV/reference dataset metadata scanner. |
 | ACTIVE | `data/finsent.db` | Local runtime database, ignored. |
 
 Phase 5 adds schema version `2`, canonical instruments, article-instrument links, immutable model-run storage, signal-run storage, event-study result storage, experiment runs, persistent provider audits, data-quality assessment storage, and dataset metadata. Signal V2 uses the signal-run storage added in Phase 5, and Event Study V2 uses the event-study storage.
@@ -156,16 +152,6 @@ Phase 10 uses Event Study V2 as the realized outcome layer for historical signal
 
 | Component | Reason |
 |---|---|
-| `finsent/app/services/sentiment.py` | FinBERT and old Gemini code support older comparison/research paths. |
 | `requirements-research.txt` | Keeps heavy transformer dependencies explicit but optional. |
 | `archive/v1` | Historical NSE prices for future backtesting/import work. |
 | `finsent/app/services/kaggle_data.py` | Offline historical import path. |
-
-## Questionable Modules Requiring Later Decisions
-
-| Component | Question |
-|---|---|
-| `scripts/build_presentation.py` | Keep as maintained reporting tool, or replace with final report pipeline? |
-| Existing generated `.pptx` files | Keep as submission artifacts, or regenerate from portable script later? |
-| Large CSV universes | Keep as reference datasets; later decide whether to expand active symbol coverage from them. |
-| Deprecated market/sentiment services | Keep for experiments or retire after V2 equivalents exist? |

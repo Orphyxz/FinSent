@@ -45,3 +45,6 @@ Thumbs.db
 # Presentation and report files (kept locally, not part of the codebase)
 *.pptx
 *.docx
+
+# Local editor/agent tooling
+.claude/

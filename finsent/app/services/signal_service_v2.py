@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import pandas as pd
@@ -25,10 +25,7 @@ from finsent.app.services.signal_engine_v2 import (
     result_metadata,
 )
 from finsent.app.services.symbol_registry import SymbolRecord
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+from finsent.app.utils.time import utc_now
 
 
 @dataclass(slots=True)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from time import perf_counter
 from threading import RLock
@@ -15,6 +15,7 @@ from finsent.app.services.provider_contracts import classify_exception
 from finsent.app.services.runtime_diagnostics import runtime_diagnostics
 from finsent.app.services.symbol_registry import SymbolRecord
 from finsent.app.utils.logging import safe_log_message
+from finsent.app.utils.time import utc_now
 
 
 class SentimentLabel(str, Enum):
@@ -173,10 +174,6 @@ class ModelHealthRegistry:
 
     def snapshot(self) -> list[ModelHealthRecord]:
         return list(self._records.values())
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def duration_ms(started_at: float) -> int:

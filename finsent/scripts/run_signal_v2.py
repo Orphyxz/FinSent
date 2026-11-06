@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from finsent.app.database.base import SessionLocal, init_db
-from finsent.app.database.repository import NewsRepository, PriceRepository, QuoteSnapshotRepository, SignalSnapshotRepository
+from finsent.app.database.repository import NewsRepository, PriceRepository, QuoteSnapshotRepository
 from finsent.app.services.llm_analyzers import AggregateAnalysis, ArticleAnalysis
 from finsent.app.services.market_providers import QuoteSnapshot
 from finsent.app.services.news_providers import NormalizedNewsArticle

@@ -30,9 +30,8 @@ from finsent.app.services.historical_news_acquisition import (
 )
 from finsent.app.services.historical_signal_evaluation import signal_direction
 from finsent.app.services.model_comparison import classification_metrics, realized_direction, wilson_interval
-from finsent.app.services.research_dataset import ResearchCohortConfig, ResearchCohortSample
+from finsent.app.services.research_dataset import ResearchCohortConfig
 from finsent.app.services.signal_engine_v2 import SignalEngineV2Config
-from finsent.app.services.symbol_registry import registry
 
 
 FNSPID_ALL_EXTERNAL_URL = "https://huggingface.co/datasets/Zihan1004/FNSPID/resolve/main/Stock_news/All_external.csv"
@@ -441,22 +440,6 @@ class YahooChartDailyPriceAcquirer:
             return pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume", "Adj Close"])
         frame = frame.dropna(subset=["Open", "High", "Low", "Close"]).set_index("timestamp").sort_index()
         return frame
-
-
-def holdout_start_from_records(records: list[HistoricalArticleRecord], *, fraction: float = 0.25) -> datetime | None:
-    if not records:
-        return None
-    ordered = sorted(records, key=lambda item: (item.published_at, item.symbol, item.source_record_id))
-    index = max(0, min(len(ordered) - 1, math.floor(len(ordered) * (1.0 - fraction))))
-    return ordered[index].published_at
-
-
-def holdout_start_from_samples(samples: list[ResearchCohortSample], *, fraction: float = 0.25) -> datetime | None:
-    if not samples:
-        return None
-    ordered = sorted(samples, key=lambda item: (item.published_at, item.article_id))
-    index = max(0, min(len(ordered) - 1, math.floor(len(ordered) * (1.0 - fraction))))
-    return ordered[index].published_at
 
 
 def cohort_selection_config(preregistration: Phase12Preregistration, *, holdout_start: datetime | None = None) -> ResearchCohortConfig:
